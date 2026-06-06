@@ -1,0 +1,9 @@
+docs/ACCOUNT_SETUP.md
+*.env
+*.env.local
+.env.*
+node_modules/
+dist/
+coverage/
+.nyc_output
+*.log
