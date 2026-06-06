@@ -86,3 +86,23 @@
 
 /* ── Recharts tooltip override ───────────────────────────────────────────── */
 .recharts-tooltip-wrapper { outline: none !important; }
+
+/* ── Leaflet custom dot markers ──────────────────────────────────────────── */
+.custom-marker { background: transparent !important; border: none !important; }
+.leaflet-marker-icon { background: transparent; border: none; }
+.leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+.leaflet-popup-content { margin: 12px 16px; }
+
+/* ── react-toastify slim override ────────────────────────────────────────── */
+.Toastify__toast {
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10) !important;
+  padding: 12px 16px !important;
+}
+.Toastify__toast--success { border-left: 3px solid #22c55e; }
+.Toastify__toast--error   { border-left: 3px solid #ef4444; }
+.Toastify__toast--warning { border-left: 3px solid #f59e0b; }
+.Toastify__toast--info    { border-left: 3px solid #3b82f6; }
+

@@ -7,7 +7,7 @@ const permissions = {
   agent: ['view:assigned', 'lock:house', 'verify:payment', 'issue:notice', 'view:inventory', 'edit:inventory', 'create:maintenance', 'view:maintenance', 'ai:chat', 'checkin:property', 'view:payments', 'pay:rent'],
   landlord: ['view:own_properties', 'view:payments', 'view:reports'],
   accountant: ['view:payments', 'view:reports', 'export:kra', 'verify:payment'],
-  tenant: ['view:own_unit', 'pay:rent', 'view:notices', 'create:maintenance', 'view:maintenance']
+  tenant: ['view:own_unit', 'pay:rent', 'view:notices', 'create:maintenance', 'view:maintenance', 'view:payments']
 };
 
 const requirePermission = (permission) => (req, res, next) => {

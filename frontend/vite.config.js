@@ -33,7 +33,9 @@ export default defineConfig({
           // Icons
           'vendor-icons': ['lucide-react'],
           // HTTP client
-          'vendor-http': ['axios']
+          'vendor-http': ['axios'],
+          // Notifications
+          'vendor-toast': ['react-toastify']
         }
       }
     }

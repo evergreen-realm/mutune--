@@ -266,4 +266,50 @@ router.get('/:id/payment-history',
   }
 );
 
+// ─── GET /tenants/my/payments — Tenant portal self-service ───────────────────
+router.get('/my/payments', requireAuth, requirePermission('view:payments'), async (req, res, next) => {
+  try {
+    const Payment = require('../models/Payment');
+    const payments = await Payment.find({ tenant_id: req.user._id })
+      .populate('property_id', 'name property_code')
+      .sort({ created_at: -1 })
+      .lean();
+    res.json({ success: true, data: payments });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── GET /tenants/my/notices — Tenant self-service notices ───────────────────
+router.get('/my/notices', requireAuth, requirePermission('view:notices'), async (req, res, next) => {
+  try {
+    // Notices model may not exist yet — return empty gracefully
+    let notices = [];
+    try {
+      const Notice = require('../models/Notice');
+      notices = await Notice.find({ tenant_id: req.user._id }).sort({ created_at: -1 }).lean();
+    } catch (_modelErr) {
+      // Notice model not yet created — return empty array
+    }
+    res.json({ success: true, data: notices });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── GET /tenants/my/profile — Tenant's own lease details ────────────────────
+router.get('/my/profile', requireAuth, requirePermission('view:own_unit'), async (req, res, next) => {
+  try {
+    const tenant = await Tenant.findOne({ user_id: req.user._id })
+      .populate('current_property_id', 'name property_code address')
+      .lean();
+    if (!tenant) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Tenant profile not found' } });
+    }
+    res.json({ success: true, data: tenant });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

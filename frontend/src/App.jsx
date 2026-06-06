@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-// Note: useEffect used in AppShell only (mobile sidebar close on route change)
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { useAuthStore } from './store/authStore';
-import Dashboard from './pages/Dashboard';
-import PropertyList from './components/PropertyList';
-import Tenants from './pages/Tenants';
-import Payments from './pages/Payments';
-import Login from './pages/Login';
+
+// Pages
+import Dashboard     from './pages/Dashboard';
+import Login         from './pages/Login';
+import Tenants       from './pages/Tenants';
+import Payments      from './pages/Payments';
+import AddProperty   from './pages/AddProperty';
+import AdminDashboard from './pages/AdminDashboard';
+import TenantPortal  from './pages/TenantPortal';
+
+// Components
+import PropertyList  from './components/PropertyList';
+
+// Icons
 import {
-  LayoutDashboard,
-  Building2,
-  Users2,
-  WalletCards,
-  Wrench,
-  MessageSquareCode,
-  Menu,
-  X,
-  Bell,
-  Settings,
-  LogOut,
-  MapPin
+  LayoutDashboard, Building2, Users2, WalletCards,
+  Wrench, ShieldCheck, Home, PlusCircle, BarChart3,
+  Menu, X, Bell, Settings, LogOut, MapPin
 } from 'lucide-react';
 
 const queryClient = new QueryClient({
@@ -37,22 +38,60 @@ function ProtectedRoute({ children }) {
 function AppShell() {
   const { user, logout, isAuthenticated } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen,  setMobileOpen]  = useState(false);
   const location = useLocation();
 
-  // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   if (!isAuthenticated()) return null;
 
+  const isAdmin  = ['admin', 'super_admin'].includes(user?.role);
+  const isTenant = user?.role === 'tenant';
+  const isAgent  = user?.role === 'agent';
+
+  // ── Nav definition ────────────────────────────────────────────────────────
   const navItems = [
-    { path: '/',            label: 'Dashboard',   icon: <LayoutDashboard size={18} /> },
-    { path: '/properties',  label: 'Properties',  icon: <Building2 size={18} /> },
-    { path: '/tenants',     label: 'Tenants',      icon: <Users2 size={18} /> },
-    { path: '/payments',    label: 'Rent Payments', icon: <WalletCards size={18} /> },
-    { path: '/maintenance', label: 'Maintenance',  icon: <Wrench size={18} />,          disabled: true },
-    { path: '/chat',        label: 'AI Assistant', icon: <MessageSquareCode size={18} />, disabled: true }
-  ];
+    // Everyone sees Dashboard
+    {
+      path: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} />,
+      show: true
+    },
+    // Admin-only analytics
+    {
+      path: '/admin', label: 'Analytics', icon: <BarChart3 size={18} />,
+      show: isAdmin
+    },
+    // Properties — admin + agent
+    {
+      path: '/properties', label: 'Properties', icon: <Building2 size={18} />,
+      show: !isTenant
+    },
+    // Add Property — admin + agent
+    {
+      path: '/properties/add', label: 'Add Property', icon: <PlusCircle size={18} />,
+      show: isAdmin || isAgent
+    },
+    // Tenants — admin + agent
+    {
+      path: '/tenants', label: 'Tenants', icon: <Users2 size={18} />,
+      show: !isTenant
+    },
+    // Payments — admin + agent + accountant + landlord
+    {
+      path: '/payments', label: 'Rent Payments', icon: <WalletCards size={18} />,
+      show: !isTenant
+    },
+    // Tenant portal — tenant only
+    {
+      path: '/tenant', label: 'My Portal', icon: <Home size={18} />,
+      show: isTenant
+    },
+    // Maintenance — coming Phase 3 full board (placeholder, now tenant-only via portal)
+    {
+      path: '/maintenance', label: 'Maintenance', icon: <Wrench size={18} />,
+      show: isAdmin, disabled: true, badge: 'Phase 3'
+    }
+  ].filter((item) => item.show);
 
   const Sidebar = () => (
     <aside
@@ -63,7 +102,7 @@ function AppShell() {
       {/* Brand */}
       <div className="flex h-16 items-center justify-between px-5 border-b border-slate-800 flex-shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="p-2 bg-green-600 rounded-lg text-white font-bold flex-shrink-0 text-xs">MR</div>
+          <div className="p-2 bg-green-600 rounded-lg text-white font-black flex-shrink-0 text-xs">MR</div>
           {sidebarOpen && (
             <span className="font-extrabold text-sm tracking-wider uppercase">
               MutuneRent <span className="text-green-500 font-medium normal-case">Pro</span>
@@ -78,30 +117,34 @@ function AppShell() {
         </button>
       </div>
 
-      {/* Nav links */}
-      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
+      {/* Nav */}
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto scrollbar-thin">
         {navItems.map((item) => {
-          const isActive = item.path === '/'
-            ? location.pathname === '/'
-            : location.pathname.startsWith(item.path);
-
           if (item.disabled) {
             return (
               <div
                 key={item.label}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-semibold text-slate-500 cursor-not-allowed opacity-60"
-                title="Coming soon — Phase 2"
+                title="Coming soon"
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-semibold text-slate-500 cursor-not-allowed opacity-50"
               >
                 {item.icon}
                 {sidebarOpen && (
                   <div className="flex items-center justify-between w-full">
                     <span>{item.label}</span>
-                    <span className="bg-slate-800 text-slate-400 px-1 py-0.5 rounded text-[8px]">Phase 2</span>
+                    {item.badge && (
+                      <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[8px] font-bold">
+                        {item.badge}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
             );
           }
+
+          const isActive = item.path === '/'
+            ? location.pathname === '/'
+            : location.pathname.startsWith(item.path);
 
           return (
             <Link
@@ -152,7 +195,8 @@ function AppShell() {
       <div className="hidden lg:block">
         <Sidebar />
       </div>
-      {/* Mobile overlay sidebar */}
+
+      {/* Mobile overlay */}
       {mobileOpen && (
         <>
           <div
@@ -165,7 +209,7 @@ function AppShell() {
         </>
       )}
 
-      {/* Main panel */}
+      {/* Main area */}
       <div
         className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 ${
           sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'
@@ -190,6 +234,15 @@ function AppShell() {
           </div>
 
           <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                title="Admin Analytics"
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                <ShieldCheck size={18} />
+              </Link>
+            )}
             <button
               id="notifications-btn"
               className="relative p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
@@ -211,19 +264,21 @@ function AppShell() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 page-enter">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/properties" element={
-              <ProtectedRoute><PropertyList /></ProtectedRoute>
-            } />
-            <Route path="/tenants" element={
-              <ProtectedRoute><Tenants /></ProtectedRoute>
-            } />
-            <Route path="/payments" element={
-              <ProtectedRoute><Payments /></ProtectedRoute>
-            } />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Core */}
+            <Route path="/"            element={<Dashboard />} />
+            <Route path="/properties"  element={<ProtectedRoute><PropertyList /></ProtectedRoute>} />
+            <Route path="/properties/add" element={<ProtectedRoute><AddProperty /></ProtectedRoute>} />
+            <Route path="/tenants"     element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
+            <Route path="/payments"    element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+
+            {/* Phase 2 */}
+            <Route path="/admin"       element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/tenant"      element={<ProtectedRoute><TenantPortal /></ProtectedRoute>} />
+
+            {/* Fallback */}
+            <Route path="*"            element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>
@@ -246,6 +301,18 @@ export default function App() {
           } />
         </Routes>
       </BrowserRouter>
+
+      {/* Global toast container — positioned top-right, slim design */}
+      <ToastContainer
+        position="top-right"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        theme="light"
+        toastClassName="text-sm font-medium shadow-lg rounded-xl"
+      />
     </QueryClientProvider>
   );
 }

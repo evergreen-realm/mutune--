@@ -8,6 +8,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1063.0",
     "@clerk/clerk-sdk-node": "^5.0.0",
     "africastalking": "^0.7.0",
     "axios": "^1.7.2",
@@ -20,7 +21,9 @@
     "helmet": "^7.1.0",
     "ip-range-check": "^0.2.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.4.0"
+    "mongoose": "^8.4.0",
+    "multer": "^2.1.1",
+    "open-location-code": "^1.0.3"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

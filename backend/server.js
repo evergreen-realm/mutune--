@@ -45,8 +45,13 @@ app.get('/api/v1/health', (req, res) => {
 
 app.use('/api/v1/payments', require('./routes/payments'));
 app.use('/api/v1/properties', require('./routes/properties'));
+app.use('/api/v1/properties', require('./routes/properties-gps'));   // Phase 2: GPS capture
 app.use('/api/v1/tenants', require('./routes/tenants'));
 app.use('/api/v1/users', require('./routes/users'));
+app.use('/api/v1/agents', require('./routes/agents'));              // Phase 2: check-in
+app.use('/api/v1/admin', require('./routes/admin'));                // Phase 2: charts
+app.use('/api/v1/maintenance', require('./routes/maintenance'));    // Phase 2: tickets
+app.use('/api/v1/reports', require('./routes/reports'));            // Phase 2: KRA CSV
 
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { path: req.path, method: req.method, message: err.message, stack: err.stack });
