@@ -9,6 +9,38 @@ export function Skeleton({ className, ...props }) {
   );
 }
 
+export function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-lg border p-4 animate-pulse">
+      <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
+      <div className="h-8 bg-gray-200 rounded w-2/3 mb-2" />
+      <div className="h-3 bg-gray-200 rounded w-full" />
+    </div>
+  );
+}
+
+export function SkeletonTable({ rows = 5 }) {
+  return (
+    <div className="bg-white rounded-lg border overflow-hidden animate-pulse">
+      <div className="bg-gray-50 p-4 border-b">
+        <div className="h-4 bg-gray-200 rounded w-1/4" />
+      </div>
+      {[...Array(rows)].map((_, i) => (
+        <div key={i} className="p-4 border-b last:border-0 flex gap-4">
+          <div className="h-4 bg-gray-200 rounded w-24" />
+          <div className="h-4 bg-gray-200 rounded w-48" />
+          <div className="h-4 bg-gray-200 rounded w-32" />
+          <div className="h-4 bg-gray-200 rounded w-16 ml-auto" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonMap() {
+  return <div className="h-96 bg-gray-100 rounded-lg animate-pulse" />;
+}
+
 export function StatCardSkeleton() {
   return (
     <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2">
@@ -62,4 +94,10 @@ export function MapSkeleton() {
       <Skeleton className="h-[330px] rounded-lg w-full" />
     </div>
   );
+}
+
+export default function SkeletonLoader({ type = 'card', ...props }) {
+  if (type === 'table') return <SkeletonTable {...props} />;
+  if (type === 'map') return <SkeletonMap {...props} />;
+  return <SkeletonCard {...props} />;
 }

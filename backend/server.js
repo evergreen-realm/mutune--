@@ -44,8 +44,11 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 app.use('/api/v1/payments', require('./routes/payments'));
+app.use('/api/v1/properties', require('./routes/properties'));
+app.use('/api/v1/tenants', require('./routes/tenants'));
+app.use('/api/v1/users', require('./routes/users'));
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { path: req.path, method: req.method, message: err.message, stack: err.stack });
   res.status(err.status || 500).json({
     success: false,
