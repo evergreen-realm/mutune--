@@ -7,14 +7,8 @@ const Property = require('../models/Property');
 const logger = require('../utils/logger');
 
 // Plus Code encoding — open-location-code module
-let olcEncode;
-try {
-  const { OpenLocationCode } = require('open-location-code');
-  const olc = new OpenLocationCode();
-  olcEncode = (lat, lng) => olc.encode(lat, lng, 10);
-} catch (_err) {
-  olcEncode = () => null; // Graceful fallback if module unavailable
-}
+const { OpenLocationCode } = require('open-location-code');
+const olc = new OpenLocationCode();
 
 /**
  * POST /api/v1/properties/with-gps
@@ -66,7 +60,7 @@ router.post('/with-gps',
       // Generate Plus Code (OLC) for the location
       let plusCode = null;
       try {
-        plusCode = olcEncode(lat, lng);
+        plusCode = olc.encode(lat, lng, 10);
       } catch (_e) {
         plusCode = null;
       }

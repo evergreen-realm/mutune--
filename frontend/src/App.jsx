@@ -13,15 +13,17 @@ import Payments      from './pages/Payments';
 import AddProperty   from './pages/AddProperty';
 import AdminDashboard from './pages/AdminDashboard';
 import TenantPortal  from './pages/TenantPortal';
+import Notices       from './pages/Notices';
 
 // Components
 import PropertyList  from './components/PropertyList';
+import ChatAssistant from './components/ChatAssistant';
 
 // Icons
 import {
   LayoutDashboard, Building2, Users2, WalletCards,
   Wrench, ShieldCheck, Home, PlusCircle, BarChart3,
-  Menu, X, Bell, Settings, LogOut, MapPin
+  Menu, X, Bell, Settings, LogOut, MapPin, FileText
 } from 'lucide-react';
 
 const queryClient = new QueryClient({
@@ -90,6 +92,11 @@ function AppShell() {
     {
       path: '/maintenance', label: 'Maintenance', icon: <Wrench size={18} />,
       show: isAdmin, disabled: true, badge: 'Phase 3'
+    },
+    // Notices — Phase 3: admin + agent + tenant
+    {
+      path: '/notices', label: 'Notices', icon: <FileText size={18} />,
+      show: isAdmin || isAgent || isTenant
     }
   ].filter((item) => item.show);
 
@@ -277,10 +284,16 @@ function AppShell() {
             <Route path="/admin"       element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/tenant"      element={<ProtectedRoute><TenantPortal /></ProtectedRoute>} />
 
+            {/* Phase 3 */}
+            <Route path="/notices"     element={<ProtectedRoute><Notices user={user} /></ProtectedRoute>} />
+
             {/* Fallback */}
             <Route path="*"            element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+
+        {/* AI Chat Assistant — persistent across all pages */}
+        <ChatAssistant user={user} />
       </div>
     </div>
   );

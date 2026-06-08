@@ -12,6 +12,8 @@ process.env.AT_USERNAME = 'sandbox';
 process.env.AT_FROM = 'MutuneRent';
 process.env.CLERK_SECRET_KEY = 'sk_test_clerk_secret_for_testing_only';
 process.env.FRONTEND_URL = 'http://localhost:5173';
+process.env.GROQ_API_KEY = 'gsk_test_api_key_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+process.env.RESEND_API_KEY = 're_test_api_key_xxxxxxxxxxxxxxxx';
 
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const mongoose = require('mongoose');

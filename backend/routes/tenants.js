@@ -283,14 +283,11 @@ router.get('/my/payments', requireAuth, requirePermission('view:payments'), asyn
 // ─── GET /tenants/my/notices — Tenant self-service notices ───────────────────
 router.get('/my/notices', requireAuth, requirePermission('view:notices'), async (req, res, next) => {
   try {
-    // Notices model may not exist yet — return empty gracefully
-    let notices = [];
-    try {
-      const Notice = require('../models/Notice');
-      notices = await Notice.find({ tenant_id: req.user._id }).sort({ created_at: -1 }).lean();
-    } catch (_modelErr) {
-      // Notice model not yet created — return empty array
-    }
+    const Notice = require('../models/Notice');
+    const notices = await Notice.find({ tenant_id: req.user._id })
+      .populate('property_id', 'name property_code')
+      .sort({ created_at: -1 })
+      .lean();
     res.json({ success: true, data: notices });
   } catch (error) {
     next(error);

@@ -52,6 +52,8 @@ app.use('/api/v1/agents', require('./routes/agents'));              // Phase 2: 
 app.use('/api/v1/admin', require('./routes/admin'));                // Phase 2: charts
 app.use('/api/v1/maintenance', require('./routes/maintenance'));    // Phase 2: tickets
 app.use('/api/v1/reports', require('./routes/reports'));            // Phase 2: KRA CSV
+app.use('/api/v1/notices', require('./routes/notices'));            // Phase 3: digital notices
+app.use('/api/v1/ai', require('./routes/ai'));                      // Phase 3: AI chat
 
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { path: req.path, method: req.method, message: err.message, stack: err.stack });

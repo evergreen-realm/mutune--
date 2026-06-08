@@ -18,12 +18,15 @@
     "express": "^4.19.2",
     "express-rate-limit": "^7.3.0",
     "express-validator": "^7.1.0",
+    "groq-sdk": "^1.2.1",
     "helmet": "^7.1.0",
     "ip-range-check": "^0.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.0",
     "multer": "^2.1.1",
-    "open-location-code": "^1.0.3"
+    "open-location-code": "^1.0.3",
+    "pdfkit": "^0.19.0",
+    "resend": "^3.5.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
