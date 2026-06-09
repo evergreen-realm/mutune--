@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const aiService = require('../services/ai');
 const Tenant = require('../models/Tenant');
+const Property = require('../models/Property');
 const logger = require('../utils/logger');
 
 // ── POST /api/v1/ai/chat ──────────────────────────────────────────────────────
@@ -24,13 +25,22 @@ router.post(
 
       const { message, session_id, context = {} } = req.body;
 
-      // Enrich context with tenant details when role is tenant
+      // Enrich context with tenant + property details when role is tenant
       const enrichedContext = { ...context };
       if (req.user.role === 'tenant') {
         const tenant = await Tenant.findOne({ user_id: req.user._id }).lean();
         if (tenant) {
           enrichedContext.tenantName = tenant.full_name;
-          enrichedContext.unitId = tenant.current_unit_id;
+          enrichedContext.unitId     = tenant.current_unit_id;
+          enrichedContext.preferredChannel = tenant.preferred_channel;
+          if (tenant.current_property_id) {
+            const property = await Property.findById(tenant.current_property_id).select('name address property_code').lean();
+            if (property) {
+              enrichedContext.propertyName = property.name;
+              enrichedContext.propertyCode = property.property_code;
+              enrichedContext.propertyArea = property.address?.area;
+            }
+          }
         }
       }
 

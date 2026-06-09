@@ -27,6 +27,10 @@ export const fetchNearby           = (params)            => api.get('/properties
 export const addUnit               = (propertyId, data)  => api.post(`/properties/${propertyId}/units`, data);
 export const updateUnit            = (propertyId, unitId, data) => api.patch(`/properties/${propertyId}/units/${unitId}`, data);
 
+// Phase 4: Unit geospatial indexing
+export const updateUnitGeolocation = (propertyId, unitId, data) => api.patch(`/properties/${propertyId}/units/${unitId}/geolocation`, data);
+export const fetchUnitGeoJSON      = (propertyId)               => api.get(`/properties/${propertyId}/units/geojson`);
+
 // Phase 2: GPS property creation
 export const createPropertyWithGPS = (data) => api.post('/properties/with-gps', data);
 

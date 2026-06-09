@@ -36,7 +36,8 @@ const tenantSchema = new mongoose.Schema({
   payment_history: [paymentHistorySchema],
   arrears_kes: { type: Number, default: 0, min: 0 },
   tenancy_status: { type: String, enum: ['active', 'terminated', 'notice', 'pending'], default: 'active' },
-  notice_status: { type: String, enum: ['none', '7_day', '30_day', 'eviction_pending'], default: 'none' },
+  notice_status:    { type: String, enum: ['none', '7_day', '30_day', 'eviction_pending'], default: 'none' },
+  preferred_channel: { type: String, enum: ['email', 'sms', 'both'], default: 'both' },
   notes: String,
   guarantor: {
     full_name: String,

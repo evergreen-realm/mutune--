@@ -7,7 +7,11 @@ const unitSchema = new mongoose.Schema({
   rent_kes: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ['vacant', 'occupied', 'maintenance', 'notice_issued'], default: 'vacant' },
   current_tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' },
-  lock_status: { type: String, enum: ['unlocked', 'pending_viewing', 'viewed_unlocked', 'payment_confirmed', 'locked'], default: 'unlocked' }
+  lock_status: { type: String, enum: ['unlocked', 'pending_viewing', 'viewed_unlocked', 'payment_confirmed', 'locked'], default: 'unlocked' },
+  unit_geolocation: {
+    type:        { type: String, enum: ['Point'], default: undefined },
+    coordinates: { type: [Number], default: undefined }  // [longitude, latitude]
+  }
 }, { _id: true });
 
 const inventoryItemSchema = new mongoose.Schema({
@@ -52,6 +56,7 @@ const propertySchema = new mongoose.Schema({
 });
 
 propertySchema.index({ location: '2dsphere' });
+propertySchema.index({ 'units.unit_geolocation': '2dsphere' }); // Phase 4: per-unit spatial index
 propertySchema.index({ property_code: 1 });
 propertySchema.index({ landlord_id: 1 });
 propertySchema.index({ 'units.current_tenant_id': 1 });

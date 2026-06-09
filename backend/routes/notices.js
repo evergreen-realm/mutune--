@@ -8,6 +8,7 @@ const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const pdfService = require('../services/pdf');
 const smsService = require('../services/sms');
+const { Resend } = require('resend');
 const logger = require('../utils/logger');
 
 // ── POST /api/v1/notices/generate — Create notice + generate PDF + deliver ────
@@ -86,33 +87,38 @@ router.post(
         logger.error('PDF generation failed, continuing with delivery', { noticeId: notice._id, error: pdfErr.message });
       }
 
-      // Deliver via SMS
-      if (delivery_method.includes('sms')) {
+      // ── Delivery matrix — evaluate against tenant's preferred_channel ──────
+      const channel = tenant.preferred_channel || 'both';
+      const wantsSMS   = delivery_method.includes('sms')   && (channel === 'sms'   || channel === 'both');
+      const wantsEmail = delivery_method.includes('email') && (channel === 'email' || channel === 'both');
+
+      const smsBody = `MUTUNE NOTICE: ${title}. Effective ${new Date(effective_date).toLocaleDateString('en-KE')}. View: ${pdfUrl || 'Portal'}`;
+
+      // ── SMS dispatch ──────────────────────────────────────────────────────
+      if (wantsSMS) {
         try {
-          const smsResult = await smsService.send(
-            tenant.phone,
-            `MUTUNE NOTICE: ${title}. Effective ${new Date(effective_date).toLocaleDateString('en-KE')}. View: ${pdfUrl || 'Portal'}`
-          );
+          const smsResult = await smsService.send(tenant.phone, smsBody);
           const smsStatus = notice.delivery_status.find(d => d.method === 'sms');
           if (smsStatus) {
-            smsStatus.status = smsResult.success ? 'sent' : 'failed';
-            smsStatus.timestamp = new Date();
+            smsStatus.status             = smsResult.success ? 'sent' : 'failed';
+            smsStatus.timestamp          = new Date();
             smsStatus.provider_message_id = smsResult.messageId;
           }
           await notice.save();
+          logger.info('SMS dispatch completed', { noticeId: notice._id, success: smsResult.success, phone: tenant.phone });
         } catch (smsErr) {
-          logger.error('SMS delivery failed', { noticeId: notice._id, error: smsErr.message });
+          logger.error('SMS delivery exception', { noticeId: notice._id, error: smsErr.message });
         }
       }
 
-      // Deliver via Email (Resend)
-      if (delivery_method.includes('email')) {
+      // ── Email dispatch with automatic SMS fallback on transport dropout ──
+      if (wantsEmail) {
+        let emailDelivered = false;
         try {
-          const { Resend } = require('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
           const { data, error: sendError } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || 'notices@mutune.co.ke',
-            to: tenant.email,
+            from:    process.env.RESEND_FROM_EMAIL || 'notices@mutune.co.ke',
+            to:      tenant.email,
             subject: `MutuneRent Notice: ${title}`,
             html: `
               <h2 style="color:#111827">${title}</h2>
@@ -127,33 +133,81 @@ router.post(
               <p style="font-size:12px;color:#6b7280">This notice was issued digitally by MutuneRent Pro. For disputes contact the Estate Agents Registration Board (EARB).</p>
             `
           });
+
           const emailStatus = notice.delivery_status.find(d => d.method === 'email');
-          if (emailStatus) {
-            emailStatus.status = sendError ? 'failed' : 'sent';
-            emailStatus.timestamp = new Date();
-            emailStatus.provider_message_id = data?.id;
-          }
-          await notice.save();
           if (sendError) {
-            logger.error('Resend email failed', { noticeId: notice._id, error: sendError });
+            // Transport dropout — record failure and trigger SMS fallback
+            logger.error('Resend transport error — initiating SMS fallback', { noticeId: notice._id, error: sendError });
+            if (emailStatus) {
+              emailStatus.status        = 'failed';
+              emailStatus.timestamp     = new Date();
+              emailStatus.fallback_to_sms = true;
+            }
+            await notice.save();
+          } else {
+            if (emailStatus) {
+              emailStatus.status             = 'sent';
+              emailStatus.timestamp          = new Date();
+              emailStatus.provider_message_id = data?.id;
+            }
+            await notice.save();
+            emailDelivered = true;
+            logger.info('Email dispatch completed', { noticeId: notice._id, messageId: data?.id });
           }
         } catch (emailErr) {
-          logger.error('Email delivery failed', { noticeId: notice._id, error: emailErr.message });
+          // Hard exception — record failure and trigger SMS fallback
+          logger.error('Email delivery exception — initiating SMS fallback', { noticeId: notice._id, error: emailErr.message });
+          const emailStatus = notice.delivery_status.find(d => d.method === 'email');
+          if (emailStatus) {
+            emailStatus.status        = 'failed';
+            emailStatus.timestamp     = new Date();
+            emailStatus.fallback_to_sms = true;
+          }
+          await notice.save();
+        }
+
+        // Automatic SMS fallback when email transport drops out
+        if (!emailDelivered && !wantsSMS) {
+          try {
+            logger.warn('Executing SMS fallback for failed email delivery', { noticeId: notice._id, phone: tenant.phone });
+            const fallbackResult = await smsService.send(tenant.phone, smsBody);
+
+            // Upsert or append a fallback SMS delivery_status entry
+            let fallbackStatus = notice.delivery_status.find(d => d.method === 'sms');
+            if (!fallbackStatus) {
+              notice.delivery_status.push({ method: 'sms', status: 'pending' });
+              fallbackStatus = notice.delivery_status[notice.delivery_status.length - 1];
+            }
+            fallbackStatus.status             = fallbackResult.success ? 'sent' : 'failed';
+            fallbackStatus.timestamp          = new Date();
+            fallbackStatus.provider_message_id = fallbackResult.messageId;
+            fallbackStatus.is_fallback         = true;
+            await notice.save();
+
+            logger.info('SMS fallback dispatch completed', { noticeId: notice._id, success: fallbackResult.success });
+          } catch (fallbackErr) {
+            logger.error('SMS fallback also failed', { noticeId: notice._id, error: fallbackErr.message });
+          }
         }
       }
 
-      // Portal delivery — automatic (tenant sees it via portal)
+      // ── Portal delivery — automatic (tenant sees it via the portal) ───────
       if (delivery_method.includes('portal')) {
         const portalStatus = notice.delivery_status.find(d => d.method === 'portal');
         if (portalStatus) {
-          portalStatus.status = 'delivered';
+          portalStatus.status    = 'delivered';
           portalStatus.timestamp = new Date();
         }
         await notice.save();
       }
 
-      logger.info('Notice generated and delivered', { noticeId: notice._id, methods: delivery_method });
+      logger.info('Notice generated and delivered', {
+        noticeId:        notice._id,
+        methods:         delivery_method,
+        preferredChannel: channel
+      });
       res.status(201).json({ success: true, data: notice });
+
     } catch (error) {
       next(error);
     }

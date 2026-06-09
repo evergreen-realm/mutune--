@@ -1,0 +1,99 @@
+# render.yaml — MutuneRent Pro deployment blueprint
+# https://render.com/docs/blueprint-spec
+# Deploy: render blueprint launch --repo https://github.com/evergreen-realm/mutune--
+
+databases:
+  - name: mutunerent-mongo
+    databaseName: mutunerent
+    plan: starter
+    region: frankfurt
+    ipAllowList: []   # restrict to Render service IPs via dashboard after first deploy
+
+services:
+  # ── Backend API (Node.js) ───────────────────────────────────────────────────
+  - type: web
+    name: mutunerent-api
+    env: node
+    region: frankfurt
+    plan: starter
+    branch: main
+    rootDir: backend
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+
+      # ── Database ─────────────────────────────────────────────────────────────
+      - key: MONGODB_URI
+        sync: false   # set manually in dashboard: Atlas production URI
+
+      # ── Clerk ────────────────────────────────────────────────────────────────
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false   # e.g. https://mutunerent.vercel.app
+
+      # ── M-Pesa ───────────────────────────────────────────────────────────────
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_CALLBACK_URL
+        sync: false
+      - key: MPESA_C2B_CONFIRMATION_URL
+        sync: false
+      - key: MPESA_C2B_VALIDATION_URL
+        sync: false
+      - key: MPESA_ENV
+        value: production
+
+      # ── Africa's Talking (SMS) ─────────────────────────────────────────────
+      - key: AT_API_KEY
+        sync: false
+      - key: AT_USERNAME
+        sync: false
+      - key: AT_FROM
+        value: MutuneRent
+
+      # ── Cloudflare R2 ────────────────────────────────────────────────────────
+      - key: CLOUDFLARE_R2_ENDPOINT
+        sync: false
+      - key: CLOUDFLARE_R2_ACCESS_KEY_ID
+        sync: false
+      - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: CLOUDFLARE_R2_BUCKET
+        value: mutune-images
+      - key: CLOUDFLARE_R2_PUBLIC_URL
+        sync: false
+
+      # ── Groq AI ──────────────────────────────────────────────────────────────
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_MAX_TOKENS
+        value: "1024"
+      - key: GROQ_TEMPERATURE
+        value: "0.3"
+
+      # ── Resend Email ─────────────────────────────────────────────────────────
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: notices@mutune.co.ke
+
+      # ── Misc ─────────────────────────────────────────────────────────────────
+      - key: NOTICE_PDF_PREFIX
+        value: notices/
+      - key: PLUS_CODE_REGION
+        value: KE
