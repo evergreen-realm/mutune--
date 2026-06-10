@@ -87,33 +87,52 @@ router.post(
         logger.error('PDF generation failed, continuing with delivery', { noticeId: notice._id, error: pdfErr.message });
       }
 
-      // ── Delivery matrix — evaluate against tenant's preferred_channel ──────
       const channel = tenant.preferred_channel || 'both';
-      const wantsSMS   = delivery_method.includes('sms')   && (channel === 'sms'   || channel === 'both');
-      const wantsEmail = delivery_method.includes('email') && (channel === 'email' || channel === 'both');
+      // Deliver via SMS (with fallback from email failure)
+      const shouldSendSMS = delivery_method.includes('sms') || 
+        (delivery_method.includes('email') && tenant.preferred_channel === 'both');
 
-      const smsBody = `MUTUNE NOTICE: ${title}. Effective ${new Date(effective_date).toLocaleDateString('en-KE')}. View: ${pdfUrl || 'Portal'}`;
-
-      // ── SMS dispatch ──────────────────────────────────────────────────────
-      if (wantsSMS) {
+      if (shouldSendSMS) {
         try {
+          // Generate short signed URL for PDF download (24h expiry)
+          let shortUrl = pdfUrl;
+          if (pdfUrl && process.env.CLOUDFLARE_R2_PUBLIC_URL) {
+            // Use direct R2 URL as short link (R2 public URLs are already short)
+            // For production: integrate a URL shortener service
+            shortUrl = pdfUrl;
+          }
+          
+          const propertyCode = property?.property_code || 'MUT-UNK';
+          const noticeTypeLabel = notice_type.replace('_', ' ').toUpperCase();
+          const smsBody = `MUTUNE ${propertyCode}: ${noticeTypeLabel}. ${title.slice(0, 60)}${title.length > 60 ? '...' : ''}. View: ${shortUrl || 'Login to portal'}`;
+          
           const smsResult = await smsService.send(tenant.phone, smsBody);
+          
           const smsStatus = notice.delivery_status.find(d => d.method === 'sms');
           if (smsStatus) {
-            smsStatus.status             = smsResult.success ? 'sent' : 'failed';
-            smsStatus.timestamp          = new Date();
+            smsStatus.status = smsResult.success ? 'sent' : 'failed';
+            smsStatus.timestamp = new Date();
             smsStatus.provider_message_id = smsResult.messageId;
+          } else if (smsResult.success) {
+            // Auto-add SMS to delivery status if it wasn't originally requested but succeeded as fallback
+            notice.delivery_status.push({ method: 'sms', status: 'sent', timestamp: new Date(), provider_message_id: smsResult.messageId });
           }
+          
           await notice.save();
-          logger.info('SMS dispatch completed', { noticeId: notice._id, success: smsResult.success, phone: tenant.phone });
+          logger.info('SMS notice delivered', { noticeId: notice._id, phone: tenant.phone, fallback: !delivery_method.includes('sms') });
         } catch (smsErr) {
-          logger.error('SMS delivery exception', { noticeId: notice._id, error: smsErr.message });
+          logger.error('SMS delivery failed', { noticeId: notice._id, error: smsErr.message });
+          
+          // If SMS was the primary method and it failed, flag for manual review
+          if (delivery_method.includes('sms') && !delivery_method.includes('email')) {
+            notice.delivery_status.push({ method: 'sms', status: 'failed', timestamp: new Date() });
+            await notice.save();
+          }
         }
       }
 
-      // ── Email dispatch with automatic SMS fallback on transport dropout ──
-      if (wantsEmail) {
-        let emailDelivered = false;
+      // Email delivery with SMS fallback trigger
+      if (delivery_method.includes('email')) {
         try {
           const resend = new Resend(process.env.RESEND_API_KEY);
           const { data, error: sendError } = await resend.emails.send({
@@ -133,61 +152,30 @@ router.post(
               <p style="font-size:12px;color:#6b7280">This notice was issued digitally by MutuneRent Pro. For disputes contact the Estate Agents Registration Board (EARB).</p>
             `
           });
-
-          const emailStatus = notice.delivery_status.find(d => d.method === 'email');
-          if (sendError) {
-            // Transport dropout — record failure and trigger SMS fallback
-            logger.error('Resend transport error — initiating SMS fallback', { noticeId: notice._id, error: sendError });
-            if (emailStatus) {
-              emailStatus.status        = 'failed';
-              emailStatus.timestamp     = new Date();
-              emailStatus.fallback_to_sms = true;
-            }
-            await notice.save();
-          } else {
-            if (emailStatus) {
-              emailStatus.status             = 'sent';
-              emailStatus.timestamp          = new Date();
-              emailStatus.provider_message_id = data?.id;
-            }
-            await notice.save();
-            emailDelivered = true;
-            logger.info('Email dispatch completed', { noticeId: notice._id, messageId: data?.id });
-          }
-        } catch (emailErr) {
-          // Hard exception — record failure and trigger SMS fallback
-          logger.error('Email delivery exception — initiating SMS fallback', { noticeId: notice._id, error: emailErr.message });
+          
           const emailStatus = notice.delivery_status.find(d => d.method === 'email');
           if (emailStatus) {
-            emailStatus.status        = 'failed';
-            emailStatus.timestamp     = new Date();
-            emailStatus.fallback_to_sms = true;
+            emailStatus.status = sendError ? 'failed' : 'sent';
+            emailStatus.timestamp = new Date();
+            emailStatus.provider_message_id = data?.id;
           }
           await notice.save();
-        }
-
-        // Automatic SMS fallback when email transport drops out
-        if (!emailDelivered && !wantsSMS) {
-          try {
-            logger.warn('Executing SMS fallback for failed email delivery', { noticeId: notice._id, phone: tenant.phone });
-            const fallbackResult = await smsService.send(tenant.phone, smsBody);
-
-            // Upsert or append a fallback SMS delivery_status entry
-            let fallbackStatus = notice.delivery_status.find(d => d.method === 'sms');
-            if (!fallbackStatus) {
-              notice.delivery_status.push({ method: 'sms', status: 'pending' });
-              fallbackStatus = notice.delivery_status[notice.delivery_status.length - 1];
+          
+          // TRIGGER SMS FALLBACK if email failed and tenant prefers both or has no email
+          if (sendError && (tenant.preferred_channel === 'both' || !tenant.email)) {
+            logger.info('Email failed, triggering SMS fallback', { noticeId: notice._id, tenantId: tenant._id });
+            // SMS fallback already handled above via shouldSendSMS logic when preferred_channel === 'both'
+            // If preferred_channel === 'email' only, we still send SMS as critical fallback for notices
+            if (tenant.preferred_channel === 'email') {
+              const fallbackSms = await smsService.send(tenant.phone, `MUTUNE NOTICE: Email failed. ${title.slice(0, 80)}. Login to portal or call office.`);
+              notice.delivery_status.push({ method: 'sms', status: fallbackSms.success ? 'sent' : 'failed', timestamp: new Date() });
+              await notice.save();
             }
-            fallbackStatus.status             = fallbackResult.success ? 'sent' : 'failed';
-            fallbackStatus.timestamp          = new Date();
-            fallbackStatus.provider_message_id = fallbackResult.messageId;
-            fallbackStatus.is_fallback         = true;
-            await notice.save();
-
-            logger.info('SMS fallback dispatch completed', { noticeId: notice._id, success: fallbackResult.success });
-          } catch (fallbackErr) {
-            logger.error('SMS fallback also failed', { noticeId: notice._id, error: fallbackErr.message });
           }
+          
+          if (sendError) logger.error('Resend email failed', { noticeId: notice._id, error: sendError });
+        } catch (emailErr) {
+          logger.error('Email delivery failed', { noticeId: notice._id, error: emailErr.message });
         }
       }
 

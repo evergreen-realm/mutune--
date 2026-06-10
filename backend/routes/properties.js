@@ -257,126 +257,62 @@ router.patch('/:id/units/:unitId',
 );
 
 
-// ─── PATCH /properties/:id/units/:unitId/geolocation ─────────────────────────
-router.patch(
-  '/:id/units/:unitId/geolocation',
+// PATCH /api/v1/properties/:id/units/:unitId/geolocation
+router.patch('/:id/units/:unitId/geolocation',
   requireAuth,
-  requireRole(['admin', 'super_admin']),
+  requireRole(['admin', 'super_admin', 'agent']),
   [
-    param('id').isMongoId().withMessage('Invalid property ID'),
-    param('unitId').isMongoId().withMessage('Invalid unit ID'),
-    body('coordinates')
-      .isArray({ min: 2, max: 2 })
-      .withMessage('coordinates must be [longitude, latitude]'),
-    body('coordinates.0').isFloat({ min: -180, max: 180 }).withMessage('Longitude must be between -180 and 180'),
-    body('coordinates.1').isFloat({ min: -90,  max: 90  }).withMessage('Latitude must be between -90 and 90')
+    param('id').isMongoId(),
+    param('unitId').notEmpty(),
+    body('coordinates').isArray({ min: 2, max: 2 }).custom(v => v.every(n => typeof n === 'number'))
   ],
   async (req, res, next) => {
     try {
       if (!validate(req, res)) return;
-
       const property = await Property.findById(req.params.id);
-      if (!property) {
-        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
-      }
-
+      if (!property) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND' } });
+      
       const unit = property.units.id(req.params.unitId);
-      if (!unit) {
-        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Unit not found' } });
-      }
-
-      const [lng, lat] = req.body.coordinates.map(parseFloat);
-      unit.unit_geolocation = { type: 'Point', coordinates: [lng, lat] };
+      if (!unit) return res.status(404).json({ success: false, error: { code: 'UNIT_NOT_FOUND' } });
+      
+      unit.unit_geolocation = { type: 'Point', coordinates: req.body.coordinates };
       await property.save();
-
-      logger.info('Unit geolocation updated', {
-        propertyId: property._id,
-        unitId: req.params.unitId,
-        coordinates: [lng, lat],
-        by: req.user._id
-      });
-
+      
+      logger.info('Unit geolocation updated', { propertyId: req.params.id, unitId: req.params.unitId });
       res.json({ success: true, data: unit });
-    } catch (error) {
-      next(error);
-    }
+    } catch (error) { next(error); }
   }
 );
 
-// ─── GET /properties/:id/units/geojson ───────────────────────────────────────
-router.get(
-  '/:id/units/geojson',
-  requireAuth,
-  enforcePropertyScope,
-  [param('id').isMongoId().withMessage('Invalid property ID')],
-  async (req, res, next) => {
-    try {
-      if (!validate(req, res)) return;
-
-      const property = await Property.findById(req.params.id).lean();
-      if (!property) {
-        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+// GET /api/v1/properties/:id/units/geojson — All units as GeoJSON FeatureCollection
+router.get('/:id/units/geojson', requireAuth, async (req, res, next) => {
+  try {
+    const property = await Property.findById(req.params.id).lean();
+    if (!property) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND' } });
+    
+    const features = property.units.map((u, idx) => ({
+      type: 'Feature',
+      properties: {
+        unit_number: u.unit_number,
+        status: u.status,
+        rent_kes: u.rent_kes,
+        index: idx
+      },
+      geometry: u.unit_geolocation || {
+        type: 'Point',
+        coordinates: [
+          property.location.coordinates[0] + (Math.random() - 0.5) * 0.001, // fallback offset
+          property.location.coordinates[1] + (Math.random() - 0.5) * 0.001
+        ]
       }
-
-      // Anchor point for jitter — fall back to Mombasa CBD if property lacks coordinates
-      const anchorLng = property.location?.coordinates?.[0] ?? 39.6682;
-      const anchorLat = property.location?.coordinates?.[1] ?? -4.0435;
-      const unitCount = (property.units || []).length;
-
-      const features = (property.units || []).map((unit, index) => {
-        let coordinates;
-        if (unit.unit_geolocation?.coordinates?.length === 2) {
-          coordinates = unit.unit_geolocation.coordinates;
-        } else {
-          // Deterministic jitter: spread units in a circle around the property centroid
-          const angle  = (index / Math.max(unitCount, 1)) * 2 * Math.PI;
-          const radius = 0.0001 + (index % 4) * 0.00004; // ~10–25 m spread
-          coordinates = [
-            parseFloat((anchorLng + radius * Math.cos(angle)).toFixed(6)),
-            parseFloat((anchorLat + radius * Math.sin(angle)).toFixed(6))
-          ];
-        }
-
-        return {
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates },
-          properties: {
-            unit_id:           unit._id,
-            unit_number:       unit.unit_number,
-            unit_type:         unit.unit_type  || null,
-            bedrooms:          unit.bedrooms   ?? null,
-            rent_kes:          unit.rent_kes,
-            status:            unit.status,
-            lock_status:       unit.lock_status,
-            has_exact_location: Boolean(unit.unit_geolocation?.coordinates?.length === 2)
-          }
-        };
-      });
-
-      const featureCollection = {
-        type: 'FeatureCollection',
-        features,
-        metadata: {
-          property_id:   property._id,
-          property_name: property.name,
-          property_code: property.property_code,
-          total_units:   features.length,
-          generated_at:  new Date().toISOString()
-        }
-      };
-
-      logger.info('Unit GeoJSON fetched', {
-        propertyId: property._id,
-        unitCount: features.length,
-        userId: req.user._id
-      });
-
-      res.json({ success: true, data: featureCollection });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    }));
+    
+    res.json({
+      type: 'FeatureCollection',
+      features
+    });
+  } catch (error) { next(error); }
+});
 
 module.exports = router;
 

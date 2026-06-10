@@ -1,0 +1,66 @@
+name: Deploy MutuneRent Pro
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: cd backend && npm install
+      - run: cd backend && npm test
+      - run: cd backend && npm run lint
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: cd frontend && npm install
+      - run: cd frontend && npm run lint
+      - run: cd frontend && npm run build
+
+  deploy-backend:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Render
+        uses: JorgeLNJunior/render-deploy@v1.5.0
+        with:
+          service_id: ${{ secrets.RENDER_SERVICE_ID }}
+          api_key: ${{ secrets.RENDER_API_KEY }}
+          wait_deploy: true
+
+  deploy-frontend:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      - name: Build Frontend
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

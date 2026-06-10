@@ -10,6 +10,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",
     "@clerk/clerk-sdk-node": "^5.0.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "africastalking": "^0.7.0",
     "axios": "^1.7.2",
     "bcryptjs": "^2.4.3",
@@ -26,7 +28,8 @@
     "multer": "^2.1.1",
     "open-location-code": "^1.0.3",
     "pdfkit": "^0.19.0",
-    "resend": "^3.5.0"
+    "resend": "^3.5.0",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
