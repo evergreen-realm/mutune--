@@ -32,13 +32,38 @@ jobs:
     needs: [test-backend, test-frontend]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Deploy to Render
-        uses: JorgeLNJunior/render-deploy@v1.5.0
-        with:
-          service_id: ${{ secrets.RENDER_SERVICE_ID }}
-          api_key: ${{ secrets.RENDER_API_KEY }}
-          wait_deploy: true
+      - name: Trigger and Poll Render Deploy
+        run: |
+          response=$(curl -s -f -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys)
+          
+          deploy_id=$(echo "$response" | jq -r '.id')
+          echo "Triggered deploy ID: $deploy_id"
+          
+          if [ "$deploy_id" = "null" ] || [ -z "$deploy_id" ]; then
+            echo "Error: Failed to trigger deploy. Response: $response"
+            exit 1
+          fi
+          
+          while true; do
+            status_response=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+              https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys/$deploy_id)
+            
+            status=$(echo "$status_response" | jq -r '.status')
+            echo "Deploy status: $status"
+            
+            if [ "$status" = "live" ]; then
+              echo "Deployment succeeded!"
+              break
+            elif [ "$status" = "deactivated" ] || [ "$status" = "build_failed" ] || [ "$status" = "update_failed" ] || [ "$status" = "canceled" ]; then
+              echo "Deployment failed with status: $status"
+              exit 1
+            fi
+            
+            sleep 15
+          done
 
   deploy-frontend:
     needs: [test-backend, test-frontend]
@@ -60,13 +85,13 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       # Build locally — uses committed frontend/.env.production for VITE_* vars
       - name: Build with Vercel
-        run: cd frontend && vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: cd frontend && vercel build --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       # Deploy prebuilt output — no remote build, no dashboard env var override
       - name: Deploy prebuilt to Vercel
-        run: cd frontend && vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: cd frontend && vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
