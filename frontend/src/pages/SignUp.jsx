@@ -1,8 +1,8 @@
 import React from 'react';
-import { SignIn } from '@clerk/clerk-react';
+import { SignUp } from '@clerk/clerk-react';
 import { Building2 } from 'lucide-react';
 
-export default function Login() {
+export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       {/* Background accent */}
@@ -18,13 +18,13 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">MutuneRent</h1>
           <p className="text-green-400 text-xs font-bold uppercase tracking-widest mt-0.5">PRO · MOMBASA</p>
-          <p className="text-slate-400 mt-2 text-xs">Property Management System · Powered by Clerk</p>
+          <p className="text-slate-400 mt-2 text-xs">Create an Account to get started</p>
         </div>
         
-        <SignIn 
+        <SignUp 
           routing="path" 
-          path="/login"
-          signUpUrl="/sign-up"
+          path="/sign-up"
+          signInUrl="/login"
           fallbackRedirectUrl="/"
           appearance={{
             elements: {

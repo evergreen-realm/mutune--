@@ -20,6 +20,8 @@ import AddProperty   from './pages/AddProperty';
 import AdminDashboard from './pages/AdminDashboard';
 import TenantPortal  from './pages/TenantPortal';
 import Notices       from './pages/Notices';
+import Login         from './pages/Login';
+import SignUp        from './pages/SignUp';
 
 // Components
 import PropertyList  from './components/PropertyList';
@@ -289,10 +291,12 @@ export default function App() {
   }
 
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} signInUrl="/login" signUpUrl="/sign-up">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
+            <Route path="/login/*" element={<Login />} />
+            <Route path="/sign-up/*" element={<SignUp />} />
             <Route path="/*" element={
               <>
                 <SignedIn>

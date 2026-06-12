@@ -8,6 +8,7 @@
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "/frontend/dist/$1" }
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
