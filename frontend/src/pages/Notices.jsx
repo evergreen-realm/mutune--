@@ -137,7 +137,7 @@ export default function Notices({ user }) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Notice Type</label>
+              <label htmlFor="notice-type-select" className="block text-xs font-medium text-gray-600 mb-1">Notice Type</label>
               <select
                 id="notice-type-select"
                 value={form.notice_type}
@@ -150,7 +150,7 @@ export default function Notices({ user }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Effective Date</label>
+              <label htmlFor="notice-effective-date" className="block text-xs font-medium text-gray-600 mb-1">Effective Date</label>
               <input
                 id="notice-effective-date"
                 type="date"
@@ -164,7 +164,7 @@ export default function Notices({ user }) {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Property ID</label>
+              <label htmlFor="notice-property-id" className="block text-xs font-medium text-gray-600 mb-1">Property ID</label>
               <input
                 id="notice-property-id"
                 value={form.property_id}
@@ -175,7 +175,7 @@ export default function Notices({ user }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Unit ID</label>
+              <label htmlFor="notice-unit-id" className="block text-xs font-medium text-gray-600 mb-1">Unit ID</label>
               <input
                 id="notice-unit-id"
                 value={form.unit_id}
@@ -186,7 +186,7 @@ export default function Notices({ user }) {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Tenant ID</label>
+              <label htmlFor="notice-tenant-id" className="block text-xs font-medium text-gray-600 mb-1">Tenant ID</label>
               <input
                 id="notice-tenant-id"
                 value={form.tenant_id}
@@ -199,7 +199,7 @@ export default function Notices({ user }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Notice Title</label>
+            <label htmlFor="notice-title" className="block text-xs font-medium text-gray-600 mb-1">Notice Title</label>
             <input
               id="notice-title"
               value={form.title}
@@ -212,7 +212,7 @@ export default function Notices({ user }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Notice Body</label>
+            <label htmlFor="notice-body" className="block text-xs font-medium text-gray-600 mb-1">Notice Body</label>
             <textarea
               id="notice-body"
               value={form.body}
@@ -226,7 +226,7 @@ export default function Notices({ user }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Legal Basis (optional)</label>
+            <label htmlFor="notice-legal-basis" className="block text-xs font-medium text-gray-600 mb-1">Legal Basis (optional)</label>
             <input
               id="notice-legal-basis"
               value={form.legal_basis}
