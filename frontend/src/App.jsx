@@ -3,11 +3,17 @@ import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useAuthStore } from './store/authStore';
+import {
+  ClerkProvider,
+  SignedIn,
+  SignedOut,
+  RedirectToSignIn,
+  useUser,
+  useClerk
+} from '@clerk/clerk-react';
 
 // Pages
 import Dashboard     from './pages/Dashboard';
-import Login         from './pages/Login';
 import Tenants       from './pages/Tenants';
 import Payments      from './pages/Payments';
 import AddProperty   from './pages/AddProperty';
@@ -26,79 +32,56 @@ import {
   Menu, X, Bell, Settings, LogOut, MapPin, FileText
 } from 'lucide-react';
 
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 30000, retry: 1, refetchOnWindowFocus: false }
   }
 });
 
-function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuthStore();
-  return isAuthenticated() ? children : <Navigate to="/login" replace />;
-}
-
 function AppShell() {
-  const { user, logout, isAuthenticated } = useAuthStore();
+  const { user: clerkUser, isLoaded } = useUser();
+  const { signOut } = useClerk();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const location = useLocation();
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
-  if (!isAuthenticated()) return null;
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center animate-pulse">
+            <Building2 size={20} className="text-white" />
+          </div>
+          <p className="text-sm text-gray-400 font-medium">Loading MutuneRent Pro…</p>
+        </div>
+      </div>
+    );
+  }
 
-  const isAdmin  = ['admin', 'super_admin'].includes(user?.role);
-  const isTenant = user?.role === 'tenant';
-  const isAgent  = user?.role === 'agent';
+  // Derive role from Clerk public metadata (set via Clerk dashboard or /users/sync-clerk)
+  const role = clerkUser?.publicMetadata?.role || 'landlord';
+  const fullName = clerkUser?.fullName || clerkUser?.username || 'Property Owner';
+  const user = { role, full_name: fullName };
 
-  // ── Nav definition ────────────────────────────────────────────────────────
+  const isAdmin  = ['admin', 'super_admin'].includes(role);
+  const isTenant = role === 'tenant';
+  const isAgent  = role === 'agent';
+
   const navItems = [
-    // Everyone sees Dashboard
-    {
-      path: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} />,
-      show: true
-    },
-    // Admin-only analytics
-    {
-      path: '/admin', label: 'Analytics', icon: <BarChart3 size={18} />,
-      show: isAdmin
-    },
-    // Properties — admin + agent
-    {
-      path: '/properties', label: 'Properties', icon: <Building2 size={18} />,
-      show: !isTenant
-    },
-    // Add Property — admin + agent
-    {
-      path: '/properties/add', label: 'Add Property', icon: <PlusCircle size={18} />,
-      show: isAdmin || isAgent
-    },
-    // Tenants — admin + agent
-    {
-      path: '/tenants', label: 'Tenants', icon: <Users2 size={18} />,
-      show: !isTenant
-    },
-    // Payments — admin + agent + accountant + landlord
-    {
-      path: '/payments', label: 'Rent Payments', icon: <WalletCards size={18} />,
-      show: !isTenant
-    },
-    // Tenant portal — tenant only
-    {
-      path: '/tenant', label: 'My Portal', icon: <Home size={18} />,
-      show: isTenant
-    },
-    // Maintenance — coming Phase 3 full board (placeholder, now tenant-only via portal)
-    {
-      path: '/maintenance', label: 'Maintenance', icon: <Wrench size={18} />,
-      show: isAdmin, disabled: true, badge: 'Phase 3'
-    },
-    // Notices — Phase 3: admin + agent + tenant
-    {
-      path: '/notices', label: 'Notices', icon: <FileText size={18} />,
-      show: isAdmin || isAgent || isTenant
-    }
-  ].filter((item) => item.show);
+    { path: '/',               label: 'Dashboard',   icon: <LayoutDashboard size={18} />, show: true },
+    { path: '/admin',          label: 'Analytics',   icon: <BarChart3 size={18} />,        show: isAdmin },
+    { path: '/properties',     label: 'Properties',  icon: <Building2 size={18} />,        show: !isTenant },
+    { path: '/properties/add', label: 'Add Property',icon: <PlusCircle size={18} />,       show: isAdmin || isAgent },
+    { path: '/tenants',        label: 'Tenants',     icon: <Users2 size={18} />,           show: !isTenant },
+    { path: '/payments',       label: 'Rent Payments',icon: <WalletCards size={18} />,     show: !isTenant },
+    { path: '/tenant',         label: 'My Portal',   icon: <Home size={18} />,             show: isTenant },
+    { path: '/maintenance',    label: 'Maintenance', icon: <Wrench size={18} />,           show: isAdmin, disabled: true, badge: 'Soon' },
+    { path: '/notices',        label: 'Notices',     icon: <FileText size={18} />,         show: isAdmin || isAgent || isTenant }
+  ].filter(item => item.show);
 
   const Sidebar = () => (
     <aside
@@ -125,7 +108,7 @@ function AppShell() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {navItems.map((item) => {
           if (item.disabled) {
             return (
@@ -174,19 +157,19 @@ function AppShell() {
       <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex-shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-green-500 border border-slate-700 uppercase flex-shrink-0 text-sm">
-            {user?.full_name?.charAt(0) ?? 'A'}
+            {fullName.charAt(0)}
           </div>
           {sidebarOpen && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold truncate text-slate-100">{user?.full_name ?? 'Agent Account'}</p>
-              <p className="text-[10px] text-slate-400 truncate capitalize">{user?.role}</p>
+              <p className="text-xs font-bold truncate text-slate-100">{fullName}</p>
+              <p className="text-[10px] text-slate-400 truncate capitalize">{role}</p>
             </div>
           )}
         </div>
         {sidebarOpen && (
           <button
             id="logout-btn"
-            onClick={logout}
+            onClick={() => signOut()}
             className="mt-3 flex w-full items-center justify-center gap-2 px-3 py-1.5 border border-slate-800 hover:border-red-900 rounded-lg text-[10px] font-bold text-slate-400 hover:text-red-400 transition-colors uppercase tracking-wider"
           >
             <LogOut size={12} /> Log Out
@@ -273,26 +256,19 @@ function AppShell() {
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 page-enter">
           <Routes>
-            {/* Core */}
-            <Route path="/"            element={<Dashboard />} />
-            <Route path="/properties"  element={<ProtectedRoute><PropertyList /></ProtectedRoute>} />
-            <Route path="/properties/add" element={<ProtectedRoute><AddProperty /></ProtectedRoute>} />
-            <Route path="/tenants"     element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
-            <Route path="/payments"    element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-
-            {/* Phase 2 */}
-            <Route path="/admin"       element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/tenant"      element={<ProtectedRoute><TenantPortal /></ProtectedRoute>} />
-
-            {/* Phase 3 */}
-            <Route path="/notices"     element={<ProtectedRoute><Notices user={user} /></ProtectedRoute>} />
-
-            {/* Fallback */}
-            <Route path="*"            element={<Navigate to="/" replace />} />
+            <Route path="/"               element={<Dashboard />} />
+            <Route path="/properties"     element={<PropertyList />} />
+            <Route path="/properties/add" element={<AddProperty />} />
+            <Route path="/tenants"        element={<Tenants />} />
+            <Route path="/payments"       element={<Payments />} />
+            <Route path="/admin"          element={<AdminDashboard />} />
+            <Route path="/tenant"         element={<TenantPortal />} />
+            <Route path="/notices"        element={<Notices user={user} />} />
+            <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
         </main>
 
-        {/* AI Chat Assistant — persistent across all pages */}
+        {/* AI Chat Assistant */}
         <ChatAssistant user={user} />
       </div>
     </div>
@@ -300,32 +276,47 @@ function AppShell() {
 }
 
 export default function App() {
-  const { isAuthenticated } = useAuthStore();
+  if (!PUBLISHABLE_KEY) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+        <div className="text-center p-8">
+          <div className="text-red-400 text-lg font-bold mb-2">Configuration Error</div>
+          <p className="text-slate-400 text-sm">VITE_CLERK_PUBLISHABLE_KEY is not set.</p>
+          <p className="text-slate-500 text-xs mt-2">Set it in your Vercel environment variables.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={
-            isAuthenticated() ? <Navigate to="/" replace /> : <Login />
-          } />
-          <Route path="/*" element={
-            isAuthenticated() ? <AppShell /> : <Navigate to="/login" replace />
-          } />
-        </Routes>
-      </BrowserRouter>
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/*" element={
+              <>
+                <SignedIn>
+                  <AppShell />
+                </SignedIn>
+                <SignedOut>
+                  <RedirectToSignIn />
+                </SignedOut>
+              </>
+            } />
+          </Routes>
+        </BrowserRouter>
 
-      {/* Global toast container — positioned top-right, slim design */}
-      <ToastContainer
-        position="top-right"
-        autoClose={4000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        pauseOnHover
-        theme="light"
-        toastClassName="text-sm font-medium shadow-lg rounded-xl"
-      />
-    </QueryClientProvider>
+        <ToastContainer
+          position="top-right"
+          autoClose={4000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          pauseOnHover
+          theme="light"
+          toastClassName="text-sm font-medium shadow-lg rounded-xl"
+        />
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }

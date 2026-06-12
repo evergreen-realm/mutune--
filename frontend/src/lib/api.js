@@ -1,20 +1,40 @@
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
+  baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 15000
+  timeout: 30000
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('clerk_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// Request interceptor: attach Clerk session JWT
+api.interceptors.request.use(
+  async (config) => {
+    try {
+      // window.Clerk is set by @clerk/clerk-react ClerkProvider
+      const clerk = window.Clerk;
+      if (clerk?.session) {
+        const token = await clerk.session.getToken();
+        if (token) config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (_) {
+      // No session available — request goes unauthenticated (backend returns 401)
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
+// Response interceptor: unwrap data, handle common errors
 api.interceptors.response.use(
   (res) => res.data,
-  (err) => Promise.reject(err.response?.data || { error: { message: err.message } })
+  (err) => {
+    if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
+      return Promise.reject({ error: { code: 'NETWORK_ERROR', message: 'Cannot reach the API server. Check your connection.' } });
+    }
+    return Promise.reject(err.response?.data || { error: { message: err.message } });
+  }
 );
 
 // ── Properties ────────────────────────────────────────────────────────────────

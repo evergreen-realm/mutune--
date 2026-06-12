@@ -10,67 +10,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export default function Dashboard() {
   const { data, isLoading, error } = useQuery({ 
     queryKey: ['properties'], 
-    queryFn: fetchProperties,
-    // Provide fallback mock data if the backend server isn't actively running in this sandboxed UI
-    initialData: {
-      success: true,
-      data: [
-        {
-          _id: "prop1",
-          property_code: "MUT-NYA-001",
-          name: "Nyali Heights Apartments",
-          type: "apartment",
-          address: { street: "Links Rd", area: "Nyali", city: "Mombasa" },
-          location: { type: "Point", coordinates: [39.7126, -4.0298] },
-          units: [
-            { unit_number: "A1", rent_kes: 35000, status: "occupied" },
-            { unit_number: "A2", rent_kes: 35000, status: "occupied" },
-            { unit_number: "A3", rent_kes: 40000, status: "occupied" },
-            { unit_number: "A4", rent_kes: 40000, status: "vacant" }
-          ]
-        },
-        {
-          _id: "prop2",
-          property_code: "MUT-TUD-002",
-          name: "Tudor Breeze Suites",
-          type: "mixed_use",
-          address: { street: "Tudor Road", area: "Tudor", city: "Mombasa" },
-          location: { type: "Point", coordinates: [39.6612, -4.0415] },
-          units: [
-            { unit_number: "B1", rent_kes: 55000, status: "occupied" },
-            { unit_number: "B2", rent_kes: 60000, status: "occupied" },
-            { unit_number: "B3", rent_kes: 60000, status: "vacant" }
-          ]
-        },
-        {
-          _id: "prop3",
-          property_code: "MUT-BAM-003",
-          name: "Bamburi Palms Estate",
-          type: "single_family",
-          address: { street: "Mount Kenya Rd", area: "Bamburi", city: "Mombasa" },
-          location: { type: "Point", coordinates: [39.7299, -4.0088] },
-          units: [
-            { unit_number: "C1", rent_kes: 25000, status: "occupied" },
-            { unit_number: "C2", rent_kes: 25000, status: "occupied" },
-            { unit_number: "C3", rent_kes: 25000, status: "occupied" },
-            { unit_number: "C4", rent_kes: 28000, status: "occupied" },
-            { unit_number: "C5", rent_kes: 28000, status: "vacant" }
-          ]
-        },
-        {
-          _id: "prop4",
-          property_code: "MUT-MTW-004",
-          name: "Mtwapa Marina Residency",
-          type: "commercial",
-          address: { street: "Mombasa-Malindi Hwy", area: "Mtwapa", city: "Mombasa" },
-          location: { type: "Point", coordinates: [39.7423, -3.9439] },
-          units: [
-            { unit_number: "D1", rent_kes: 85000, status: "occupied" },
-            { unit_number: "D2", rent_kes: 90000, status: "occupied" }
-          ]
-        }
-      ]
-    }
+    queryFn: fetchProperties
   });
 
   const properties = data?.data || [];

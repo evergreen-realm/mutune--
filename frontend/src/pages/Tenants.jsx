@@ -25,65 +25,9 @@ export default function Tenants() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['tenants', search, statusFilter],
-    queryFn: () => fetchTenants({ search, status: statusFilter || undefined }),
-    initialData: {
-      success: true,
-      data: [
-        {
-          _id: 'tn1',
-          tenant_code: 'TNT-MOM-0001',
-          full_name: 'Amina Wanjiku',
-          phone: '254712345678',
-          email: 'amina.w@email.com',
-          id_number: '28745678',
-          rent_amount_kes: 35000,
-          tenancy_status: 'active',
-          lease_start: '2025-01-01T00:00:00.000Z',
-          lease_end: '2026-12-31T00:00:00.000Z',
-          current_property_id: { name: 'Nyali Heights Apartments', property_code: 'MUT-NYA-001' },
-          current_unit_id: 'unit_a1',
-          payment_history: [
-            { month: '2026-05', amount_kes: 35000, status: 'paid' },
-            { month: '2026-04', amount_kes: 35000, status: 'paid' }
-          ]
-        },
-        {
-          _id: 'tn2',
-          tenant_code: 'TNT-MOM-0002',
-          full_name: 'Brian Otieno',
-          phone: '254723456789',
-          email: 'b.otieno@email.com',
-          id_number: '39856789',
-          rent_amount_kes: 55000,
-          tenancy_status: 'active',
-          lease_start: '2024-06-01T00:00:00.000Z',
-          lease_end: '2025-05-31T00:00:00.000Z',
-          current_property_id: { name: 'Tudor Breeze Suites', property_code: 'MUT-TUD-002' },
-          current_unit_id: 'unit_b1',
-          payment_history: [
-            { month: '2026-05', amount_kes: 55000, status: 'paid' },
-            { month: '2026-04', amount_kes: 55000, status: 'late' }
-          ]
-        },
-        {
-          _id: 'tn3',
-          tenant_code: 'TNT-MOM-0003',
-          full_name: 'Fatuma Hassan',
-          phone: '254734567890',
-          email: 'fatuma.h@email.com',
-          id_number: '45123456',
-          rent_amount_kes: 25000,
-          tenancy_status: 'notice',
-          lease_start: '2023-03-01T00:00:00.000Z',
-          lease_end: '2026-07-31T00:00:00.000Z',
-          current_property_id: { name: 'Bamburi Palms Estate', property_code: 'MUT-BAM-003' },
-          current_unit_id: 'unit_c3',
-          payment_history: [{ month: '2026-05', amount_kes: 25000, status: 'paid' }]
-        }
-      ],
-      pagination: { total: 3, pages: 1 }
-    }
+    queryFn: () => fetchTenants({ search, status: statusFilter || undefined })
   });
+
 
   const terminateMutation = useMutation({
     mutationFn: ({ id, data }) => terminateTenancy(id, data),

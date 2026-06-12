@@ -23,10 +23,31 @@ app.use(helmet({
   }
 }));
 
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://mutunerent-web.vercel.app',
+  'https://mutunerent-web-mishael-s-alpha.vercel.app',
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Render health checks)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    logger.warn('CORS blocked origin', { origin });
+    callback(new Error('Not allowed by CORS: ' + origin));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Explicitly handle OPTIONS preflight for all routes
+app.options('*', cors());
 
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,

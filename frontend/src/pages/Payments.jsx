@@ -24,51 +24,15 @@ const CHANNEL_LABELS = {
   diaspora_wire: 'Diaspora Wire'
 };
 
-const MOCK_PAYMENTS = [
-  {
-    _id: 'pmt1', transaction_id: 'QKJ7MOM001', mpesa_receipt: 'QKJ7MOM001',
-    amount_kes: 35000, status: 'confirmed', payment_type: 'rent', channel: 'mpesa_stk',
-    workflow_state: 'PAYMENT_CONFIRMED', discrepancy_flag: false,
-    verification_method: 'auto_mpesa', created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-    tenant_id: { full_name: 'Amina Wanjiku', phone: '254712345678', tenant_code: 'TNT-MOM-0001' },
-    property_id: { name: 'Nyali Heights', property_code: 'MUT-NYA-001' }
-  },
-  {
-    _id: 'pmt2', transaction_id: 'ws_CO_TB002', mpesa_receipt: null,
-    amount_kes: 55000, status: 'pending', payment_type: 'rent', channel: 'mpesa_stk',
-    workflow_state: 'PENDING_VIEWING', discrepancy_flag: false,
-    verification_method: null, created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-    tenant_id: { full_name: 'Brian Otieno', phone: '254723456789', tenant_code: 'TNT-MOM-0002' },
-    property_id: { name: 'Tudor Breeze Suites', property_code: 'MUT-TUD-002' }
-  },
-  {
-    _id: 'pmt3', transaction_id: 'MUT-FAIL-003', mpesa_receipt: null,
-    amount_kes: 25000, status: 'failed', payment_type: 'rent', channel: 'mpesa_stk',
-    workflow_state: 'MANUAL_REVIEW', discrepancy_flag: true,
-    discrepancy_reason: 'Transaction cancelled by user',
-    verification_method: null, created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    tenant_id: { full_name: 'Fatuma Hassan', phone: '254734567890', tenant_code: 'TNT-MOM-0003' },
-    property_id: { name: 'Bamburi Palms Estate', property_code: 'MUT-BAM-003' }
-  },
-  {
-    _id: 'pmt4', transaction_id: 'QMT4MOM004', mpesa_receipt: 'QMT4MOM004',
-    amount_kes: 85000, status: 'confirmed', payment_type: 'rent', channel: 'mpesa_c2b',
-    workflow_state: 'PAYMENT_CONFIRMED', discrepancy_flag: false,
-    verification_method: 'auto_mpesa', created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-    tenant_id: { full_name: 'John Kamau', phone: '254745678901', tenant_code: 'TNT-MOM-0004' },
-    property_id: { name: 'Mtwapa Marina', property_code: 'MUT-MTW-004' }
-  }
-];
-
 export default function Payments() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['payments', search, statusFilter],
-    queryFn: () => fetchPayments({ search, status: statusFilter || undefined }),
-    initialData: { success: true, data: MOCK_PAYMENTS, pagination: { total: MOCK_PAYMENTS.length, pages: 1 } }
+    queryFn: () => fetchPayments({ search, status: statusFilter || undefined })
   });
+
 
   const payments = data?.data || [];
   const totalRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount_kes, 0);
