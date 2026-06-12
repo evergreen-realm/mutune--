@@ -34,15 +34,22 @@ jobs:
     steps:
       - name: Trigger and Poll Render Deploy
         run: |
-          response=$(curl -s -f -X POST \
+          response=$(curl -s -X POST \
             -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -w "\nHTTP_STATUS:%{http_code}" \
             https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys)
           
-          deploy_id=$(echo "$response" | jq -r '.id')
+          http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d':' -f2)
+          body=$(echo "$response" | grep -v "HTTP_STATUS:")
+          
+          echo "Render API Response Status: $http_status"
+          echo "Render API Response Body: $body"
+          
+          deploy_id=$(echo "$body" | jq -r '.id')
           echo "Triggered deploy ID: $deploy_id"
           
           if [ "$deploy_id" = "null" ] || [ -z "$deploy_id" ]; then
-            echo "Error: Failed to trigger deploy. Response: $response"
+            echo "Error: Failed to trigger deploy. Response: $body"
             exit 1
           fi
           
