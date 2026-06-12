@@ -291,7 +291,7 @@ export default function App() {
   }
 
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} signInUrl="/login" signUpUrl="/sign-up">
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} signInUrl="/login" signUpUrl="/sign-up" afterSignOutUrl="/">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>

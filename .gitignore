@@ -15,7 +15,7 @@ coverage/
 .env.*.local
 .env.development
 .env.test
-.env.production
+# .env.production (committed intentionally for Vite build-time inject)
 
 # Secrets
 docs/ACCOUNT_SETUP.md
