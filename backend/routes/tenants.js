@@ -4,6 +4,7 @@ const { body, param, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission, requireRole } = require('../middleware/rbac');
 const Tenant = require('../models/Tenant');
+const User   = require('../models/User');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
 
@@ -120,7 +121,8 @@ router.post('/',
     body('current_unit_id').notEmpty().withMessage('Unit ID required'),
     body('rent_amount_kes').isInt({ min: 1 }).withMessage('Rent must be a positive integer'),
     body('lease_start').isISO8601().withMessage('Valid lease start date required'),
-    body('lease_end').isISO8601().withMessage('Valid lease end date required')
+    body('lease_end').isISO8601().withMessage('Valid lease end date required'),
+    body('user_id').optional().isMongoId().withMessage('user_id must be a valid Mongo ID')
   ],
   async (req, res, next) => {
     try {
@@ -148,15 +150,54 @@ router.post('/',
         return res.status(409).json({ success: false, error: { code: 'DUPLICATE', message: 'Tenant with this ID number already exists' } });
       }
 
+      // If user_id provided, validate user exists and has tenant role
+      if (req.body.user_id) {
+        const linkedUser = await User.findById(req.body.user_id).lean();
+        if (!linkedUser) {
+          return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Linked user not found' } });
+        }
+        // Check not already linked
+        const alreadyLinked = await Tenant.findOne({ user_id: req.body.user_id });
+        if (alreadyLinked) {
+          return res.status(409).json({ success: false, error: { code: 'DUPLICATE', message: 'This user is already linked to a tenant record' } });
+        }
+      }
+
       // Auto-generate tenant code
       const count = await Tenant.countDocuments();
       const tenantCode = `TNT-MOM-${String(count + 1).padStart(4, '0')}`;
 
-      const tenant = await Tenant.create({
+      const createPayload = {
         ...req.body,
         tenant_code: tenantCode,
         tenancy_status: 'active'
-      });
+      };
+      if (!req.body.user_id) delete createPayload.user_id;
+
+      const tenant = await Tenant.create(createPayload);
+
+      // If user_id provided, update that user's role to 'tenant' and link property
+      if (req.body.user_id) {
+        await User.findByIdAndUpdate(req.body.user_id, {
+          $set: {
+            role: 'tenant',
+            current_property_id: req.body.current_property_id,
+            current_unit_id: req.body.current_unit_id
+          }
+        });
+        // Attempt to update Clerk metadata
+        try {
+          const linkedUser = await User.findById(req.body.user_id).lean();
+          if (linkedUser?.clerk_id) {
+            const { clerkClient } = require('@clerk/clerk-sdk-node');
+            await clerkClient.users.updateUserMetadata(linkedUser.clerk_id, {
+              publicMetadata: { role: 'tenant' }
+            });
+          }
+        } catch (clerkErr) {
+          logger.warn('Could not update Clerk metadata for linked tenant', { message: clerkErr.message });
+        }
+      }
 
       // Mark unit as occupied
       await Property.updateOne(
@@ -166,6 +207,68 @@ router.post('/',
 
       logger.info('Tenant created', { tenantId: tenant._id, tenantCode, by: req.user._id });
       res.status(201).json({ success: true, data: tenant });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── POST /tenants/:id/link-user ─────────────────────────────────────────────
+// Link an existing Clerk-registered User to a Tenant record (admin only)
+router.post('/:id/link-user',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid tenant ID'),
+    body('user_id').isMongoId().withMessage('Valid user_id required')
+  ],
+  async (req, res, next) => {
+    try {
+      if (!validate(req, res)) return;
+
+      const tenant = await Tenant.findById(req.params.id);
+      if (!tenant) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Tenant not found' } });
+      }
+
+      const user = await User.findById(req.body.user_id).lean();
+      if (!user) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+      }
+
+      // Prevent double-linking
+      const alreadyLinked = await Tenant.findOne({ user_id: req.body.user_id, _id: { $ne: tenant._id } });
+      if (alreadyLinked) {
+        return res.status(409).json({ success: false, error: { code: 'DUPLICATE', message: 'User is already linked to another tenant record' } });
+      }
+
+      tenant.user_id = req.body.user_id;
+      await tenant.save();
+
+      // Update the user role + property assignment
+      await User.findByIdAndUpdate(req.body.user_id, {
+        $set: {
+          role: 'tenant',
+          current_property_id: tenant.current_property_id,
+          current_unit_id: tenant.current_unit_id
+        }
+      });
+
+      // Update Clerk metadata
+      try {
+        if (user.clerk_id) {
+          const { clerkClient } = require('@clerk/clerk-sdk-node');
+          await clerkClient.users.updateUserMetadata(user.clerk_id, {
+            publicMetadata: { role: 'tenant' }
+          });
+          logger.info('Clerk metadata updated for linked tenant', { clerkId: user.clerk_id });
+        }
+      } catch (clerkErr) {
+        logger.warn('Could not update Clerk metadata for linked tenant', { message: clerkErr.message });
+      }
+
+      logger.info('User linked to tenant', { tenantId: tenant._id, userId: req.body.user_id, by: req.user._id });
+      res.json({ success: true, message: 'User successfully linked to tenant', data: tenant });
     } catch (error) {
       next(error);
     }

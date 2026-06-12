@@ -254,8 +254,8 @@ router.post('/sync-clerk',
         email,
         full_name: full_name || email,
         phone: phone || '254700000000',
-        user_code: `USR-AGT-${String(count + 1).padStart(4, '0')}`,
-        role: 'agent',
+        user_code: `USR-NEW-${String(count + 1).padStart(4, '0')}`,
+        role: 'agent',  // Temporary — onboarding will call PATCH /users/me/role
         is_active: true
       });
 

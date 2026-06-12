@@ -61,6 +61,7 @@ export const createTenant             = (data)        => api.post('/tenants', da
 export const updateTenant             = (id, data)    => api.patch(`/tenants/${id}`, data);
 export const terminateTenancy         = (id, data)    => api.post(`/tenants/${id}/terminate`, data);
 export const fetchTenantPaymentHistory = (id)         => api.get(`/tenants/${id}/payment-history`);
+export const linkTenantUser            = (id, userId)  => api.post(`/tenants/${id}/link-user`, { user_id: userId });
 
 // Phase 2: Tenant portal self-service
 export const fetchMyPayments = () => api.get('/tenants/my/payments');

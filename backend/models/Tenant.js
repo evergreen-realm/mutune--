@@ -15,6 +15,7 @@ const kycDocumentSchema = new mongoose.Schema({
 
 const tenantSchema = new mongoose.Schema({
   tenant_code: { type: String, unique: true, required: true },
+  user_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', sparse: true },
   full_name: { type: String, required: true },
   id_number: { type: String, required: true },
   phone: { type: String, required: true },
@@ -52,6 +53,7 @@ const tenantSchema = new mongoose.Schema({
 // Single index declarations — no duplicates
 tenantSchema.index({ phone: 1 });
 tenantSchema.index({ id_number: 1 });
+tenantSchema.index({ user_id: 1 }, { sparse: true });
 tenantSchema.index({ current_unit_id: 1 });
 tenantSchema.index({ current_property_id: 1 });
 tenantSchema.index({ tenancy_status: 1 });
