@@ -51,8 +51,21 @@ jobs:
         run: npm install --global vercel@latest
       - name: Install frontend deps
         run: cd frontend && npm install --legacy-peer-deps
-      - name: Deploy to Vercel
-        run: cd frontend && vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+      # Pull Vercel project settings (does NOT overwrite .env.production)
+      - name: Pull Vercel project settings
+        run: cd frontend && vercel pull --yes --environment production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # Build locally — uses committed frontend/.env.production for VITE_* vars
+      - name: Build with Vercel
+        run: cd frontend && vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # Deploy prebuilt output — no remote build, no dashboard env var override
+      - name: Deploy prebuilt to Vercel
+        run: cd frontend && vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
