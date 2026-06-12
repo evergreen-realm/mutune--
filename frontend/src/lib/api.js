@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -113,7 +113,7 @@ export const downloadKRAReport = async (month) => {
   } catch (err) {
     console.warn('Failed to resolve Clerk token for KRA report download:', err.message);
   }
-  const base   = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+  const base   = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
   const url    = `${base}/reports/kra?month=${month}`;
 
   const response = await fetch(url, {

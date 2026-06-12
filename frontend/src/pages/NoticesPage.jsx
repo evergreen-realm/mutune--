@@ -80,7 +80,7 @@ export default function NoticesPage({ user }) {
 
   const handleDownload = async (noticeId, title = 'Notice') => {
     try {
-      const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+      const base = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
       let token = null;
       try {
         const clerk = window.Clerk;

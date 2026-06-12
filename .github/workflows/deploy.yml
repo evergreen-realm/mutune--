@@ -110,6 +110,8 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_API_URL: https://mutunerent-api.onrender.com/api/v1
+          VITE_CLERK_PUBLISHABLE_KEY: pk_test_Y29zbWljLWtvYWxhLTgwLmNsZXJrLmFjY291bnRzLmRldiQ
       # Deploy prebuilt output — no remote build, no dashboard env var override
       - name: Deploy prebuilt to Vercel
         run: cd frontend && vercel deploy --prebuilt --prod --yes --no-wait --token=${{ secrets.VERCEL_TOKEN }}
