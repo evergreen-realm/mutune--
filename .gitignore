@@ -45,3 +45,9 @@ coverage/
 
 # Vercel
 .vercel/
+
+# Debug / scratch files
+scratch/
+bundle.js
+bundle_new.js
+frontend_job_log*.txt
