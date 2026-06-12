@@ -31,4 +31,19 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-module.exports = { requireAuth };
+const verifyClerkToken = async (req, res, next) => {
+  try {
+    await ClerkExpressRequireAuth()(req, res, async (err) => {
+      if (err) {
+        logger.warn('Clerk token verification failed', { message: err.message });
+        return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+      }
+      next();
+    });
+  } catch (error) {
+    logger.error('Token verification middleware error', { message: error.message, stack: error.stack });
+    return res.status(401).json({ success: false, error: { code: 'AUTH_ERROR', message: error.message } });
+  }
+};
+
+module.exports = { requireAuth, verifyClerkToken };

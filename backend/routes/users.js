@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, param, validationResult } = require('express-validator');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, verifyClerkToken } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const User = require('../models/User');
 const logger = require('../utils/logger');
@@ -176,10 +176,11 @@ router.post('/:id/deactivate',
 // ─── POST /users/sync-clerk ───────────────────────────────────────────────────
 // Called after Clerk webhook to upsert user record
 router.post('/sync-clerk',
-  requireAuth,
+  verifyClerkToken,
   async (req, res, next) => {
     try {
-      const { clerk_id, email, full_name, phone } = req.body;
+      const clerk_id = req.auth?.userId;
+      const { email, full_name, phone } = req.body;
       if (!clerk_id) {
         return res.status(400).json({ success: false, error: { code: 'MISSING_CLERK_ID', message: 'clerk_id required' } });
       }

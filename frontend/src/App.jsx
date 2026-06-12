@@ -26,6 +26,7 @@ import SignUpPage        from './pages/SignUpPage';
 // Components
 import PropertyList  from './components/PropertyList';
 import ChatAssistant from './components/ChatAssistant';
+import { syncClerk } from './lib/api';
 
 // Icons
 import {
@@ -47,18 +48,46 @@ function AppShell() {
   const { signOut } = useClerk();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [isSynced,    setIsSynced]    = useState(false);
   const location = useLocation();
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
-  if (!isLoaded) {
+  useEffect(() => {
+    if (isLoaded && clerkUser) {
+      const syncUser = async () => {
+        try {
+          const email = clerkUser.primaryEmailAddress?.emailAddress;
+          const phone = clerkUser.primaryPhoneNumber?.phoneNumber || '254700000000';
+          let cleanPhone = phone.replace('+', '');
+          if (!cleanPhone.startsWith('254')) cleanPhone = '254700000000';
+          
+          await syncClerk({
+            clerk_id: clerkUser.id,
+            email: email,
+            full_name: clerkUser.fullName || clerkUser.username || email,
+            phone: cleanPhone
+          });
+          setIsSynced(true);
+        } catch (err) {
+          console.error('Failed to sync user with backend:', err);
+          setIsSynced(true); // Fallback to avoid completely blocking the user in case of issues
+        }
+      };
+      syncUser();
+    } else if (isLoaded && !clerkUser) {
+      setIsSynced(true);
+    }
+  }, [isLoaded, clerkUser]);
+
+  if (!isLoaded || !isSynced) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center animate-pulse">
             <Building2 size={20} className="text-white" />
           </div>
-          <p className="text-sm text-gray-400 font-medium">Loading MutuneRent Pro…</p>
+          <p className="text-sm text-gray-400 font-medium">Verifying account synchronization...</p>
         </div>
       </div>
     );
