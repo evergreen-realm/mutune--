@@ -10,7 +10,7 @@ const MOMBASA_AREAS = [
   'Mvita', 'Mkomani', 'Shanzu', 'Kongowea', 'Mikindani', 'Port Reitz'
 ];
 
-export default function AddProperty() {
+export default function AddPropertyPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);

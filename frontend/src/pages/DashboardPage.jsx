@@ -7,7 +7,7 @@ import { StatCardSkeleton, TableSkeleton, MapSkeleton } from '../components/Skel
 import { Home, Users, DollarSign, ArrowUpRight, TrendingUp, Landmark } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const { data, isLoading, error } = useQuery({ 
     queryKey: ['properties'], 
     queryFn: fetchProperties

@@ -120,9 +120,14 @@ describe('Payment E2E Flow', () => {
       .send(callback);
     expect(res.status).toBe(200);
     expect(res.body.ResultCode).toBe(0);
-    await sleep(200);
+    // Poll database for up to 3 seconds until payment is processed asynchronously
+    let updated;
+    for (let i = 0; i < 30; i++) {
+      updated = await Payment.findById(payment._id);
+      if (updated && updated.status === 'confirmed') break;
+      await sleep(100);
+    }
 
-    const updated = await Payment.findById(payment._id);
     expect(updated.status).toBe('confirmed');
     expect(updated.workflow_state).toBe('PAYMENT_CONFIRMED');
     expect(updated.mpesa_receipt).toBe('QKJ7E2E123');
@@ -132,7 +137,12 @@ describe('Payment E2E Flow', () => {
     const prop = await Property.findById(property._id);
     expect(prop.units[0].lock_status).toBe('PAYMENT_CONFIRMED');
 
-    const ten = await Tenant.findById(tenant._id);
+    let ten;
+    for (let i = 0; i < 30; i++) {
+      ten = await Tenant.findById(tenant._id);
+      if (ten && ten.payment_history.length === 1) break;
+      await sleep(100);
+    }
     expect(ten.payment_history.length).toBe(1);
     expect(ten.payment_history[0].amount_kes).toBe(25000);
     expect(ten.payment_history[0].status).toBe('paid');

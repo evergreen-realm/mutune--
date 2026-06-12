@@ -27,7 +27,7 @@ const EMPTY_FORM = {
   legal_basis: ''
 };
 
-export default function Notices({ user }) {
+export default function NoticesPage({ user }) {
   const queryClient = useQueryClient();
   const { data: noticesData, isLoading } = useQuery({
     queryKey: ['notices'],

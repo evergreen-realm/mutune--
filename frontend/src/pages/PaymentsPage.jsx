@@ -24,7 +24,7 @@ const CHANNEL_LABELS = {
   diaspora_wire: 'Diaspora Wire'
 };
 
-export default function Payments() {
+export default function PaymentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { SignIn } from '@clerk/clerk-react';
 import { Building2 } from 'lucide-react';
 
-export default function Login() {
+export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       {/* Background accent */}

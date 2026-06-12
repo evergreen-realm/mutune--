@@ -68,7 +68,7 @@ function TabButton({ id, label, icon: Icon, active, onClick, badge }) {
   );
 }
 
-export default function TenantPortal() {
+export default function TenantPortalPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [mForm, setMForm] = useState({ category: 'plumbing', priority: 'medium', description: '' });
   const queryClient = useQueryClient();

@@ -13,15 +13,15 @@ import {
 } from '@clerk/clerk-react';
 
 // Pages
-import Dashboard     from './pages/Dashboard';
-import Tenants       from './pages/Tenants';
-import Payments      from './pages/Payments';
-import AddProperty   from './pages/AddProperty';
-import AdminDashboard from './pages/AdminDashboard';
-import TenantPortal  from './pages/TenantPortal';
-import Notices       from './pages/Notices';
-import Login         from './pages/Login';
-import SignUp        from './pages/SignUp';
+import DashboardPage     from './pages/DashboardPage';
+import TenantsPage       from './pages/TenantsPage';
+import PaymentsPage      from './pages/PaymentsPage';
+import AddPropertyPage   from './pages/AddPropertyPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import TenantPortalPage  from './pages/TenantPortalPage';
+import NoticesPage       from './pages/NoticesPage';
+import LoginPage         from './pages/LoginPage';
+import SignUpPage        from './pages/SignUpPage';
 
 // Components
 import PropertyList  from './components/PropertyList';
@@ -258,14 +258,14 @@ function AppShell() {
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 page-enter">
           <Routes>
-            <Route path="/"               element={<Dashboard />} />
+            <Route path="/"               element={<DashboardPage />} />
             <Route path="/properties"     element={<PropertyList />} />
-            <Route path="/properties/add" element={<AddProperty />} />
-            <Route path="/tenants"        element={<Tenants />} />
-            <Route path="/payments"       element={<Payments />} />
-            <Route path="/admin"          element={<AdminDashboard />} />
-            <Route path="/tenant"         element={<TenantPortal />} />
-            <Route path="/notices"        element={<Notices user={user} />} />
+            <Route path="/properties/add" element={<AddPropertyPage />} />
+            <Route path="/tenants"        element={<TenantsPage />} />
+            <Route path="/payments"       element={<PaymentsPage />} />
+            <Route path="/admin"          element={<AdminDashboardPage />} />
+            <Route path="/tenant"         element={<TenantPortalPage />} />
+            <Route path="/notices"        element={<NoticesPage user={user} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
         </main>
@@ -295,8 +295,8 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
-            <Route path="/login/*" element={<Login />} />
-            <Route path="/sign-up/*" element={<SignUp />} />
+            <Route path="/login/*" element={<LoginPage />} />
+            <Route path="/sign-up/*" element={<SignUpPage />} />
             <Route path="/*" element={
               <>
                 <SignedIn>

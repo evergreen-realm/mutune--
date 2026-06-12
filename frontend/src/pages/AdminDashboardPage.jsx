@@ -55,7 +55,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-export default function AdminDashboard() {
+export default function AdminDashboardPage() {
   const [kraMonth, setKraMonth] = useState(new Date().toISOString().slice(0, 7));
   const [downloading, setDownloading] = useState(false);
 

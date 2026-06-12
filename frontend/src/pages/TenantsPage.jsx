@@ -14,7 +14,7 @@ const STATUS_CONFIG = {
   pending:     { label: 'Pending',      color: 'text-blue-700 bg-blue-50 border-blue-200' }
 };
 
-export default function Tenants() {
+export default function TenantsPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
