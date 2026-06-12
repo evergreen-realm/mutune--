@@ -28,7 +28,7 @@ const inventoryItemSchema = new mongoose.Schema({
 }, { _id: true });
 
 const propertySchema = new mongoose.Schema({
-  property_code: { type: String, unique: true, required: true, index: true },
+  property_code: { type: String, unique: true, required: true },
   name: { type: String, required: true },
   type: { type: String, enum: ['apartment', 'single_family', 'commercial', 'mixed_use'], required: true },
   address: {
@@ -47,7 +47,7 @@ const propertySchema = new mongoose.Schema({
     coordinates: { type: [[[Number]]] }
   },
   units: [unitSchema],
-  landlord_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  landlord_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   agent_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   inventory: [inventoryItemSchema],
   amenities: [String],

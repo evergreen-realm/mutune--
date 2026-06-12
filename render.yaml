@@ -1,3 +1,4 @@
+version: "1"
 services:
   - type: web
     name: mutunerent-api
@@ -9,18 +10,60 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "10000"
+      # All secrets below use sync: false — Render will prompt for values during initial Blueprint creation
+      # After creation, update values via Render Dashboard → Environment
       - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
         sync: false
       - key: CLERK_SECRET_KEY
         sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_MAX_TOKENS
+        value: "1024"
+      - key: GROQ_TEMPERATURE
+        value: "0.3"
       - key: RESEND_API_KEY
         sync: false
+      - key: RESEND_FROM_EMAIL
+        value: onboarding@resend.dev
       - key: AFRICAS_TALKING_API_KEY
         sync: false
+      - key: AFRICAS_TALKING_USERNAME
+        value: sandbox
+      - key: AFRICAS_TALKING_SMS_FROM
+        value: MutuneRent
       - key: MPESA_CONSUMER_KEY
         sync: false
       - key: MPESA_CONSUMER_SECRET
         sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_SHORTCODE
+        value: "174379"
+      - key: MPESA_ENV
+        value: sandbox
+      - key: MPESA_CALLBACK_URL
+        sync: false
+      - key: CLOUDFLARE_R2_ENDPOINT
+        sync: false
+      - key: CLOUDFLARE_R2_ACCESS_KEY_ID
+        sync: false
+      - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: CLOUDFLARE_R2_BUCKET
+        value: mutune
+      - key: CLOUDFLARE_R2_PUBLIC_URL
+        sync: false
+      - key: FRONTEND_URL
+        value: https://mutunerent-web.vercel.app
     healthCheckPath: /api/v1/health

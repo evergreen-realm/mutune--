@@ -11,8 +11,7 @@ const noticeSchema = new mongoose.Schema({
   notice_type: {
     type: String,
     enum: ['rent_increase', 'maintenance', 'eviction', 'lease_renewal', 'entry_inspection', 'general'],
-    required: true,
-    index: true
+    required: true
   },
   property_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true, index: true },
   unit_id: { type: mongoose.Schema.Types.ObjectId, required: true },
