@@ -45,11 +45,21 @@ jobs:
           echo "Render API Response Status: $http_status"
           echo "Render API Response Body: $body"
           
-          deploy_id=$(echo "$body" | jq -r '.id')
-          echo "Triggered deploy ID: $deploy_id"
+          deploy_id=$(echo "$body" | jq -r '.id' 2>/dev/null || echo "null")
           
           if [ "$deploy_id" = "null" ] || [ -z "$deploy_id" ]; then
-            echo "Error: Failed to trigger deploy. Response: $body"
+            echo "Response did not contain deploy ID. Fetching latest deploy from the service deploys list..."
+            sleep 3
+            list_response=$(curl -s -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+              "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys?limit=1")
+            echo "Deploys List Response: $list_response"
+            deploy_id=$(echo "$list_response" | jq -r '.[0].deploy.id')
+          fi
+          
+          echo "Using Deploy ID: $deploy_id"
+          
+          if [ "$deploy_id" = "null" ] || [ -z "$deploy_id" ]; then
+            echo "Error: Failed to retrieve a valid deploy ID."
             exit 1
           fi
           
