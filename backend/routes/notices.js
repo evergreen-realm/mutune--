@@ -249,8 +249,8 @@ router.get('/', requireAuth, async (req, res, next) => {
   }
 });
 
-// ── POST /api/v1/notices/:id/acknowledge — Tenant acknowledges receipt ────────
-router.post('/:id/acknowledge', requireAuth, requirePermission('view:notices'), async (req, res, next) => {
+// ── POST/PATCH /api/v1/notices/:id/acknowledge — Tenant acknowledges receipt ────────
+const acknowledgeHandler = async (req, res, next) => {
   try {
     const notice = await Notice.findOne({ _id: req.params.id, tenant_id: req.user._id });
     if (!notice) {
@@ -266,6 +266,9 @@ router.post('/:id/acknowledge', requireAuth, requirePermission('view:notices'), 
   } catch (error) {
     next(error);
   }
-});
+};
+
+router.post('/:id/acknowledge', requireAuth, requirePermission('view:notices'), acknowledgeHandler);
+router.patch('/:id/acknowledge', requireAuth, requirePermission('view:notices'), acknowledgeHandler);
 
 module.exports = router;

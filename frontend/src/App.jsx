@@ -22,6 +22,12 @@ import TenantPortalPage  from './pages/TenantPortalPage';
 import NoticesPage       from './pages/NoticesPage';
 import LoginPage         from './pages/LoginPage';
 import SignUpPage        from './pages/SignUpPage';
+import PropertiesPage    from './pages/PropertiesPage';
+import PropertyDetailPage from './pages/PropertyDetailPage';
+import OnboardingPage    from './pages/OnboardingPage';
+import MaintenancePage   from './pages/MaintenancePage';
+
+
 
 // Components
 import PropertyList  from './components/PropertyList';
@@ -93,14 +99,32 @@ function AppShell() {
     );
   }
 
-  // Derive role from Clerk public metadata (set via Clerk dashboard or /users/sync-clerk)
-  const role = clerkUser?.publicMetadata?.role || 'landlord';
-  const fullName = clerkUser?.fullName || clerkUser?.username || 'Property Owner';
-  const user = { role, full_name: fullName };
+  // Derive role from Clerk public metadata
+  const role = clerkUser?.publicMetadata?.role;
 
-  const isAdmin  = ['admin', 'super_admin'].includes(role);
-  const isTenant = role === 'tenant';
-  const isAgent  = role === 'agent';
+
+  if (!role) {
+    if (location.pathname !== '/onboarding') {
+      return <Navigate to="/onboarding" replace />;
+    }
+  } else {
+    if (location.pathname === '/onboarding') {
+      return <Navigate to="/" replace />;
+    }
+  }
+
+  if (location.pathname === '/onboarding') {
+    return <OnboardingPage />;
+  }
+
+  const derivedRole = role || 'landlord';
+  const fullName = clerkUser?.fullName || clerkUser?.username || 'Property Owner';
+  const user = { role: derivedRole, full_name: fullName };
+
+  const isAdmin  = ['admin', 'super_admin'].includes(derivedRole);
+  const isTenant = derivedRole === 'tenant';
+  const isAgent  = derivedRole === 'agent';
+
 
   const navItems = [
     { path: '/',               label: 'Dashboard',   icon: <LayoutDashboard size={18} />, show: true },
@@ -110,7 +134,7 @@ function AppShell() {
     { path: '/tenants',        label: 'Tenants',     icon: <Users2 size={18} />,           show: !isTenant },
     { path: '/payments',       label: 'Rent Payments',icon: <WalletCards size={18} />,     show: !isTenant },
     { path: '/tenant',         label: 'My Portal',   icon: <Home size={18} />,             show: isTenant },
-    { path: '/maintenance',    label: 'Maintenance', icon: <Wrench size={18} />,           show: isAdmin, disabled: true, badge: 'Soon' },
+    { path: '/maintenance',    label: 'Maintenance', icon: <Wrench size={18} />,           show: true },
     { path: '/notices',        label: 'Notices',     icon: <FileText size={18} />,         show: isAdmin || isAgent || isTenant }
   ].filter(item => item.show);
 
@@ -288,10 +312,12 @@ function AppShell() {
         <main className="flex-1 overflow-y-auto p-6 page-enter">
           <Routes>
             <Route path="/"               element={<DashboardPage />} />
-            <Route path="/properties"     element={<PropertyList />} />
+            <Route path="/properties"     element={<PropertiesPage />} />
             <Route path="/properties/add" element={<AddPropertyPage />} />
+            <Route path="/properties/:id" element={<PropertyDetailPage />} />
             <Route path="/tenants"        element={<TenantsPage />} />
             <Route path="/payments"       element={<PaymentsPage />} />
+            <Route path="/maintenance"    element={<MaintenancePage />} />
             <Route path="/admin"          element={<AdminDashboardPage />} />
             <Route path="/tenant"         element={<TenantPortalPage />} />
             <Route path="/notices"        element={<NoticesPage user={user} />} />

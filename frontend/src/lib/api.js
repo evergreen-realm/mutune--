@@ -146,4 +146,12 @@ export const fetchNotices      = ()        => api.get('/notices');
 export const generateNotice    = (data)    => api.post('/notices/generate', data);
 export const acknowledgeNotice = (id)      => api.post(`/notices/${id}/acknowledge`);
 
+// ── Onboarding / User (Phase 4) ───────────────────────────────────────────────
+export const updateUserRole    = (data)    => api.patch('/users/me/role', data);
+
+// ── Units Lock & Geo-checkin (Phase 4) ────────────────────────────────────────
+export const deletePropertyUnit    = (id, unitId) => api.delete(`/properties/${id}/units/${unitId}`);
+export const lockPropertyUnit      = (id, unitId, action) => api.post(`/properties/${id}/units/${unitId}/lock`, { action });
+export const checkInAgent          = (data) => api.post('/agents/checkin', data);
+
 export default api;

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MapPin, Search, Building2, SlidersHorizontal } from 'lucide-react';
 
 export default function PropertyList({ properties = [] }) {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+
 
   const areas = [...new Set(properties.map(p => p.address?.area).filter(Boolean))];
 
@@ -99,7 +102,11 @@ export default function PropertyList({ properties = [] }) {
               const occ = p.units?.filter(u => u.status === 'occupied').length || 0;
               const rate = total ? Math.round((occ / total) * 100) : 0;
               return (
-                <tr key={p._id} className="hover:bg-gray-50/50 transition-colors">
+                <tr 
+                  key={p._id} 
+                  onClick={() => navigate(`/properties/${p._id}`)}
+                  className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+                >
                   <td className="p-4 pl-6 font-mono text-xs font-semibold text-gray-400">{p.property_code}</td>
                   <td className="p-4 font-semibold text-gray-800">{p.name}</td>
                   <td className="p-4">

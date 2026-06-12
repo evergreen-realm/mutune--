@@ -314,5 +314,133 @@ router.get('/:id/units/geojson', requireAuth, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// ─── POST /properties/:id/units/:unitId/lock ─────────────────────────────────
+router.post('/:id/units/:unitId/lock',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent']),
+  [
+    param('id').isMongoId().withMessage('Invalid property ID'),
+    param('unitId').notEmpty().withMessage('Invalid unit ID'),
+    body('action').isIn(['lock', 'unlock']).withMessage('Action must be lock or unlock')
+  ],
+  async (req, res, next) => {
+    try {
+      if (!validate(req, res)) return;
+      const { id, unitId } = req.params;
+      const { action } = req.body;
+
+      const property = await Property.findById(id);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+
+      const unit = property.units.id(unitId);
+      if (!unit) {
+        return res.status(404).json({ success: false, error: { code: 'UNIT_NOT_FOUND', message: 'Unit not found' } });
+      }
+
+      if (req.user.role === 'agent') {
+        const lastLoc = req.user.last_location;
+        if (!lastLoc || !lastLoc.coordinates || !lastLoc.recorded_at) {
+          return res.status(403).json({
+            success: false,
+            error: { code: 'NO_CHECKIN', message: 'You must check in to the property first.' }
+          });
+        }
+
+        const timeDiff = Date.now() - new Date(lastLoc.recorded_at).getTime();
+        if (timeDiff > 30 * 60 * 1000) {
+          return res.status(403).json({
+            success: false,
+            error: { code: 'CHECKIN_EXPIRED', message: 'Your check-in session has expired (30m limit). Please check in again.' }
+          });
+        }
+
+        const [propLng, propLat] = property.location.coordinates;
+        const [agentLng, agentLat] = lastLoc.coordinates;
+        
+        const dLat = ((agentLat - propLat) * Math.PI) / 180;
+        const dLng = ((agentLng - propLng) * Math.PI) / 180;
+        const R = 6371000;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((propLat * Math.PI) / 180) *
+            Math.cos((agentLat * Math.PI) / 180) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+        const distanceM = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        if (distanceM > 200) {
+          return res.status(403).json({
+            success: false,
+            error: { code: 'CHECKIN_TOO_FAR', message: `You are too far from the property (${Math.round(distanceM)}m). Lock operation requires you to be within 200m.` }
+          });
+        }
+      }
+
+      unit.lock_status = action === 'lock' ? 'locked' : 'unlocked';
+      await property.save();
+
+      logger.info('Unit digital lock toggled', {
+        propertyId: id,
+        unitId,
+        action,
+        by: req.user._id
+      });
+
+      res.json({
+        success: true,
+        message: `Unit successfully ${action === 'lock' ? 'locked' : 'unlocked'}.`,
+        data: unit
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── DELETE /properties/:id/units/:unitId ────────────────────────────────────
+router.delete('/:id/units/:unitId',
+  requireAuth,
+  requireRole(['super_admin', 'admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid property ID'),
+    param('unitId').notEmpty().withMessage('Invalid unit ID')
+  ],
+  async (req, res, next) => {
+    try {
+      if (!validate(req, res)) return;
+      const { id, unitId } = req.params;
+
+      const Tenant = require('../models/Tenant');
+      const activeTenant = await Tenant.findOne({ current_unit_id: unitId, tenancy_status: 'active' }).lean();
+      if (activeTenant) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'ACTIVE_TENANT', message: 'Cannot delete unit with an active tenant.' }
+        });
+      }
+
+      const property = await Property.findById(id);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+
+      const unit = property.units.id(unitId);
+      if (!unit) {
+        return res.status(404).json({ success: false, error: { code: 'UNIT_NOT_FOUND', message: 'Unit not found' } });
+      }
+
+      property.units.pull(unitId);
+      await property.save();
+
+      logger.info('Unit deleted', { propertyId: id, unitId, by: req.user._id });
+      res.json({ success: true, message: 'Unit deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
 

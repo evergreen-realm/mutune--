@@ -27,6 +27,59 @@ router.get('/me', requireAuth, async (req, res, next) => {
   }
 });
 
+// ─── PATCH /users/me/role ─────────────────────────────────────────────────────
+router.patch('/me/role',
+  requireAuth,
+  [
+    body('role').isIn(['agent', 'admin', 'landlord', 'tenant']).withMessage('Invalid role'),
+    body('phone').optional().trim().notEmpty().withMessage('Phone cannot be empty'),
+    body('earb_license').optional().trim().notEmpty().withMessage('EARB license cannot be empty'),
+    body('assigned_areas').optional().isArray().withMessage('Assigned areas must be an array')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+      }
+
+      const { role, phone, earb_license, assigned_areas } = req.body;
+      const userId = req.user._id;
+
+      const updateData = { role };
+      if (phone !== undefined) updateData.phone = phone;
+      if (earb_license !== undefined) updateData.earb_license = earb_license;
+      if (assigned_areas !== undefined) updateData.assigned_areas = assigned_areas;
+
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: updateData },
+        { new: true }
+      ).select('-password_hash');
+
+      // Update Clerk publicMetadata
+      try {
+        const { clerkClient } = require('@clerk/clerk-sdk-node');
+        if (req.user.clerk_id) {
+          await clerkClient.users.updateUserMetadata(req.user.clerk_id, {
+            publicMetadata: {
+              role: role
+            }
+          });
+          logger.info('Clerk publicMetadata updated with role', { clerkId: req.user.clerk_id, role });
+        }
+      } catch (clerkErr) {
+        logger.error('Failed to update Clerk user metadata', { message: clerkErr.message });
+      }
+
+      res.json({ success: true, data: updatedUser });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
 // ─── GET /users ───────────────────────────────────────────────────────────────
 router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
   try {
