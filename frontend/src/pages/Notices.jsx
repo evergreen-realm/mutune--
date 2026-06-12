@@ -78,18 +78,39 @@ export default function Notices({ user }) {
     }));
   };
 
-  const handleDownload = (noticeId) => {
-    const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-    const token = localStorage.getItem('clerk_token');
-    const url = `${base}/notices/${noticeId}/download`;
-    const link = document.createElement('a');
-    link.href = url;
-    if (token) link.setAttribute('data-auth', token);
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  const handleDownload = async (noticeId, title = 'Notice') => {
+    try {
+      const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+      let token = null;
+      try {
+        const clerk = window.Clerk;
+        if (clerk?.session) {
+          token = await clerk.session.getToken();
+        }
+      } catch (err) {
+        console.warn('Failed to resolve Clerk token for notice download:', err.message);
+      }
+      
+      const response = await fetch(`${base}/notices/${noticeId}/download`, {
+        headers: { Authorization: token ? `Bearer ${token}` : '' }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download PDF notice');
+      }
+      
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `notice_${title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      toast.error('Failed to download notice PDF');
+    }
   };
 
   const isTenant = user?.role === 'tenant';
@@ -338,7 +359,7 @@ export default function Notices({ user }) {
                       {n.pdf_url && (
                         <button
                           id={`download-notice-${n._id}`}
-                          onClick={() => handleDownload(n._id)}
+                          onClick={() => handleDownload(n._id, n.title)}
                           className="text-green-700 hover:text-green-900 flex items-center gap-1 text-xs font-medium transition-colors"
                         >
                           <Download size={12} /> PDF

@@ -104,7 +104,15 @@ export const fetchReportSummary = (month) => api.get('/reports/summary', { param
  * @param {string} month — YYYY-MM
  */
 export const downloadKRAReport = async (month) => {
-  const token  = localStorage.getItem('clerk_token');
+  let token = null;
+  try {
+    const clerk = window.Clerk;
+    if (clerk?.session) {
+      token = await clerk.session.getToken();
+    }
+  } catch (err) {
+    console.warn('Failed to resolve Clerk token for KRA report download:', err.message);
+  }
   const base   = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
   const url    = `${base}/reports/kra?month=${month}`;
 
