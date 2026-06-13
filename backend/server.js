@@ -38,7 +38,8 @@ app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (mobile apps, curl, Render health checks)
     if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    const isVercelSubdomain = /^https:\/\/mutunerent-web.*\.vercel\.app$/.test(origin);
+    if (ALLOWED_ORIGINS.includes(origin) || isVercelSubdomain) return callback(null, true);
     logger.warn('CORS blocked origin', { origin });
     callback(new Error('Not allowed by CORS: ' + origin));
   },
@@ -105,12 +106,15 @@ app.use((err, req, res, _next) => {
 
 const PORT = process.env.PORT || 3000;
 const tenantLeaseCleanup = require('./cron/tenant-lease-cleanup');
+const lateFeeApplicator = require('./cron/late-fee-applicator');
 
 const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => logger.info('Server started', { port: PORT, env: process.env.NODE_ENV || 'development' }));
   tenantLeaseCleanup.start();
   logger.info('Cron scheduled: tenant lease cleanup (daily 00:05 EAT)');
+  lateFeeApplicator.start();
+  logger.info('Cron scheduled: late fee applicator (daily 00:10 EAT)');
 };
 if (process.env.NODE_ENV !== 'test') {
   startServer();

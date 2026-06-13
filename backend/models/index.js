@@ -4,5 +4,6 @@ module.exports = {
   User: require('./User'),
   Payment: require('./Payment'),
   Notice: require('./Notice'),
-  MaintenanceTicket: require('./MaintenanceTicket')
+  MaintenanceTicket: require('./MaintenanceTicket'),
+  LateFeeRule: require('./LateFeeRule')
 };

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { body, param, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const Payment = require('../models/Payment');
@@ -294,6 +295,290 @@ router.get('/agent-performance',
 
       logger.info('Agent performance report generated', { agents: report.length, by: req.user._id });
       res.json({ success: true, data: report, period: { from: fromDate, to: toDate } });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── AGENT APPROVAL ENDPOINTS ────────────────────────────────────────────────
+
+const Notification = require('../models/Notification');
+const LateFeeRule = require('../models/LateFeeRule');
+const { sendEmail } = require('../services/email');
+
+/**
+ * GET /api/v1/admin/agents/pending
+ * List all agents with pending approval status.
+ */
+router.get('/agents/pending',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  async (req, res, next) => {
+    try {
+      const pendingAgents = await User.find({ role: 'agent', agent_approval_status: 'pending' })
+        .select('-password_hash')
+        .lean();
+      res.json({ success: true, data: pendingAgents });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/admin/agents/:id/approve
+ * Approves a pending agent, sets active to true, and generates their unique agent ID code.
+ */
+router.patch('/agents/:id/approve',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid agent ID')
+  ],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    }
+
+    try {
+      const agent = await User.findOne({ _id: req.params.id, role: 'agent' });
+      if (!agent) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Agent not found' } });
+      }
+
+      if (agent.agent_approval_status === 'approved') {
+        return res.status(400).json({ success: false, error: { code: 'ALREADY_APPROVED', message: 'Agent is already approved' } });
+      }
+
+      const count = await User.countDocuments({ role: 'agent', agent_approval_status: 'approved' });
+      const agentCode = `AGT-MOM-${String(count + 1).padStart(3, '0')}`;
+
+      agent.agent_approval_status = 'approved';
+      agent.is_active = true;
+      agent.user_code = agentCode;
+      await agent.save();
+
+      // Create an in-app notification for the approved agent
+      await Notification.create({
+        type: 'general',
+        recipient_role: 'agent',
+        recipient_ids: [agent._id],
+        title: 'Account Application Approved',
+        message: `Your agent account has been approved. Your unique Agent ID is ${agentCode}.`,
+        related_entity_id: agent._id
+      });
+
+      // Send welcome email
+      await sendEmail(
+        agent.email,
+        'Welcome to MutuneRent Pro - Account Approved!',
+        `<h1>Welcome, ${agent.full_name}!</h1>
+         <p>We are pleased to inform you that your Estate Agent application has been approved by the Mutune Estate Agency admin team.</p>
+         <p><strong>Your Unique Agent ID:</strong> ${agentCode}</p>
+         <p>You can now log in to the MutuneRent Pro dashboard using your registered account credentials.</p>
+         <br/>
+         <p>Regards,<br/>Mutune Estate Agency Management</p>`
+      );
+
+      logger.info('Agent approved successfully', { agentId: agent._id, agentCode, by: req.user._id });
+      res.json({ success: true, message: 'Agent approved successfully', data: agent });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/admin/agents/:id/reject
+ * Rejects a pending agent and records the rejection reason.
+ */
+router.patch('/agents/:id/reject',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid agent ID'),
+    body('reason').trim().notEmpty().withMessage('Rejection reason is required')
+  ],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    }
+
+    try {
+      const agent = await User.findOne({ _id: req.params.id, role: 'agent' });
+      if (!agent) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Agent not found' } });
+      }
+
+      const { reason } = req.body;
+      agent.agent_approval_status = 'rejected';
+      agent.is_active = false;
+      agent.agent_rejection_reason = reason;
+      await agent.save();
+
+      // Create notification
+      await Notification.create({
+        type: 'general',
+        recipient_role: 'agent',
+        recipient_ids: [agent._id],
+        title: 'Account Application Rejected',
+        message: `Your agent account application was rejected. Reason: ${reason}`,
+        related_entity_id: agent._id
+      });
+
+      // Send rejection email
+      await sendEmail(
+        agent.email,
+        'Agent Application Update',
+        `<h1>Application Status: Rejected</h1>
+         <p>Dear ${agent.full_name},</p>
+         <p>Thank you for applying to be an agent on MutuneRent Pro. Unfortunately, your application could not be approved at this time for the following reason:</p>
+         <blockquote><em>${reason}</em></blockquote>
+         <p>If you believe this is a mistake, please contact Mutune Estate Agency administration or update your details.</p>`
+      );
+
+      logger.info('Agent rejected', { agentId: agent._id, reason, by: req.user._id });
+      res.json({ success: true, message: 'Agent application rejected', data: agent });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── LATE FEE RULES ENDPOINTS ────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/admin/late-fee-rules
+ * List all late fee rules.
+ */
+router.get('/late-fee-rules',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'accountant']),
+  async (req, res, next) => {
+    try {
+      const rules = await LateFeeRule.find().sort({ created_at: -1 }).lean();
+      res.json({ success: true, data: rules });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/admin/late-fee-rules
+ * Create a new late fee rule.
+ */
+router.post('/late-fee-rules',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    body('name').trim().notEmpty().withMessage('Rule name is required'),
+    body('grace_days').isInt({ min: 0 }).withMessage('Grace days must be a non-negative integer'),
+    body('penalty_type').isIn(['percentage', 'fixed']).withMessage('Penalty type must be percentage or fixed'),
+    body('penalty_value').isFloat({ min: 0 }).withMessage('Penalty value must be non-negative'),
+    body('max_penalty_per_month').optional().isFloat({ min: 0 }).withMessage('Max penalty must be non-negative'),
+    body('applies_to').isIn(['all', 'residential', 'commercial']).withMessage('Applies to must be all, residential, or commercial')
+  ],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    }
+
+    try {
+      const { name, grace_days, penalty_type, penalty_value, max_penalty_per_month, applies_to, is_active } = req.body;
+      const rule = await LateFeeRule.create({
+        name,
+        grace_days,
+        penalty_type,
+        penalty_value,
+        max_penalty_per_month,
+        applies_to,
+        is_active: is_active !== undefined ? is_active : true,
+        created_by: req.user._id
+      });
+
+      logger.info('Late fee rule created', { ruleId: rule._id, by: req.user._id });
+      res.status(201).json({ success: true, data: rule });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/admin/late-fee-rules/:id
+ * Update an existing late fee rule.
+ */
+router.patch('/late-fee-rules/:id',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid rule ID'),
+    body('name').optional().trim().notEmpty().withMessage('Rule name cannot be empty'),
+    body('grace_days').optional().isInt({ min: 0 }).withMessage('Grace days must be a non-negative integer'),
+    body('penalty_type').optional().isIn(['percentage', 'fixed']).withMessage('Penalty type must be percentage or fixed'),
+    body('penalty_value').optional().isFloat({ min: 0 }).withMessage('Penalty value must be non-negative'),
+    body('max_penalty_per_month').optional().isFloat({ min: 0 }).withMessage('Max penalty must be non-negative'),
+    body('applies_to').optional().isIn(['all', 'residential', 'commercial']).withMessage('Applies to must be all, residential, or commercial'),
+    body('is_active').optional().isBoolean().withMessage('is_active must be a boolean')
+  ],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    }
+
+    try {
+      const rule = await LateFeeRule.findById(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Late fee rule not found' } });
+      }
+
+      const fields = ['name', 'grace_days', 'penalty_type', 'penalty_value', 'max_penalty_per_month', 'applies_to', 'is_active'];
+      for (const field of fields) {
+        if (req.body[field] !== undefined) {
+          rule[field] = req.body[field];
+        }
+      }
+      rule.updated_at = new Date();
+      await rule.save();
+
+      logger.info('Late fee rule updated', { ruleId: rule._id, by: req.user._id });
+      res.json({ success: true, data: rule });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /api/v1/admin/late-fee-rules/:id
+ * Delete an existing late fee rule.
+ */
+router.delete('/late-fee-rules/:id',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid rule ID')
+  ],
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    }
+
+    try {
+      const rule = await LateFeeRule.findByIdAndDelete(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Late fee rule not found' } });
+      }
+
+      logger.info('Late fee rule deleted', { ruleId: req.params.id, by: req.user._id });
+      res.json({ success: true, message: 'Late fee rule deleted successfully' });
     } catch (error) {
       next(error);
     }

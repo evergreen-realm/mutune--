@@ -59,6 +59,7 @@ router.patch('/me/role',
     body('role').isIn(['agent', 'admin', 'landlord', 'tenant']).withMessage('Invalid role'),
     body('phone').optional().trim().notEmpty().withMessage('Phone cannot be empty'),
     body('earb_license').optional().trim().notEmpty().withMessage('EARB license cannot be empty'),
+    body('earb_verification_doc_url').optional().trim().notEmpty().withMessage('EARB document link cannot be empty'),
     body('assigned_areas').optional().isArray().withMessage('Assigned areas must be an array'),
     body('property_id').optional().isMongoId().withMessage('property_id must be a valid Mongo ID'),
     body('unit_id').optional().notEmpty().withMessage('unit_id cannot be empty')
@@ -70,13 +71,21 @@ router.patch('/me/role',
         return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
       }
 
-      const { role, phone, earb_license, assigned_areas, property_id, unit_id } = req.body;
+      const { role, phone, earb_license, earb_verification_doc_url, assigned_areas, property_id, unit_id } = req.body;
       const userId = req.user._id;
 
       const updateData = { role };
       if (phone !== undefined) updateData.phone = phone;
       if (earb_license !== undefined) updateData.earb_license = earb_license;
       if (assigned_areas !== undefined) updateData.assigned_areas = assigned_areas;
+
+      if (role === 'agent') {
+        updateData.is_active = false;
+        updateData.agent_approval_status = 'pending';
+        updateData.earb_verification_doc_url = earb_verification_doc_url || 'https://mutunerent.s3.amazonaws.com/placeholder-earb.pdf';
+      } else {
+        updateData.agent_approval_status = 'n_a';
+      }
 
       // —— Tenant-specific: auto-create Tenant document and link to unit ——
       if (role === 'tenant') {
@@ -150,6 +159,25 @@ router.patch('/me/role',
         { $set: updateData },
         { new: true }
       ).select('-password_hash');
+
+      if (role === 'agent') {
+        try {
+          const admins = await User.find({ role: { $in: ['admin', 'super_admin'] } }).select('_id');
+          const adminIds = admins.map(a => a._id);
+          const Notification = require('../models/Notification');
+          await Notification.create({
+            type: 'agent_approval',
+            recipient_role: 'admin',
+            recipient_ids: adminIds,
+            title: 'New Agent Pending Approval',
+            message: `Agent ${updatedUser.full_name} (${updatedUser.email}) has registered with EARB ${earb_license || ''} and is pending verification.`,
+            related_entity_id: updatedUser._id
+          });
+          logger.info('Admin notification created for pending agent', { agentId: updatedUser._id });
+        } catch (notifErr) {
+          logger.error('Failed to create admin notification for pending agent', { message: notifErr.message });
+        }
+      }
 
       // Update Clerk publicMetadata
       try {

@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import {
   fetchAllInventory, fetchAuctionableItems, markItemAuctionable,
-  recordAuctionSale, downloadAuctionReport
+  recordAuctionSale, downloadAuctionReport, reclaimInventoryItem
 } from '../lib/api';
 import {
   Package, Gavel, CheckCircle2, Clock, TrendingUp,
-  Download, Plus, X, AlertTriangle, DollarSign
+  Download, Plus, X, AlertTriangle, DollarSign, Undo
 } from 'lucide-react';
 
 const FMT_KES = n => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
@@ -20,6 +20,7 @@ export default function AdminInventoryPage() {
   const [tab,           setTab]       = useState('auctionable');
   const [flagModal,     setFlagModal] = useState({ open: false, propId: null, itemId: null, reason: '' });
   const [saleModal,     setSaleModal] = useState({ open: false, propId: null, itemId: null, buyer: '', amount: '' });
+  const [reclaimModal,  setReclaimModal] = useState({ open: false, propId: null, itemId: null, receiptId: '' });
   const [downloading,   setDownload]  = useState(false);
   const [working,       setWorking]   = useState({});
 
@@ -73,6 +74,32 @@ export default function AdminInventoryPage() {
     }
   };
 
+  const handleReclaim = async () => {
+    const rId = reclaimModal.receiptId.trim();
+    if (!rId) {
+      toast.error('Please enter the Payment Receipt Mongo ID');
+      return;
+    }
+    if (rId.length !== 24) {
+      toast.error('Mongo ID must be exactly 24 characters');
+      return;
+    }
+    setWorking(w => ({ ...w, reclaim: true }));
+    try {
+      await reclaimInventoryItem(reclaimModal.propId, {
+        item_id: reclaimModal.itemId,
+        reclaim_receipt_id: rId
+      });
+      toast.success('Inventory item successfully reclaimed!');
+      setReclaimModal({ open: false, propId: null, itemId: null, receiptId: '' });
+      load();
+    } catch (err) {
+      toast.error(err?.error?.message || 'Failed to reclaim inventory item');
+    } finally {
+      setWorking(w => ({ ...w, reclaim: false }));
+    }
+  };
+
   const handleDownload = async () => {
     setDownload(true);
     try {
@@ -89,31 +116,31 @@ export default function AdminInventoryPage() {
 
   const tabStyle = (t) => ({
     padding: '8px 20px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, transition: 'all 0.2s',
-    background: tab === t ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)',
+    background: tab === t ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.06)',
     color: tab === t ? '#fff' : 'rgba(255,255,255,0.45)'
   });
 
   if (loading) return (
     <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f0c29, #24243e)' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(99,102,241,0.3)', borderTop: '3px solid #6366f1', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading inventory…</p>
+        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(16,185,129,0.3)', borderTop: '3px solid #10b981', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading inventory status…</p>
       </div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)', padding: '28px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)', padding: '28px', color: '#fff' }}>
       <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-        <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, marginBottom: 4 }}>Inventory & Auction</h1>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Manage property assets and auction records</p>
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, marginBottom: 4 }}>Inventory & Auction Control</h1>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Track distress-for-rent assets, reclaim items, or record public auction logs</p>
           </div>
           <button onClick={handleDownload} disabled={downloading} style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px',
@@ -121,14 +148,14 @@ export default function AdminInventoryPage() {
             color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: downloading ? 'not-allowed' : 'pointer',
             boxShadow: '0 6px 20px rgba(16,185,129,0.3)'
           }}>
-            <Download size={15} /> {downloading ? 'Downloading…' : 'Export KRA Report'}
+            <Download size={15} /> {downloading ? 'Downloading…' : 'Export Auction CSV'}
           </button>
         </div>
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
           {[
-            { label: 'Auctionable Items', value: auctionable.length, icon: <Gavel size={18} />, color: '#f59e0b' },
+            { label: 'Auctionable Items', value: auctionable.length, icon: <Gavel size={18} />, color: '#fbbf24' },
             { label: 'Est. Auction Value', value: FMT_KES(totalAuctionableValue), icon: <DollarSign size={18} />, color: '#10b981' },
             { label: 'Properties with Assets', value: allInventory.length, icon: <Package size={18} />, color: '#6366f1' }
           ].map((s, i) => (
@@ -158,7 +185,7 @@ export default function AdminInventoryPage() {
                 <Gavel size={40} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
                 <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No items flagged for auction</p>
               </div>
-            ) : auctionable.map((item, i) => {
+            ) : auctionable.map((item) => {
               const days = daysSince(item.auctionable_marked_at);
               const urgent = days >= 30;
               return (
@@ -191,10 +218,16 @@ export default function AdminInventoryPage() {
                     <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>Est. value</p>
                   </div>
 
-                  <button onClick={() => setSaleModal({ open: true, propId: item.property_id, itemId: item._id, buyer: '', amount: '' })}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(245,158,11,0.4)', flexShrink: 0 }}>
-                    <Gavel size={14} /> Record Sale
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button onClick={() => setSaleModal({ open: true, propId: item.property_id, itemId: item._id, buyer: '', amount: '' })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(245,158,11,0.4)' }}>
+                      <Gavel size={14} /> Record Sale
+                    </button>
+                    <button onClick={() => setReclaimModal({ open: true, propId: item.property_id, itemId: item._id, receiptId: '' })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: 'rgba(16,185,129,0.2)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                      <Undo size={14} /> Reclaim
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -222,7 +255,7 @@ export default function AdminInventoryPage() {
                   <div key={item._id} style={{ padding: '14px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div>
                       <p style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{item.name}</p>
-                      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>{item.description} · Condition: {item.condition}</p>
+                      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>{item.description || 'No description'} · Condition: {item.condition}</p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24' }}>{FMT_KES(item.estimated_value_kes)}</span>
@@ -235,8 +268,17 @@ export default function AdminInventoryPage() {
                       {item.auction_status === 'sold' && (
                         <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 100, background: 'rgba(16,185,129,0.15)', color: '#34d399' }}>✓ SOLD {FMT_KES(item.auction_sale_amount)}</span>
                       )}
+                      {item.auction_status === 'reclaimed' && (
+                        <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 100, background: 'rgba(16,185,129,0.15)', color: '#34d399' }}>✓ RECLAIMED</span>
+                      )}
                       {item.auction_status === 'pending' && item.auctionable_marked_at && (
-                        <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 100, background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>🔨 PENDING AUCTION</span>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 100, background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>🔨 PENDING AUCTION</span>
+                          <button onClick={() => setReclaimModal({ open: true, propId: prop.property_id, itemId: item._id, receiptId: '' })}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#34d399', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            <Undo size={12} /> Reclaim
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -287,6 +329,32 @@ export default function AdminInventoryPage() {
                   {working.sale ? 'Recording…' : '✓ Record Sale'}
                 </button>
                 <button onClick={() => setSaleModal({ open: false, propId: null, itemId: null, buyer: '', amount: '' })} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Reclaim modal */}
+      {reclaimModal.open && (
+        <>
+          <div onClick={() => setReclaimModal({ open: false, propId: null, itemId: null, receiptId: '' })} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 440, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
+            <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Reclaim Flagged Item</h3>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 16 }}>
+              Provide the M-Pesa or cash Payment Receipt Mongo ID that was generated when the tenant cleared their outstanding distress balance.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Payment Receipt ID *</label>
+                <input value={reclaimModal.receiptId} onChange={e => setReclaimModal(s => ({ ...s, receiptId: e.target.value }))} placeholder="e.g. 648fb907f12e84128f9ac124"
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                <button onClick={handleReclaim} disabled={working.reclaim} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  {working.reclaim ? 'Reclaiming…' : '✓ Reclaim Item'}
+                </button>
+                <button onClick={() => setReclaimModal({ open: false, propId: null, itemId: null, receiptId: '' })} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
               </div>
             </div>
           </div>

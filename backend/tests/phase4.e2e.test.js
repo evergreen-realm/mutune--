@@ -297,4 +297,125 @@ describe('Phase 4 Features', () => {
     expect(villa2).toBeTruthy();
     expect(villa2.status).toBe('inactive');
   });
+
+  test('Agent Onboarding and Approval Flow', async () => {
+    const pendingAgent = await User.create({
+      user_code: 'AGT-PENDING-001', role: 'tenant', full_name: 'Pending Agent',
+      email: 'pending_agent@mutune.test', phone: '254700000004',
+      password_hash: '$2a$10$test', is_active: true, clerk_id: 'clerk_pending_agent_001'
+    });
+
+    mockClerkId = 'clerk_pending_agent_001';
+    const onboardingRes = await request(app)
+      .patch('/api/v1/users/me/role')
+      .send({
+        role: 'agent',
+        phone: '254700000004',
+        earb_license: 'EARB-12345',
+        earb_verification_doc_url: 'https://mutune.test/doc.pdf'
+      });
+    
+    expect(onboardingRes.status).toBe(200);
+    expect(onboardingRes.body.data.role).toBe('agent');
+    expect(onboardingRes.body.data.agent_approval_status).toBe('pending');
+    expect(onboardingRes.body.data.is_active).toBe(false);
+
+    mockClerkId = 'clerk_admin_001';
+    const pendingListRes = await request(app)
+      .get('/api/v1/admin/agents/pending');
+    
+    expect(pendingListRes.status).toBe(200);
+    expect(pendingListRes.body.data.some(a => a._id === pendingAgent._id.toString())).toBe(true);
+
+    const rejectRes = await request(app)
+      .patch(`/api/v1/admin/agents/${pendingAgent._id}/reject`)
+      .send({ reason: 'Incomplete documents' });
+    
+    expect(rejectRes.status).toBe(200);
+    expect(rejectRes.body.data.agent_approval_status).toBe('rejected');
+    expect(rejectRes.body.data.agent_rejection_reason).toBe('Incomplete documents');
+    expect(rejectRes.body.data.is_active).toBe(false);
+
+    const approveRes = await request(app)
+      .patch(`/api/v1/admin/agents/${pendingAgent._id}/approve`)
+      .send();
+    
+    expect(approveRes.status).toBe(200);
+    expect(approveRes.body.data.agent_approval_status).toBe('approved');
+    expect(approveRes.body.data.is_active).toBe(true);
+    expect(approveRes.body.data.user_code).toMatch(/^AGT-MOM-\d{3}$/);
+  });
+
+  test('Distress Inventory Reclaim Flow', async () => {
+    const itemId = property.inventory[0]._id.toString();
+    await request(app)
+      .post(`/api/v1/inventory/${property._id}/mark-auctionable`)
+      .send({ item_id: itemId, reason: 'Arrears' });
+
+    const Payment = require('../models/Payment');
+    const payment = await Payment.create({
+      transaction_id: 'REC-RECLAIM-001',
+      tenant_id: tenant._id,
+      property_id: property._id,
+      unit_id: property.units[0]._id,
+      amount_kes: 25000,
+      payment_type: 'rent',
+      channel: 'mpesa_stk',
+      status: 'confirmed'
+    });
+
+    mockClerkId = 'clerk_admin_001';
+    const reclaimRes = await request(app)
+      .post(`/api/v1/inventory/${property._id}/reclaim`)
+      .send({
+        item_id: itemId,
+        reclaim_receipt_id: payment._id.toString()
+      });
+
+    expect(reclaimRes.status).toBe(200);
+    expect(reclaimRes.body.data.auction_status).toBe('reclaimed');
+    expect(reclaimRes.body.data.reclaim_receipt_id).toBe(payment._id.toString());
+  });
+
+  test('Late Fee Cron Calculations and Idempotency', async () => {
+    const LateFeeRule = require('../models/LateFeeRule');
+    
+    const rule = await LateFeeRule.create({
+      name: 'Residential Late Fee Rule',
+      grace_days: 0,
+      penalty_type: 'percentage',
+      penalty_value: 10,
+      max_penalty_per_month: 5000,
+      applies_to: 'residential',
+      is_active: true
+    });
+
+    const mockTenant = await Tenant.create({
+      tenant_code: 'TNT-LATE-TEST', full_name: 'Late Tenant', id_number: '12345679',
+      phone: '254712345679', email: 'late@test.com', preferred_channel: 'both',
+      current_property_id: property._id, current_unit_id: property.units[0]._id,
+      rent_amount_kes: 20000, arrears_kes: 0, tenancy_status: 'active'
+    });
+
+    const lateFeeApplicator = require('../cron/late-fee-applicator');
+    await lateFeeApplicator.run();
+
+    const updatedTenant = await Tenant.findById(mockTenant._id);
+    expect(updatedTenant.arrears_kes).toBe(2000);
+
+    const Payment = require('../models/Payment');
+    const penaltyPayment = await Payment.findOne({
+      tenant_id: mockTenant._id,
+      payment_type: 'penalty'
+    });
+    expect(penaltyPayment).toBeTruthy();
+    expect(penaltyPayment.amount_kes).toBe(2000);
+
+    await lateFeeApplicator.run();
+    const doubleUpdatedTenant = await Tenant.findById(mockTenant._id);
+    expect(doubleUpdatedTenant.arrears_kes).toBe(2000);
+
+    await LateFeeRule.deleteOne({ _id: rule._id });
+    await Tenant.deleteOne({ _id: mockTenant._id });
+  });
 });

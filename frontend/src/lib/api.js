@@ -5,7 +5,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrende
 const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000
+  timeout: 60000
 });
 
 // Request interceptor: attach Clerk session JWT
@@ -204,5 +204,15 @@ export const markAllNotifsRead   = ()   => api.patch('/notifications/read-all');
 
 // ── Agent Performance (Phase 4) ──────────────────────────────────────────────
 export const fetchAgentPerformance = (params = {}) => api.get('/admin/agent-performance', { params });
+
+// ── Agent Approvals & Late Fee Rules (Phase 4 / 5) ───────────────────────────
+export const fetchPendingAgents    = ()               => api.get('/admin/agents/pending');
+export const approveAgent          = (id)             => api.patch(`/admin/agents/${id}/approve`);
+export const rejectAgent           = (id, reason)     => api.patch(`/admin/agents/${id}/reject`, { reason });
+export const fetchLateFeeRules     = ()               => api.get('/admin/late-fee-rules');
+export const createLateFeeRule     = (data)           => api.post('/admin/late-fee-rules', data);
+export const updateLateFeeRule     = (id, data)       => api.patch(`/admin/late-fee-rules/${id}`, data);
+export const deleteLateFeeRule     = (id)             => api.delete(`/admin/late-fee-rules/${id}`);
+export const reclaimInventoryItem = (propId, data)   => api.post(`/inventory/${propId}/reclaim`, data);
 
 export default api;

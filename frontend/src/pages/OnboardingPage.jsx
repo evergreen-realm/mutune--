@@ -22,6 +22,7 @@ export default function OnboardingPage() {
   const [role, setRole] = useState('');
   const [phone, setPhone] = useState('');
   const [earbLicense, setEarbLicense] = useState('');
+  const [earbVerificationDocUrl, setEarbVerificationDocUrl] = useState('');
   const [assignedAreas, setAssignedAreas] = useState([]);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
@@ -72,9 +73,15 @@ export default function OnboardingPage() {
       toast.error('Phone number is required.');
       return;
     }
-    if (role === 'agent' && !earbLicense.trim()) {
-      toast.error('EARB License number is required for Agents.');
-      return;
+    if (role === 'agent') {
+      if (!earbLicense.trim()) {
+        toast.error('EARB License number is required for Agents.');
+        return;
+      }
+      if (!earbVerificationDocUrl.trim()) {
+        toast.error('EARB verification document URL is required for Agents.');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -83,6 +90,7 @@ export default function OnboardingPage() {
 
       if (role === 'agent') {
         payload.earb_license = earbLicense.trim();
+        payload.earb_verification_doc_url = earbVerificationDocUrl.trim();
         payload.assigned_areas = assignedAreas;
       }
 
@@ -213,6 +221,20 @@ export default function OnboardingPage() {
                           value={earbLicense}
                           onChange={e => setEarbLicense(e.target.value)}
                           placeholder="EARB-XXXXX"
+                          className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white placeholder:text-slate-600 rounded-xl px-4 py-3 pl-11 text-sm outline-none transition"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 text-xs font-semibold mb-2">EARB Verification Document URL (PDF/Image link)</label>
+                      <div className="relative">
+                        <Award className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="url"
+                          value={earbVerificationDocUrl}
+                          onChange={e => setEarbVerificationDocUrl(e.target.value)}
+                          placeholder="https://example.com/earb-certificate.pdf"
                           className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white placeholder:text-slate-600 rounded-xl px-4 py-3 pl-11 text-sm outline-none transition"
                           required
                         />

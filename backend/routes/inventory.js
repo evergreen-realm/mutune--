@@ -208,4 +208,53 @@ router.get('/all', requireAuth, requireRole(['admin', 'super_admin']), async (re
   }
 });
 
+/**
+ * POST /api/v1/inventory/:propertyId/reclaim
+ * Reclaim a flagged inventory item linking a payment receipt.
+ */
+router.post('/:propertyId/reclaim',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('propertyId').isMongoId().withMessage('Invalid property ID'),
+    body('item_id').isMongoId().withMessage('Invalid inventory item ID'),
+    body('reclaim_receipt_id').isMongoId().withMessage('Invalid payment receipt ID')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const { item_id, reclaim_receipt_id } = req.body;
+
+      const property = await Property.findById(req.params.propertyId);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+
+      const item = property.inventory.id(item_id);
+      if (!item) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Inventory item not found' } });
+      }
+
+      if (item.auction_status === 'sold') {
+        return res.status(409).json({ success: false, error: { code: 'ALREADY_SOLD', message: 'This item has already been sold' } });
+      }
+
+      item.auction_status = 'reclaimed';
+      item.reclaimed_at = new Date();
+      item.reclaim_receipt_id = reclaim_receipt_id;
+      item.auctionable = false;
+      if (item.condition === 'auctionable') {
+        item.condition = 'good';
+      }
+
+      await property.save();
+
+      logger.info('Inventory item reclaimed', { propertyId: req.params.propertyId, itemId: item_id, reclaim_receipt_id, by: req.user._id });
+      res.json({ success: true, data: item });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
