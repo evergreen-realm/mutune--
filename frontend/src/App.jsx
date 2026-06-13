@@ -26,6 +26,11 @@ import PropertiesPage    from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import OnboardingPage    from './pages/OnboardingPage';
 import MaintenancePage   from './pages/MaintenancePage';
+import LandlordDashboardPage from './pages/LandlordDashboardPage';
+import LandlordAddPropertyPage from './pages/LandlordAddPropertyPage';
+import AgentPerformancePage from './pages/AgentPerformancePage';
+import AdminUserManagementPage from './pages/AdminUserManagementPage';
+import AdminInventoryPage from './pages/AdminInventoryPage';
 
 
 
@@ -138,6 +143,8 @@ function AppShell() {
   const navItems = [
     { path: '/',               label: 'Dashboard',   icon: <LayoutDashboard size={18} />, show: true },
     { path: '/admin',          label: 'Analytics',   icon: <BarChart3 size={18} />,        show: isAdmin },
+    { path: '/admin/users',    label: 'Manage Users', icon: <Users2 size={18} />,           show: isAdmin },
+    { path: '/admin/inventory', label: 'Auctions & Inventory', icon: <Building2 size={18} />, show: isAdmin },
     { path: '/properties',     label: 'Properties',  icon: <Building2 size={18} />,        show: !isTenant },
     { path: '/properties/add', label: 'Add Property',icon: <PlusCircle size={18} />,       show: isAdmin || isAgent || derivedRole === 'landlord' },
     { path: '/tenants',        label: 'Tenants',     icon: <Users2 size={18} />,           show: !isTenant },
@@ -320,14 +327,24 @@ function AppShell() {
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-6 page-enter">
           <Routes>
-            <Route path="/"               element={<DashboardPage />} />
+            <Route path="/" element={
+              derivedRole === 'tenant' ? <TenantPortalPage /> :
+              derivedRole === 'landlord' ? <LandlordDashboardPage /> :
+              derivedRole === 'agent' ? <AgentPerformancePage /> :
+              <DashboardPage />
+            } />
             <Route path="/properties"     element={<PropertiesPage />} />
-            <Route path="/properties/add" element={<AddPropertyPage />} />
+            <Route path="/properties/add" element={
+              derivedRole === 'landlord' ? <LandlordAddPropertyPage /> :
+              <AddPropertyPage />
+            } />
             <Route path="/properties/:id" element={<PropertyDetailPage />} />
             <Route path="/tenants"        element={<TenantsPage />} />
             <Route path="/payments"       element={<PaymentsPage />} />
             <Route path="/maintenance"    element={<MaintenancePage />} />
             <Route path="/admin"          element={<AdminDashboardPage />} />
+            <Route path="/admin/users"    element={<AdminUserManagementPage />} />
+            <Route path="/admin/inventory" element={<AdminInventoryPage />} />
             <Route path="/tenant"         element={<TenantPortalPage />} />
             <Route path="/notices"        element={<NoticesPage user={user} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
