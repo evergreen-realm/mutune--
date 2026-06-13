@@ -3,5 +3,6 @@ module.exports = {
   Tenant: require('./Tenant'),
   User: require('./User'),
   Payment: require('./Payment'),
-  Notice: require('./Notice')
+  Notice: require('./Notice'),
+  MaintenanceTicket: require('./MaintenanceTicket')
 };

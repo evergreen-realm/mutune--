@@ -49,7 +49,8 @@ router.post(
         sessionId: session_id || `sess_${req.user._id}_${Date.now()}`,
         userId: req.user._id.toString(),
         role: req.user.role,
-        context: enrichedContext
+        context: enrichedContext,
+        user: req.user
       });
 
       res.json({

@@ -4,6 +4,8 @@ const { body, param, validationResult } = require('express-validator');
 const { requireAuth, verifyClerkToken } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const User = require('../models/User');
+const Tenant = require('../models/Tenant');
+const Property = require('../models/Property');
 const logger = require('../utils/logger');
 
 const validate = (req, res) => {
@@ -34,7 +36,9 @@ router.patch('/me/role',
     body('role').isIn(['agent', 'admin', 'landlord', 'tenant']).withMessage('Invalid role'),
     body('phone').optional().trim().notEmpty().withMessage('Phone cannot be empty'),
     body('earb_license').optional().trim().notEmpty().withMessage('EARB license cannot be empty'),
-    body('assigned_areas').optional().isArray().withMessage('Assigned areas must be an array')
+    body('assigned_areas').optional().isArray().withMessage('Assigned areas must be an array'),
+    body('property_id').optional().isMongoId().withMessage('property_id must be a valid Mongo ID'),
+    body('unit_id').optional().notEmpty().withMessage('unit_id cannot be empty')
   ],
   async (req, res, next) => {
     try {
@@ -43,13 +47,80 @@ router.patch('/me/role',
         return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
       }
 
-      const { role, phone, earb_license, assigned_areas } = req.body;
+      const { role, phone, earb_license, assigned_areas, property_id, unit_id } = req.body;
       const userId = req.user._id;
 
       const updateData = { role };
       if (phone !== undefined) updateData.phone = phone;
       if (earb_license !== undefined) updateData.earb_license = earb_license;
       if (assigned_areas !== undefined) updateData.assigned_areas = assigned_areas;
+
+      // —— Tenant-specific: auto-create Tenant document and link to unit ——
+      if (role === 'tenant') {
+        const existingTenant = await Tenant.findOne({ user_id: userId }).lean();
+        if (!existingTenant) {
+          let assignedPropertyId = property_id || null;
+          let assignedUnitId = unit_id || null;
+
+          // If admin provided a specific unit, use it; otherwise find first vacant
+          if (!assignedPropertyId || !assignedUnitId) {
+            const vacantProperty = await Property.findOne({ 'units.status': 'vacant' }).lean();
+            if (vacantProperty) {
+              const vacantUnit = vacantProperty.units.find(u => u.status === 'vacant');
+              if (vacantUnit) {
+                assignedPropertyId = vacantProperty._id;
+                assignedUnitId = vacantUnit._id;
+              }
+            }
+          }
+
+          // Verify the selected unit is actually vacant (prevent race condition)
+          if (assignedPropertyId && assignedUnitId) {
+            const prop = await Property.findById(assignedPropertyId).lean();
+            const unit = prop?.units?.find(u => u._id.toString() === assignedUnitId.toString());
+            if (unit && unit.status !== 'vacant') {
+              return res.status(409).json({
+                success: false,
+                error: { code: 'UNIT_OCCUPIED', message: 'Selected unit is no longer vacant. Please choose another.' }
+              });
+            }
+          }
+
+          const tenantCount = await Tenant.countDocuments();
+          const tenantCode = `TNT-MOM-${String(tenantCount + 1).padStart(4, '0')}`;
+
+          await Tenant.create({
+            tenant_code: tenantCode,
+            user_id: userId,
+            full_name: req.user.full_name,
+            phone: phone || req.user.phone || '254700000000',
+            email: req.user.email,
+            id_number: req.body.id_number || '',
+            current_property_id: assignedPropertyId || undefined,
+            current_unit_id: assignedUnitId || undefined,
+            lease_start: req.body.lease_start ? new Date(req.body.lease_start) : new Date(),
+            lease_end: req.body.lease_end
+              ? new Date(req.body.lease_end)
+              : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+            rent_amount_kes: req.body.rent_amount_kes || 0,
+            tenancy_status: 'pending'
+          });
+
+          // Mark unit as occupied and link tenant
+          if (assignedPropertyId && assignedUnitId) {
+            await Property.updateOne(
+              { _id: assignedPropertyId, 'units._id': assignedUnitId },
+              { $set: { 'units.$.status': 'occupied' } }
+            );
+          }
+
+          // Update User with property/unit links
+          if (assignedPropertyId) updateData.current_property_id = assignedPropertyId;
+          if (assignedUnitId) updateData.current_unit_id = assignedUnitId;
+
+          logger.info('Tenant auto-created during onboarding', { userId, tenantCode, assignedPropertyId, assignedUnitId });
+        }
+      }
 
       const updatedUser = await User.findByIdAndUpdate(
         userId,

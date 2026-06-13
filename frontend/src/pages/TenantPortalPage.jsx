@@ -125,6 +125,31 @@ export default function TenantPortalPage() {
   const leaseEnd = tenantData?.lease_end ? new Date(tenantData.lease_end) : null;
   const daysLeft = leaseEnd ? Math.ceil((leaseEnd - Date.now()) / 86400000) : null;
 
+  // If the tenant has no assigned property, show a helpful setup screen
+  if (!profile?.isLoading && tenantData && !tenantData.current_property_id) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-gradient-to-tr from-amber-900/30 to-slate-900 border border-amber-700/30 rounded-2xl p-10 text-center">
+          <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
+            <Home size={28} className="text-amber-400" />
+          </div>
+          <h2 className="text-xl font-black text-white mb-2">No Property Assigned Yet</h2>
+          <p className="text-slate-400 text-sm max-w-sm mx-auto mb-6">
+            Your account is set up, but you haven't been linked to a specific unit yet.
+            Please contact Mutune Estate Agency to complete your move-in registration.
+          </p>
+          <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-left max-w-xs mx-auto">
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">Contact Details</p>
+            <p className="text-sm text-white font-medium">Mutune Estate Agency</p>
+            <p className="text-xs text-slate-400 mt-1">📍 Mombasa, Kenya</p>
+            <p className="text-xs text-slate-400 mt-0.5">📞 +254 700 000 000</p>
+            <p className="text-xs text-slate-400 mt-0.5">🏷 Ref: {tenantData.tenant_code || 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}

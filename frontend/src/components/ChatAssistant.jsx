@@ -8,7 +8,13 @@ export default function ChatAssistant({ user, context = {} }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState(() => `sess_${user?._id || 'anon'}_${Date.now()}`);
+  const [sessionId, setSessionId] = useState(() => {
+    const stored = localStorage.getItem(`chat_session_${user?._id || 'anon'}`);
+    if (stored) return stored;
+    const newId = `sess_${user?._id || 'anon'}_${Date.now()}`;
+    localStorage.setItem(`chat_session_${user?._id || 'anon'}`, newId);
+    return newId;
+  });
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -60,10 +66,12 @@ export default function ChatAssistant({ user, context = {} }) {
     try {
       await clearChatHistory(sessionId);
     } catch (_err) {
-      // Clear local state regardless of API response
+      // Clear local state regardless
     }
+    const newId = `sess_${user?._id || 'anon'}_${Date.now()}`;
+    localStorage.setItem(`chat_session_${user?._id || 'anon'}`, newId);
     setMessages([]);
-    setSessionId(`sess_${user?._id || 'anon'}_${Date.now()}`);
+    setSessionId(newId);
   };
 
   const renderToolSuggestions = (tools) => {
@@ -138,13 +146,33 @@ export default function ChatAssistant({ user, context = {} }) {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin">
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
-                <Bot size={36} className="mb-3 opacity-30" />
-                <p className="text-sm font-medium text-gray-500">Ask me anything about your properties</p>
-                <p className="text-xs text-gray-400 mt-1">Payments · Maintenance · Notices · Tenants</p>
-              </div>
-            )}
+            {messages.length === 0 && (() => {
+              const quickActions = {
+                tenant: ['Check my rent status', 'Report a maintenance issue', 'When is my lease ending?', 'What is the M-Pesa paybill?'],
+                agent:  ['Check payment for unit 3B', 'Create maintenance ticket', 'Show property occupancy', 'List overdue tenants'],
+                admin:  ['Show vacant units summary', 'Which tenants are in arrears?', 'Generate maintenance report', 'Check property status'],
+                landlord: ['Show my property occupancy', 'What are my monthly collections?', 'List active tenants']
+              };
+              const chips = quickActions[user?.role] || quickActions.tenant;
+              return (
+                <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 px-2">
+                  <Bot size={32} className="mb-3 opacity-30" />
+                  <p className="text-sm font-medium text-gray-500">Ask me anything about your properties</p>
+                  <p className="text-xs text-gray-400 mt-1 mb-4">Payments · Maintenance · Notices · Tenants</p>
+                  <div className="flex flex-wrap gap-1.5 justify-center">
+                    {chips.map((chip, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setInput(chip)}
+                        className="px-2.5 py-1 text-[10px] font-medium bg-gray-50 border border-gray-200 rounded-full text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                      >
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             {messages.map((msg, i) => (
               <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (

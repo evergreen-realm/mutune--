@@ -85,7 +85,40 @@ router.get('/nearby',
   }
 );
 
-// ─── GET /properties/:id ─────────────────────────────────────────────────────
+// ─── GET /properties/units/vacant ───────────────────────────────────────────────────
+router.get('/units/vacant',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent']),
+  async (req, res, next) => {
+    try {
+      const properties = await Property.find({ 'units.status': 'vacant' })
+        .select('name property_code address units')
+        .lean();
+
+      const vacantUnits = properties.flatMap(p =>
+        p.units
+          .filter(u => u.status === 'vacant')
+          .map(u => ({
+            propertyId:   p._id,
+            propertyName: p.name,
+            propertyCode: p.property_code,
+            area:         p.address?.area || '',
+            unitId:       u._id,
+            unitNumber:   u.unit_number,
+            rentAmount:   u.rent_kes,
+            bedrooms:     u.bedrooms,
+            type:         u.type || 'unit'
+          }))
+      );
+
+      res.json({ success: true, data: vacantUnits, total: vacantUnits.length });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /properties/:id ─────────────────────────────────────────────────────────
 router.get('/:id',
   requireAuth,
   enforcePropertyScope,

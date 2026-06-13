@@ -46,6 +46,7 @@ export const deleteProperty        = (id)                => api.delete(`/propert
 export const fetchNearby           = (params)            => api.get('/properties/nearby', { params });
 export const addUnit               = (propertyId, data)  => api.post(`/properties/${propertyId}/units`, data);
 export const updateUnit            = (propertyId, unitId, data) => api.patch(`/properties/${propertyId}/units/${unitId}`, data);
+export const fetchVacantUnits      = ()                  => api.get('/properties/units/vacant');
 
 // Phase 4: Unit geospatial indexing
 export const updateUnitGeolocation = (propertyId, unitId, data) => api.patch(`/properties/${propertyId}/units/${unitId}/geolocation`, data);
