@@ -39,7 +39,7 @@ if (-not $RENDER_API_KEY) {
 $required = @(
   "MONGODB_URI", "JWT_SECRET", "ENCRYPTION_KEY",
   "CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY",
-  "GROQ_API_KEY", "RESEND_API_KEY",
+  "GROQ_API_KEY", "KIMI_API_KEY", "RESEND_API_KEY",
   "AFRICAS_TALKING_API_KEY",
   "MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET", "MPESA_PASSKEY",
   "CLOUDFLARE_R2_ACCESS_KEY_ID", "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
@@ -64,6 +64,8 @@ $envVars = @(
   @{key="GROQ_MODEL";                   value="llama-3.3-70b-versatile"},
   @{key="GROQ_MAX_TOKENS";              value="1024"},
   @{key="GROQ_TEMPERATURE";             value="0.3"},
+  @{key="KIMI_API_KEY";                 value=$env:KIMI_API_KEY},
+  @{key="KIMI_API_URL";                 value="https://api.moonshot.ai/v1/chat/completions"},
   @{key="RESEND_API_KEY";               value=$env:RESEND_API_KEY},
   @{key="RESEND_FROM_EMAIL";            value=if($env:RESEND_FROM_EMAIL){"$env:RESEND_FROM_EMAIL"}else{"onboarding@resend.dev"}},
   @{key="AFRICAS_TALKING_API_KEY";      value=$env:AFRICAS_TALKING_API_KEY},

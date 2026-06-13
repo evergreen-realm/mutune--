@@ -355,7 +355,11 @@ class KimiAIService {
 
       // Store in session
       session.messages.push({ role: 'user', content: message });
-      session.messages.push({ role: 'assistant', content: finalResponse });
+      const storeMessage = { role: 'assistant', content: finalResponse };
+      if (assistantMessage.reasoning_content) {
+        storeMessage.reasoning_content = assistantMessage.reasoning_content;
+      }
+      session.messages.push(storeMessage);
 
       if (session.messages.length > 40) {
         session.messages = session.messages.slice(-40);
