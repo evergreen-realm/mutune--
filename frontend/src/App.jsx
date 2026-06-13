@@ -174,7 +174,7 @@ function AppShell() {
               Verification Pending
             </h1>
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              Your Estate Agent registration is undergoing review. The admin team at Mutune Estate Agency is verifying your EARB license documentation.
+              Your Estate Agent registration is undergoing review. The admin team at Mutune Estate Agency is verifying your uploaded verification document.
             </p>
 
             <div className="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl mb-8 text-left font-mono">
@@ -187,8 +187,10 @@ function AppShell() {
                 <span className="text-slate-300 font-semibold">{dbUser.email}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-medium">EARB License:</span>
-                <span className="text-slate-300 font-semibold">{dbUser.earb_license || 'N/A'}</span>
+                <span className="text-slate-500 font-medium">Verification Doc:</span>
+                <span className={`font-semibold text-xs ${dbUser.earb_verification_doc_url ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {dbUser.earb_verification_doc_url ? '✓ Submitted' : '⚠ Not uploaded'}
+                </span>
               </div>
             </div>
 
@@ -572,7 +574,7 @@ function AppShell() {
             <Route path="/" element={
               derivedRole === 'tenant' ? <TenantPortalPage /> :
               derivedRole === 'landlord' ? <LandlordDashboardPage /> :
-              derivedRole === 'agent' ? <AgentPerformancePage /> :
+              derivedRole === 'agent' ? <AgentPerformancePage dbUser={dbUser} /> :
               <DashboardPage />
             } />
             <Route path="/properties"     element={<PropertiesPage />} />
@@ -587,7 +589,7 @@ function AppShell() {
             <Route path="/admin"          element={<AdminDashboardPage />} />
             <Route path="/admin/users"    element={<AdminUserManagementPage />} />
             <Route path="/admin/inventory" element={<AdminInventoryPage />} />
-            <Route path="/tenant"         element={<TenantPortalPage />} />
+            <Route path="/tenant"         element={isTenant ? <Navigate to="/" replace /> : <TenantPortalPage />} />
             <Route path="/notices"        element={<NoticesPage user={user} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>

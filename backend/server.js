@@ -82,6 +82,7 @@ app.use('/api/v1/ai', require('./routes/ai'));                      // Phase 3: 
 app.use('/api/v1/tasks', require('./routes/tasks'));                  // Phase 4: Agent task tracking
 app.use('/api/v1/inventory', require('./routes/inventory'));          // Phase 4: Inventory & auction
 app.use('/api/v1/notifications', require('./routes/notifications')); // Phase 4: In-app notifications
+app.use('/api/v1/upload',        require('./routes/upload'));         // Phase 5: Verification doc upload (R2)
 
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { path: req.path, method: req.method, message: err.message, stack: err.stack });

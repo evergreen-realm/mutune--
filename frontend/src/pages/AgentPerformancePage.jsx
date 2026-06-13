@@ -19,7 +19,7 @@ const taskTypeIcon = (t) => ({ check_in: '🏠', payment_followup: '💰', inspe
 const taskStatusColor = s => ({ pending: 'rgba(251,191,36,0.15)', in_progress: 'rgba(99,102,241,0.15)', completed: 'rgba(16,185,129,0.15)', overdue: 'rgba(239,68,68,0.15)' }[s] || 'rgba(255,255,255,0.1)');
 const taskStatusText  = s => ({ pending: '#fbbf24', in_progress: '#a78bfa', completed: '#34d399', overdue: '#f87171' }[s] || '#fff');
 
-export default function AgentPerformancePage() {
+export default function AgentPerformancePage({ dbUser }) {
   const { user: clerkUser } = useUser();
 
   const [agents,   setAgents]   = useState([]);
@@ -131,6 +131,31 @@ export default function AgentPerformancePage() {
             </button>
           </div>
         </div>
+
+        {/* Agent ID Banner — shown only for agent users when they have an approved user_code */}
+        {dbUser?.user_code && dbUser.role === 'agent' && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.08))',
+            border: '1px solid rgba(16,185,129,0.3)',
+            borderRadius: 16, padding: '16px 24px',
+            display: 'flex', alignItems: 'center', gap: 20,
+            marginBottom: 24, flexWrap: 'wrap'
+          }}>
+            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Medal size={20} style={{ color: '#10b981' }} />
+            </div>
+            <div>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Your Agent ID</p>
+              <p style={{ color: '#10b981', fontSize: 22, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.08em' }}>{dbUser.user_code}</p>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>Use this ID when communicating with tenants and landlords or referencing transactions.</p>
+            </div>
+            <div style={{ flexShrink: 0, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 8, padding: '4px 12px' }}>
+              <span style={{ color: '#34d399', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>✓ Approved</span>
+            </div>
+          </div>
+        )}
 
         {/* Summary stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 28 }}>

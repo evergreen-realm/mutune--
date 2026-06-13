@@ -1,32 +1,172 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   Building2, Shield, Users, UserCheck, Briefcase,
-  Phone, Award, MapPin, Home, RefreshCw, AlertCircle
+  Phone, Award, MapPin, Home, RefreshCw, AlertCircle,
+  UploadCloud, CheckCircle2, FileText, X
 } from 'lucide-react';
-import { updateUserRole, fetchVacantUnits } from '../lib/api';
+import { updateUserRole, fetchVacantUnits, uploadDoc } from '../lib/api';
 
 const AVAILABLE_AREAS = [
   'Nyali', 'Bamburi', 'Tudor', 'Kisauni',
   'Ganjoni', 'Mombasa Island', 'Shanzu', 'Likoni'
 ];
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+/** Drag-and-drop / click-to-select verification document uploader */
+function DocUploader({ onUploaded, uploading, setUploading, uploadedName, setUploadedName }) {
+  const inputRef  = useRef(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [error,   setError]     = useState('');
+
+  const processFile = useCallback(async (file) => {
+    setError('');
+    if (!file) return;
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError('Only PDF, JPEG, PNG, or WebP files are accepted.');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setError('File must be under 5 MB.');
+      return;
+    }
+    setUploading(true);
+    setUploadedName('');
+    try {
+      const res = await uploadDoc(file);
+      if (res?.success && res.url) {
+        onUploaded(res.url);
+        setUploadedName(file.name);
+        toast.success('Document uploaded successfully!');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (err) {
+      const msg = err?.error?.message || err?.message || 'Upload failed. Please try again.';
+      setError(msg);
+      toast.error(msg);
+      onUploaded('');
+    } finally {
+      setUploading(false);
+    }
+  }, [onUploaded, setUploading, setUploadedName]);
+
+  const onDrop = useCallback((e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    processFile(file);
+  }, [processFile]);
+
+  const onInputChange = (e) => processFile(e.target.files?.[0]);
+
+  const clearUpload = (e) => {
+    e.stopPropagation();
+    onUploaded('');
+    setUploadedName('');
+    setError('');
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-slate-300 text-xs font-semibold mb-2">
+        Verification Document <span className="text-red-400">*</span>
+        <span className="text-slate-500 font-normal ml-1">(EARB certificate, ID, or affidavit — PDF / image, max 5 MB)</span>
+      </label>
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => !uploading && inputRef.current?.click()}
+        onKeyDown={(e) => e.key === 'Enter' && !uploading && inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        className={`
+          relative flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border-2 border-dashed
+          transition-all cursor-pointer select-none
+          ${uploading        ? 'border-slate-600 bg-slate-900/40 cursor-not-allowed' :
+            uploadedName     ? 'border-emerald-500/60 bg-emerald-950/20 hover:bg-emerald-950/30' :
+            dragOver         ? 'border-green-400 bg-green-900/20 scale-[1.01]' :
+                               'border-slate-700 bg-slate-900/40 hover:border-slate-500 hover:bg-slate-800/40'}
+        `}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.webp"
+          className="hidden"
+          onChange={onInputChange}
+          disabled={uploading}
+        />
+
+        {uploading ? (
+          <>
+            <RefreshCw size={28} className="text-green-400 animate-spin" />
+            <p className="text-xs text-slate-400 font-medium">Uploading…</p>
+          </>
+        ) : uploadedName ? (
+          <div className="flex items-center gap-3 w-full">
+            <CheckCircle2 size={24} className="text-emerald-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-emerald-300 truncate">{uploadedName}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Uploaded — click to replace</p>
+            </div>
+            <button
+              type="button"
+              onClick={clearUpload}
+              className="p-1 text-slate-500 hover:text-red-400 transition-colors rounded-lg"
+              title="Remove"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="p-3 bg-slate-800 rounded-xl">
+              <UploadCloud size={24} className={`${dragOver ? 'text-green-400' : 'text-slate-400'} transition-colors`} />
+            </div>
+            <div className="text-center">
+              <p className="text-xs font-semibold text-slate-300">
+                {dragOver ? 'Drop to upload' : 'Drag & drop or click to select'}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1">PDF, JPEG, PNG, WebP — max 5 MB</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-2.5 bg-red-950/30 border border-red-800/40 rounded-xl text-red-400 text-xs">
+          <AlertCircle size={13} className="flex-shrink-0" />
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OnboardingPage() {
   const { user: clerkUser, isLoaded } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
 
-  const [role, setRole] = useState('');
-  const [phone, setPhone] = useState('');
-  const [earbLicense, setEarbLicense] = useState('');
-  const [earbVerificationDocUrl, setEarbVerificationDocUrl] = useState('');
-  const [assignedAreas, setAssignedAreas] = useState([]);
-  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [role,             setRole]             = useState('');
+  const [phone,            setPhone]            = useState('');
+  const [earbLicense,      setEarbLicense]      = useState('');
+  const [earbDocUrl,       setEarbDocUrl]       = useState('');
+  const [earbDocName,      setEarbDocName]      = useState('');
+  const [docUploading,     setDocUploading]     = useState(false);
+  const [assignedAreas,    setAssignedAreas]    = useState([]);
+  const [selectedUnitId,   setSelectedUnitId]   = useState('');
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting,       setSubmitting]       = useState(false);
 
   // Fetch vacant units only when tenant role is selected
   const { data: vacantData, isLoading: unitsLoading } = useQuery({
@@ -78,8 +218,12 @@ export default function OnboardingPage() {
         toast.error('EARB License number is required for Agents.');
         return;
       }
-      if (!earbVerificationDocUrl.trim()) {
-        toast.error('EARB verification document URL is required for Agents.');
+      if (!earbDocUrl) {
+        toast.error('Please upload your verification document before submitting.');
+        return;
+      }
+      if (docUploading) {
+        toast.error('Please wait for the document to finish uploading.');
         return;
       }
     }
@@ -90,7 +234,7 @@ export default function OnboardingPage() {
 
       if (role === 'agent') {
         payload.earb_license = earbLicense.trim();
-        payload.earb_verification_doc_url = earbVerificationDocUrl.trim();
+        payload.earb_verification_doc_url = earbDocUrl;
         payload.assigned_areas = assignedAreas;
       }
 
@@ -212,8 +356,11 @@ export default function OnboardingPage() {
                 {/* Agent fields */}
                 {role === 'agent' && (
                   <div className="space-y-4">
+                    {/* EARB License */}
                     <div>
-                      <label className="block text-slate-300 text-xs font-semibold mb-2">EARB License Number</label>
+                      <label className="block text-slate-300 text-xs font-semibold mb-2">
+                        EARB License Number <span className="text-red-400">*</span>
+                      </label>
                       <div className="relative">
                         <Award className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
@@ -226,20 +373,17 @@ export default function OnboardingPage() {
                         />
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-slate-300 text-xs font-semibold mb-2">EARB Verification Document URL (PDF/Image link)</label>
-                      <div className="relative">
-                        <Award className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                          type="url"
-                          value={earbVerificationDocUrl}
-                          onChange={e => setEarbVerificationDocUrl(e.target.value)}
-                          placeholder="https://example.com/earb-certificate.pdf"
-                          className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white placeholder:text-slate-600 rounded-xl px-4 py-3 pl-11 text-sm outline-none transition"
-                          required
-                        />
-                      </div>
-                    </div>
+
+                    {/* Verification Document — Drag & Drop */}
+                    <DocUploader
+                      onUploaded={setEarbDocUrl}
+                      uploading={docUploading}
+                      setUploading={setDocUploading}
+                      uploadedName={earbDocName}
+                      setUploadedName={setEarbDocName}
+                    />
+
+                    {/* Assigned Areas */}
                     <div>
                       <label className="block text-slate-300 text-xs font-semibold mb-2">Assigned Operational Areas</label>
                       <div className="flex flex-wrap gap-2">
@@ -325,11 +469,13 @@ export default function OnboardingPage() {
               <button
                 id="btn-complete-onboarding"
                 type="submit"
-                disabled={submitting || !role}
+                disabled={submitting || !role || docUploading}
                 className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-green-900/20 flex items-center justify-center gap-2"
               >
                 {submitting
                   ? <><RefreshCw size={14} className="animate-spin" /> Setting up account…</>
+                  : docUploading
+                  ? <><RefreshCw size={14} className="animate-spin" /> Uploading document…</>
                   : 'Complete Registration'}
               </button>
             </div>

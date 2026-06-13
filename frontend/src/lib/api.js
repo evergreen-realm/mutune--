@@ -215,4 +215,18 @@ export const updateLateFeeRule     = (id, data)       => api.patch(`/admin/late-
 export const deleteLateFeeRule     = (id)             => api.delete(`/admin/late-fee-rules/${id}`);
 export const reclaimInventoryItem = (propId, data)   => api.post(`/inventory/${propId}/reclaim`, data);
 
+// ── File Upload — Verification Docs (Phase 5) ─────────────────────────────────
+/**
+ * uploadDoc — uploads a file (PDF / image) to Cloudflare R2 via the backend.
+ * @param {File} file — native browser File object
+ * @returns {Promise<{ success: boolean, url: string }>}
+ */
+export const uploadDoc = (file) => {
+  const form = new FormData();
+  form.append('file', file);
+  return api.post('/upload/doc', form, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
 export default api;

@@ -396,19 +396,24 @@ export default function AdminUserManagementPage() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(16,185,129,0.2)', color: '#34d399' }}>⏳ EARB Review Required</span>
-                      <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>License: {agent.earb_license || 'Not provided'}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(16,185,129,0.2)', color: '#34d399' }}>⏳ Agent Review Pending</span>
+                      {agent.earb_license && (
+                        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>EARB License: {agent.earb_license}</span>
+                      )}
                     </div>
                     <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{agent.full_name}</h3>
                     <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 4 }}>
-                      📧 {agent.email} · 📞 {agent.phone}
+                      📧 {agent.email} · 📞 {agent.phone || '—'}
                     </p>
                     {agent.assigned_areas && agent.assigned_areas.length > 0 && (
                       <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 8 }}>
-                        Areas: {agent.assigned_areas.join(', ')}
+                        📍 Areas: {agent.assigned_areas.join(', ')}
                       </p>
                     )}
-                    {agent.earb_verification_doc_url && (
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8 }}>
+                      Applied: {agent.created_at ? new Date(agent.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    </p>
+                    {agent.earb_verification_doc_url ? (
                       <a
                         href={agent.earb_verification_doc_url}
                         target="_blank"
@@ -417,8 +422,12 @@ export default function AdminUserManagementPage() {
                         onMouseOver={e => e.currentTarget.style.background = 'rgba(52,211,153,0.2)'}
                         onMouseOut={e => e.currentTarget.style.background = 'rgba(52,211,153,0.1)'}
                       >
-                        <FileText size={14} /> View Practice Certificate PDF
+                        <FileText size={14} /> View Verification Document
                       </a>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(251,191,36,0.8)', fontSize: 11, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: '5px 10px' }}>
+                        ⚠ No verification document uploaded
+                      </span>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
