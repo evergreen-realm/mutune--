@@ -37,8 +37,9 @@ import AdminInventoryPage from './pages/AdminInventoryPage';
 // Components
 import PropertyList  from './components/PropertyList';
 import ChatAssistant from './components/ChatAssistant';
-import { syncClerk } from './lib/api';
+import { syncClerk, fetchNotifications, markNotifRead, markAllNotifsRead } from './lib/api';
 import { Sentry } from './lib/sentry';
+import { toast } from 'react-toastify';
 
 // Icons
 import {
@@ -61,6 +62,9 @@ function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [isSynced,    setIsSynced]    = useState(false);
+  const [dbUser,      setDbUser]      = useState(null);
+  const [notifOpen,   setNotifOpen]   = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -74,12 +78,15 @@ function AppShell() {
           let cleanPhone = phone.replace('+', '');
           if (!cleanPhone.startsWith('254')) cleanPhone = '254700000000';
           
-          await syncClerk({
+          const res = await syncClerk({
             clerk_id: clerkUser.id,
             email: email,
             full_name: clerkUser.fullName || clerkUser.username || email,
             phone: cleanPhone
           });
+          if (res?.success && res.data) {
+            setDbUser(res.data);
+          }
           if (import.meta.env.VITE_SENTRY_DSN) {
             Sentry.setUser({
               id: clerkUser.id,
@@ -99,6 +106,18 @@ function AppShell() {
       setIsSynced(true);
     }
   }, [isLoaded, clerkUser]);
+
+  // Fetch notifications scoped to the user
+  const { data: notifData, refetch: refetchNotifs } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: fetchNotifications,
+    refetchInterval: 30000,
+    enabled: isSynced && !!clerkUser,
+    retry: 1
+  });
+
+  const notifications = notifData?.data || [];
+  const unreadCount = notifData?.unreadCount || 0;
 
   if (!isLoaded || !isSynced) {
     return (
@@ -149,7 +168,7 @@ function AppShell() {
     { path: '/properties/add', label: 'Add Property',icon: <PlusCircle size={18} />,       show: isAdmin || isAgent || derivedRole === 'landlord' },
     { path: '/tenants',        label: 'Tenants',     icon: <Users2 size={18} />,           show: !isTenant },
     { path: '/payments',       label: 'Rent Payments',icon: <WalletCards size={18} />,     show: !isTenant },
-    { path: '/tenant',         label: 'My Portal',   icon: <Home size={18} />,             show: isTenant },
+    { path: '/tenant',         label: 'My Portal',   icon: <Home size={18} />,             show: false },
     { path: '/maintenance',    label: 'Maintenance', icon: <Wrench size={18} />,           show: true },
     { path: '/notices',        label: 'Notices',     icon: <FileText size={18} />,         show: isAdmin || isAgent || isTenant }
   ].filter(item => item.show);
@@ -304,19 +323,150 @@ function AppShell() {
                 <ShieldCheck size={18} />
               </Link>
             )}
-            <button
-              id="notifications-btn"
-              className="relative p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-            >
-              <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-            </button>
-            <button
-              id="settings-btn"
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-            >
-              <Settings size={18} />
-            </button>
+            {/* Notifications Dropdown */}
+            <div className="relative">
+              <button
+                id="notifications-btn"
+                onClick={() => { setNotifOpen(!notifOpen); setSettingsOpen(false); }}
+                className="relative p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none"
+                title="Notifications"
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-ping" />
+                )}
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+                )}
+              </button>
+              
+              {notifOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 p-4 max-h-96 overflow-y-auto page-enter animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-gray-50 pb-2 mb-3">
+                      <span className="text-xs font-bold text-gray-700">Notifications ({unreadCount} unread)</span>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await markAllNotifsRead();
+                              refetchNotifs();
+                              toast.success('All notifications marked as read');
+                            } catch (err) {
+                              toast.error(err?.error?.message || 'Failed to update notifications');
+                            }
+                          }}
+                          className="text-[10px] text-green-600 hover:text-green-500 font-bold uppercase tracking-wider transition-colors"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="text-center py-8 text-xs text-gray-400 font-medium">
+                          All caught up! 🎉
+                        </div>
+                      ) : (
+                        notifications.map((n) => {
+                          const isRead = dbUser ? n.read_by.some(uid => uid.toString() === dbUser._id.toString()) : false;
+                          return (
+                            <div
+                              key={n._id}
+                              onClick={async () => {
+                                if (!isRead) {
+                                  try {
+                                    await markNotifRead(n._id);
+                                    refetchNotifs();
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }
+                              }}
+                              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                                isRead 
+                                  ? 'bg-white border-gray-100/50 hover:bg-gray-50/50' 
+                                  : 'bg-green-50/20 border-green-100/30 hover:bg-green-50/30'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className={`text-xs font-semibold ${isRead ? 'text-gray-700 font-medium' : 'text-slate-900 font-bold'}`}>
+                                  {n.title}
+                                </span>
+                                {!isRead && (
+                                  <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0 mt-1" />
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-1 line-clamp-2">{n.message}</p>
+                              <span className="text-[8px] text-gray-400 font-mono block mt-1.5">
+                                {new Date(n.created_at).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Settings Dropdown */}
+            <div className="relative">
+              <button
+                id="settings-btn"
+                onClick={() => { setSettingsOpen(!settingsOpen); setNotifOpen(false); }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none"
+                title="Settings"
+              >
+                <Settings size={18} />
+              </button>
+              
+              {settingsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 p-4 page-enter animate-fade-in">
+                    <h3 className="text-xs font-bold text-gray-700 border-b border-gray-50 pb-2 mb-3">System Settings</h3>
+                    <div className="space-y-3">
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">User Profile</p>
+                        <p className="text-xs font-bold text-slate-800 mt-1 truncate">{fullName}</p>
+                        <p className="text-[10px] text-slate-500 capitalize">{derivedRole}</p>
+                        {dbUser?.phone && <p className="text-[9px] text-slate-400 font-mono mt-1">{dbUser.phone}</p>}
+                      </div>
+                      
+                      <div className="space-y-1.5 text-[10px] font-medium text-slate-500">
+                        <div className="flex justify-between">
+                          <span>Billing Currency:</span>
+                          <span className="font-bold text-slate-700">KES (Shilling)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>M-Pesa Sandbox:</span>
+                          <span className="font-bold text-green-600">Active</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>System Location:</span>
+                          <span className="font-bold text-slate-700">Mombasa, KE</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>API Status:</span>
+                          <span className="font-bold text-green-600">Connected</span>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => signOut()}
+                        className="w-full mt-2 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                      >
+                        <LogOut size={12} /> Sign Out
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <div className="h-8 w-px bg-gray-100" />
             <div className="text-xs font-bold text-gray-700 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 font-mono">
               {new Date().toLocaleDateString('en-KE', { weekday: 'short', month: 'short', day: 'numeric' })}
