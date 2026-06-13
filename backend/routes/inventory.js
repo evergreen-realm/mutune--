@@ -4,8 +4,6 @@ const { body, param, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const Property = require('../models/Property');
-const Notification = require('../models/Notification');
-const User = require('../models/User');
 const logger = require('../utils/logger');
 
 const validate = (req, res) => {
@@ -25,15 +23,12 @@ const validate = (req, res) => {
 router.get('/auctionable', requireAuth, requireRole(['admin', 'super_admin', 'accountant']), async (req, res, next) => {
   try {
     const properties = await Property.find(
-      { 'inventory.auction_status': 'pending', 'inventory.auctionable_marked_at': { $exists: true } },
-      { name: 1, property_code: 1, address: 1, 'inventory.$': 1 }
+      { 'inventory': { $elemMatch: { auctionable_marked_at: { $exists: true }, auction_status: 'pending' } } }
     ).lean();
 
     // Flatten into a list of inventory items with parent property context
     const items = [];
-    for (const prop of await Property.find(
-      { 'inventory': { $elemMatch: { auctionable_marked_at: { $exists: true }, auction_status: 'pending' } } }
-    ).lean()) {
+    for (const prop of properties) {
       for (const item of prop.inventory || []) {
         if (item.auctionable_marked_at && item.auction_status === 'pending') {
           items.push({

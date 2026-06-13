@@ -504,7 +504,7 @@ router.post('/landlord/submit',
     if (!validate(req, res)) return;
     try {
       const {
-        name, type, address, units, contract_terms,
+        name, type, address, units,
         signature_data_url, num_floors, year_built, description
       } = req.body;
 

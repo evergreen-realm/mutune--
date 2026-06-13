@@ -38,7 +38,7 @@ jest.mock('@clerk/clerk-sdk-node', () => ({
 }));
 
 describe('Phase 4 Features', () => {
-  let admin, agent, landlord, property, tenant;
+  let agent, landlord, property, tenant;
 
   beforeEach(() => {
     mockClerkId = 'clerk_admin_001';
@@ -52,7 +52,7 @@ describe('Phase 4 Features', () => {
     await Task.deleteMany({});
     await Notification.deleteMany({});
 
-    admin = await User.create({
+    await User.create({
       user_code: 'ADM-001', role: 'super_admin', full_name: 'Admin',
       email: 'admin@mutune.test', phone: '254700000001',
       password_hash: '$2a$10$test', is_active: true, clerk_id: 'clerk_admin_001'
