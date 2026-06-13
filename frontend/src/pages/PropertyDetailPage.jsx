@@ -23,7 +23,7 @@ export default function PropertyDetailPage() {
   const role = clerkUser?.publicMetadata?.role || 'landlord';
   const isAdmin = ['admin', 'super_admin'].includes(role);
   const isAgent = role === 'agent';
-  const canManage = isAdmin;
+  const canManage = isAdmin || (isAgent && property?.agent_ids?.some(a => a.email === clerkUser?.primaryEmailAddress?.emailAddress));
 
   // Local state for unit creation form
   const [showAddUnit, setShowAddUnit] = useState(false);
@@ -292,21 +292,29 @@ export default function PropertyDetailPage() {
                           </span>
                         </td>
                         <td className="p-4 text-center">
-                          <button
-                            onClick={() => handleLockToggle(u._id, u.lock_status)}
-                            disabled={lockUnitMutation.isPending}
-                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                              isLocked
-                                ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
-                                : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100/50'
-                            }`}
-                          >
-                            {isLocked ? (
-                              <><Lock size={12} className="text-red-400" /> Locked</>
-                            ) : (
-                              <><Unlock size={12} className="text-green-500" /> Unlocked</>
-                            )}
-                          </button>
+                          {(isAdmin || (isAgent && isCheckedIn && checkinExpiry && new Date() < checkinExpiry)) ? (
+                            <button
+                              onClick={() => handleLockToggle(u._id, u.lock_status)}
+                              disabled={lockUnitMutation.isPending}
+                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                                isLocked
+                                  ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+                                  : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100/50'
+                              }`}
+                            >
+                              {isLocked ? (
+                                <><Lock size={12} className="text-red-400" /> Locked</>
+                              ) : (
+                                <><Unlock size={12} className="text-green-500" /> Unlocked</>
+                              )}
+                            </button>
+                          ) : isAgent ? (
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded px-2.5 py-1 uppercase">
+                              Check-in Required
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs font-mono">—</span>
+                          )}
                         </td>
                         {canManage && (
                           <td className="p-4 text-center pr-6">

@@ -233,8 +233,10 @@ router.get('/', requireAuth, async (req, res, next) => {
     if (req.user.role === 'tenant') {
       query.tenant_id = req.user._id;
     } else if (req.user.role === 'agent') {
-      const properties = await Property.find({ agent_ids: req.user._id }).select('_id').lean();
-      query.property_id = { $in: properties.map(p => p._id) };
+      query.property_id = { $in: req.user.assigned_property_ids || [] };
+    } else if (req.user.role === 'landlord') {
+      const ownedProps = await Property.find({ landlord_id: req.user._id }).select('_id').lean();
+      query.property_id = { $in: ownedProps.map(p => p._id) };
     }
 
     const notices = await Notice.find(query)

@@ -340,4 +340,62 @@ router.post('/sync-clerk',
   }
 );
 
+// ─── POST /users/webhook ──────────────────────────────────────────────────────
+// Clerk webhook endpoint to listen for user.created and user.updated events
+router.post('/webhook', async (req, res, next) => {
+  try {
+    const secret = process.env.CLERK_WEBHOOK_SECRET;
+    if (secret && req.headers['x-webhook-secret'] !== secret) {
+      logger.warn('Clerk webhook unauthorized check failed');
+      return res.status(401).json({ success: false, message: 'Unauthorized webhook request' });
+    }
+
+    const { data, type } = req.body;
+    if (!data || !type) {
+      return res.status(400).json({ success: false, message: 'Invalid webhook payload' });
+    }
+
+    const clerk_id = data.id;
+    const email = data.email_addresses?.[0]?.email_address;
+    const full_name = [data.first_name, data.last_name].filter(Boolean).join(' ') || email;
+    const rawPhone = data.phone_numbers?.[0]?.phone_number || '254700000000';
+    let phone = rawPhone.replace('+', '');
+    if (!phone.startsWith('254')) phone = '254700000000';
+
+    if (type === 'user.created') {
+      const existing = await User.findOne({ clerk_id });
+      if (!existing) {
+        const count = await User.countDocuments();
+        const role = data.public_metadata?.role || 'tenant';
+        await User.create({
+          clerk_id,
+          email,
+          full_name,
+          phone,
+          user_code: `USR-NEW-${String(count + 1).padStart(4, '0')}`,
+          role,
+          is_active: true
+        });
+        logger.info('User created via Clerk webhook', { clerkId: clerk_id });
+      }
+    } else if (type === 'user.updated') {
+      const role = data.public_metadata?.role;
+      const updateData = { email, full_name, phone, updated_at: new Date() };
+      if (role) updateData.role = role;
+
+      await User.findOneAndUpdate(
+        { clerk_id },
+        { $set: updateData },
+        { new: true }
+      );
+      logger.info('User updated via Clerk webhook', { clerkId: clerk_id, role });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Clerk webhook handling failed', { message: error.message });
+    next(error);
+  }
+});
+
 module.exports = router;

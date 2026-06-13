@@ -97,11 +97,27 @@ router.get('/',
         filter.property_id = { $in: req.user.assigned_property_ids || [] };
       } else if (req.user.role === 'tenant') {
         filter.tenant_id = req.user._id;
+      } else if (req.user.role === 'landlord') {
+        const Property = require('../models/Property');
+        const ownedProps = await Property.find({ landlord_id: req.user._id }).select('_id').lean();
+        filter.property_id = { $in: ownedProps.map(p => p._id) };
       }
 
       if (status) filter.status = status;
       if (priority) filter.priority = priority;
-      if (property_id && ['admin', 'super_admin', 'accountant'].includes(req.user.role)) {
+      if (property_id) {
+        if (req.user.role === 'agent') {
+          const isAssigned = (req.user.assigned_property_ids || []).some(id => id.toString() === property_id);
+          if (!isAssigned) {
+            return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not assigned' } });
+          }
+        } else if (req.user.role === 'landlord') {
+          const Property = require('../models/Property');
+          const isOwned = await Property.exists({ _id: property_id, landlord_id: req.user._id });
+          if (!isOwned) {
+            return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not owned' } });
+          }
+        }
         filter.property_id = property_id;
       }
 

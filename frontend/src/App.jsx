@@ -33,6 +33,7 @@ import MaintenancePage   from './pages/MaintenancePage';
 import PropertyList  from './components/PropertyList';
 import ChatAssistant from './components/ChatAssistant';
 import { syncClerk } from './lib/api';
+import { Sentry } from './lib/sentry';
 
 // Icons
 import {
@@ -74,6 +75,14 @@ function AppShell() {
             full_name: clerkUser.fullName || clerkUser.username || email,
             phone: cleanPhone
           });
+          if (import.meta.env.VITE_SENTRY_DSN) {
+            Sentry.setUser({
+              id: clerkUser.id,
+              email: email,
+              username: clerkUser.fullName || clerkUser.username || email,
+              role: clerkUser.publicMetadata?.role
+            });
+          }
           setIsSynced(true);
         } catch (err) {
           console.error('Failed to sync user with backend:', err);

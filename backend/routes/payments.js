@@ -149,6 +149,83 @@ async function handleC2BCallback(data) {
   logger.info('Unmatched C2B payment recorded', { receipt, amount: data.TransAmount });
 }
 
+// ─── GET /payments ────────────────────────────────────────────────────────────
+router.get('/',
+  requireAuth,
+  requirePermission('view:payments'),
+  async (req, res, next) => {
+    try {
+      const { page = 1, limit = 20, status, search, property_id } = req.query;
+      const skip = (Number(page) - 1) * Number(limit);
+
+      const filter = {};
+
+      // Role-based scoping
+      if (req.user.role === 'agent') {
+        filter.property_id = { $in: req.user.assigned_property_ids || [] };
+      } else if (req.user.role === 'landlord') {
+        const ownedProps = await Property.find({ landlord_id: req.user._id }).select('_id').lean();
+        filter.property_id = { $in: ownedProps.map(p => p._id) };
+      } else if (req.user.role === 'tenant') {
+        filter.tenant_id = req.user._id;
+      }
+
+      if (status) filter.status = status;
+      if (property_id) {
+        // Double check agent/landlord scope matches the requested property_id
+        if (req.user.role === 'agent') {
+          const isAssigned = (req.user.assigned_property_ids || []).some(id => id.toString() === property_id);
+          if (!isAssigned) {
+            return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not assigned' } });
+          }
+        } else if (req.user.role === 'landlord') {
+          const isOwned = await Property.exists({ _id: property_id, landlord_id: req.user._id });
+          if (!isOwned) {
+            return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not owned' } });
+          }
+        }
+        filter.property_id = property_id;
+      }
+
+      if (search) {
+        const matchingTenants = await Tenant.find({
+          $or: [
+            { full_name: { $regex: search, $options: 'i' } },
+            { phone: { $regex: search, $options: 'i' } },
+            { tenant_code: { $regex: search, $options: 'i' } }
+          ]
+        }).select('_id').lean();
+        const tenantIds = matchingTenants.map(t => t._id);
+
+        filter.$or = [
+          { mpesa_receipt: { $regex: search, $options: 'i' } },
+          { transaction_id: { $regex: search, $options: 'i' } },
+          { tenant_id: { $in: tenantIds } }
+        ];
+      }
+
+      const [payments, total] = await Promise.all([
+        Payment.find(filter)
+          .populate('tenant_id', 'full_name phone tenant_code')
+          .populate('property_id', 'name property_code address')
+          .sort({ created_at: -1 })
+          .skip(skip)
+          .limit(Number(limit))
+          .lean(),
+        Payment.countDocuments(filter)
+      ]);
+
+      res.json({
+        success: true,
+        data: payments,
+        pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.post('/test-sms', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
   try {
     const { phone, message } = req.body;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Crosshair, Loader2, CheckCircle2, AlertTriangle, Building2 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useQueryClient } from '@tanstack/react-query';
 import { createPropertyWithGPS } from '../lib/api';
 
 const PROPERTY_TYPES = ['apartment', 'single_family', 'commercial', 'mixed_use', 'bedsitter', 'studio'];
@@ -12,6 +13,7 @@ const MOMBASA_AREAS = [
 
 export default function AddPropertyPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [coords, setCoords] = useState(null);
@@ -76,6 +78,7 @@ export default function AddPropertyPage() {
         rent_kes: form.rent_kes ? Number(form.rent_kes) : 0,
         location: { coordinates: [coords.lng, coords.lat], accuracy: coords.accuracy }
       });
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
       toast.success(`Property ${res.data?.property_code} created with GPS ✓`);
       navigate('/properties');
     } catch (err) {

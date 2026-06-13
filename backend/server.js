@@ -5,6 +5,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const logger = require('./utils/logger');
+const { initSentry } = require('./utils/sentry');
+
+initSentry();
 
 const app = express();
 
@@ -78,6 +81,19 @@ app.use('/api/v1/ai', require('./routes/ai'));                      // Phase 3: 
 
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { path: req.path, method: req.method, message: err.message, stack: err.stack });
+
+  if (process.env.SENTRY_DSN) {
+    const { Sentry } = require('./utils/sentry');
+    Sentry.withScope((scope) => {
+      if (req.user) {
+        scope.setUser({ id: req.user._id?.toString(), email: req.user.email, role: req.user.role });
+      }
+      scope.setExtra('path', req.path);
+      scope.setExtra('method', req.method);
+      Sentry.captureException(err);
+    });
+  }
+
   res.status(err.status || 500).json({
     success: false,
     error: { code: err.code || 'INTERNAL_ERROR', message: err.message || 'Internal server error' }

@@ -81,7 +81,7 @@ function AddTenantModal({ onClose, onCreated }) {
     mutation.mutate(payload);
   };
 
-  const availableUnits = (selectedProperty?.units || []).filter(u => u.status !== 'occupied');
+  const availableUnits = (selectedProperty?.units || []).filter(u => u.status === 'vacant');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
