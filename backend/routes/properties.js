@@ -88,7 +88,7 @@ router.get('/nearby',
 // ─── GET /properties/units/vacant ───────────────────────────────────────────────────
 router.get('/units/vacant',
   requireAuth,
-  requireRole(['admin', 'super_admin', 'agent']),
+  requireRole(['admin', 'super_admin', 'agent', 'tenant', 'landlord']),
   async (req, res, next) => {
     try {
       const properties = await Property.find({ 'units.status': 'vacant' })

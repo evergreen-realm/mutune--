@@ -20,14 +20,37 @@ const validate = (req, res) => {
 // ─── GET /users/me ────────────────────────────────────────────────────────────
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id)
+    let user = await User.findById(req.user._id)
       .populate('assigned_property_ids', 'name property_code address')
       .lean();
+
+    if (user && user.clerk_id) {
+      try {
+        const { clerkClient } = require('@clerk/clerk-sdk-node');
+        const clerkUser = await clerkClient.users.getUser(user.clerk_id);
+        const clerkRole = clerkUser?.publicMetadata?.role;
+        if (clerkRole && user.role !== clerkRole) {
+          logger.info('Role mismatch detected in /users/me, syncing from Clerk', { clerkId: user.clerk_id, dbRole: user.role, clerkRole });
+          const updatedUser = await User.findByIdAndUpdate(
+            user._id,
+            { $set: { role: clerkRole, updated_at: new Date() } },
+            { new: true }
+          )
+            .populate('assigned_property_ids', 'name property_code address')
+            .lean();
+          user = updatedUser;
+        }
+      } catch (clerkErr) {
+        logger.warn('Failed to fetch/sync Clerk user role in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
+      }
+    }
+
     res.json({ success: true, data: user });
   } catch (error) {
     next(error);
   }
 });
+
 
 // ─── PATCH /users/me/role ─────────────────────────────────────────────────────
 router.patch('/me/role',
@@ -309,30 +332,51 @@ router.post('/sync-clerk',
         return res.status(400).json({ success: false, error: { code: 'MISSING_CLERK_ID', message: 'clerk_id required' } });
       }
 
+      // Fetch user from Clerk to get the most up-to-date metadata/role
+      const { clerkClient } = require('@clerk/clerk-sdk-node');
+      let clerkUser = null;
+      try {
+        clerkUser = await clerkClient.users.getUser(clerk_id);
+      } catch (clerkErr) {
+        logger.warn('Failed to fetch user from Clerk in sync-clerk', { clerkId: clerk_id, message: clerkErr.message });
+      }
+
+      const clerkRole = clerkUser?.publicMetadata?.role;
+
       const existing = await User.findOne({ clerk_id });
       if (existing) {
+        const updateData = {
+          email: email || existing.email,
+          full_name: full_name || existing.full_name,
+          updated_at: new Date()
+        };
+        if (clerkRole && existing.role !== clerkRole) {
+          updateData.role = clerkRole;
+          logger.info('Syncing role from Clerk to existing user', { clerkId: clerk_id, oldRole: existing.role, newRole: clerkRole });
+        }
         const updated = await User.findOneAndUpdate(
           { clerk_id },
-          { $set: { email: email || existing.email, full_name: full_name || existing.full_name, updated_at: new Date() } },
+          { $set: updateData },
           { new: true }
         ).select('-password_hash');
         return res.json({ success: true, data: updated, created: false });
       }
 
       const count = await User.countDocuments();
+      const initialRole = clerkRole || 'agent'; // fallback to agent if no metadata role is set yet
       const user = await User.create({
         clerk_id,
         email,
         full_name: full_name || email,
         phone: phone || '254700000000',
         user_code: `USR-NEW-${String(count + 1).padStart(4, '0')}`,
-        role: 'agent',  // Temporary — onboarding will call PATCH /users/me/role
+        role: initialRole,
         is_active: true
       });
 
       const safeUser = user.toObject();
       delete safeUser.password_hash;
-      logger.info('User synced from Clerk', { clerkId: clerk_id, userId: user._id });
+      logger.info('User synced from Clerk', { clerkId: clerk_id, userId: user._id, role: initialRole });
       res.status(201).json({ success: true, data: safeUser, created: true });
     } catch (error) {
       next(error);
