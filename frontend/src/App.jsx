@@ -371,7 +371,9 @@ function AppShell() {
                         </div>
                       ) : (
                         notifications.map((n) => {
-                          const isRead = dbUser ? n.read_by.some(uid => uid.toString() === dbUser._id.toString()) : false;
+                          const isRead = (dbUser && dbUser._id && n.read_by) 
+                            ? n.read_by.some(uid => uid?.toString() === dbUser._id.toString()) 
+                            : false;
                           return (
                             <div
                               key={n._id}
