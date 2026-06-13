@@ -139,7 +139,7 @@ function AppShell() {
     { path: '/',               label: 'Dashboard',   icon: <LayoutDashboard size={18} />, show: true },
     { path: '/admin',          label: 'Analytics',   icon: <BarChart3 size={18} />,        show: isAdmin },
     { path: '/properties',     label: 'Properties',  icon: <Building2 size={18} />,        show: !isTenant },
-    { path: '/properties/add', label: 'Add Property',icon: <PlusCircle size={18} />,       show: isAdmin || isAgent },
+    { path: '/properties/add', label: 'Add Property',icon: <PlusCircle size={18} />,       show: isAdmin || isAgent || derivedRole === 'landlord' },
     { path: '/tenants',        label: 'Tenants',     icon: <Users2 size={18} />,           show: !isTenant },
     { path: '/payments',       label: 'Rent Payments',icon: <WalletCards size={18} />,     show: !isTenant },
     { path: '/tenant',         label: 'My Portal',   icon: <Home size={18} />,             show: isTenant },

@@ -102,6 +102,17 @@ router.get('/:id',
         }
       }
 
+      // Landlord scope: can only view tenants in owned properties
+      if (req.user.role === 'landlord') {
+        const isOwned = await Property.exists({
+          _id: tenant.current_property_id?._id || tenant.current_property_id,
+          landlord_id: req.user._id
+        });
+        if (!isOwned) {
+          return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Tenant not in owned properties' } });
+        }
+      }
+
       res.json({ success: true, data: tenant });
     } catch (error) {
       next(error);

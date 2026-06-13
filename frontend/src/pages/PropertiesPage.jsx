@@ -16,7 +16,7 @@ export default function PropertiesPage() {
   });
 
   const role = clerkUser?.publicMetadata?.role || 'landlord';
-  const canAdd = ['admin', 'super_admin', 'agent'].includes(role);
+  const canAdd = ['admin', 'super_admin', 'agent', 'landlord'].includes(role);
 
   const properties = data?.data || [];
 

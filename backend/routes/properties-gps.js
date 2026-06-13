@@ -18,7 +18,7 @@ const olc = new OpenLocationCode();
  */
 router.post('/with-gps',
   requireAuth,
-  requireRole(['admin', 'super_admin', 'agent']),
+  requireRole(['admin', 'super_admin', 'agent', 'landlord']),
   [
     body('name').trim().notEmpty().isLength({ max: 100 }).withMessage('Name required (max 100 chars)'),
     body('type').isIn(['apartment', 'single_family', 'commercial', 'mixed_use', 'bedsitter', 'studio'])

@@ -5,7 +5,7 @@ const permissions = {
   super_admin: ['*'],
   admin: ['*'],
   agent: ['view:assigned', 'lock:house', 'verify:payment', 'issue:notice', 'view:inventory', 'edit:inventory', 'create:maintenance', 'view:maintenance', 'ai:chat', 'checkin:property', 'view:payments', 'pay:rent'],
-  landlord: ['view:own_properties', 'view:payments', 'view:reports'],
+  landlord: ['view:own_properties', 'view:payments', 'view:reports', 'edit:property', 'view:assigned'],
   accountant: ['view:payments', 'view:reports', 'export:kra', 'verify:payment'],
   tenant: ['view:own_unit', 'pay:rent', 'view:notices', 'create:maintenance', 'view:maintenance', 'view:payments', 'ai:chat']
 };

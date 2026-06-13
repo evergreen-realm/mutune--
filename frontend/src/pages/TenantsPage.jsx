@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '@clerk/clerk-react';
 import {
   fetchTenants, fetchTenant, createTenant, updateTenant,
   terminateTenancy, fetchTenantPaymentHistory, fetchProperties,
@@ -580,10 +581,14 @@ function Section({ title, children }) {
 // ─── Main TenantsPage ─────────────────────────────────────────────────────────
 export default function TenantsPage() {
   const qc = useQueryClient();
+  const { user: clerkUser } = useUser();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState(null);
+
+  const role = clerkUser?.publicMetadata?.role || 'landlord';
+  const canAddTenant = ['admin', 'super_admin', 'agent'].includes(role);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['tenants', search, statusFilter],
@@ -620,13 +625,15 @@ export default function TenantsPage() {
             {totalNotice > 0 && <span className="text-amber-600 font-medium"> · {totalNotice} on notice</span>}
           </p>
         </div>
-        <button
-          id="btn-add-tenant"
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition shadow-sm shadow-green-600/20"
-        >
-          <UserPlus size={16} /> Add Tenant
-        </button>
+        {canAddTenant && (
+          <button
+            id="btn-add-tenant"
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition shadow-sm shadow-green-600/20"
+          >
+            <UserPlus size={16} /> Add Tenant
+          </button>
+        )}
       </div>
 
       {/* Filters */}

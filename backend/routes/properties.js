@@ -143,7 +143,7 @@ router.get('/:id',
 // ─── POST /properties ────────────────────────────────────────────────────────
 router.post('/',
   requireAuth,
-  requireRole(['admin', 'super_admin']),
+  requireRole(['admin', 'super_admin', 'agent', 'landlord']),
   [
     body('property_code').trim().notEmpty().withMessage('Property code required'),
     body('name').trim().notEmpty().withMessage('Name required'),
