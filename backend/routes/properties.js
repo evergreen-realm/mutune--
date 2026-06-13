@@ -475,5 +475,193 @@ router.delete('/:id/units/:unitId',
   }
 );
 
-module.exports = router;
 
+// Add Notification model for landlord property events
+const Notification = (() => {
+  try { return require('../models/Notification'); } catch (_) { return null; }
+})();
+const User = (() => {
+  try { return require('../models/User'); } catch (_) { return null; }
+})();
+
+/**
+ * POST /api/v1/properties/landlord/submit
+ * Landlord submits a new property for admin approval.
+ * Body: { name, type, address, units[], contract_terms, signature_data_url, num_floors, year_built }
+ * Sets status to 'pending_admin_approval'. Notifies all admins.
+ */
+router.post('/landlord/submit',
+  requireAuth,
+  requireRole(['landlord']),
+  [
+    body('name').trim().notEmpty().withMessage('Property name is required'),
+    body('type').isIn(['apartment', 'house', 'commercial', 'bedsitter', 'single', 'studio']).withMessage('Invalid property type'),
+    body('address.area').trim().notEmpty().withMessage('Area is required'),
+    body('address.city').trim().notEmpty().withMessage('City is required'),
+    body('units').isArray({ min: 1 }).withMessage('At least one unit is required')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const {
+        name, type, address, units, contract_terms,
+        signature_data_url, num_floors, year_built, description
+      } = req.body;
+
+      // Generate property code
+      const count = await Property.countDocuments({ landlord_id: req.user._id });
+      const cityCode = (address.city || 'MOM').substring(0, 3).toUpperCase();
+      const propCode = `PROP-${cityCode}-${String(count + 1).padStart(4, '0')}`;
+
+      const unitDocs = (units || []).map((u, i) => ({
+        unit_number: u.unit_number || `${i + 1}`,
+        floor: u.floor || 0,
+        type: u.type || 'bedsitter',
+        bedrooms: u.bedrooms || 0,
+        bathrooms: u.bathrooms || 1,
+        size_sqft: u.size_sqft || null,
+        rent_kes: u.rent_kes || 0,
+        status: 'vacant',
+        amenities: u.amenities || []
+      }));
+
+      let coordinates = [39.6682, -4.0435]; // Mombasa Central default
+      if (req.body.gps_coordinates && req.body.gps_coordinates.lng && req.body.gps_coordinates.lat) {
+        coordinates = [Number(req.body.gps_coordinates.lng), Number(req.body.gps_coordinates.lat)];
+      } else if (req.body.location && req.body.location.coordinates) {
+        coordinates = req.body.location.coordinates;
+      }
+
+      const property = await Property.create({
+        name: name.trim(),
+        property_code: propCode,
+        type,
+        address: {
+          street: address.street || '',
+          area: address.area.trim(),
+          city: address.city.trim(),
+          county: address.county || 'Mombasa'
+        },
+        location: {
+          type: 'Point',
+          coordinates: coordinates
+        },
+        units: unitDocs,
+        landlord_id: req.user._id,
+        status: 'pending_admin_approval',
+        contract_pdf_url: signature_data_url || null,
+        description: description || '',
+        num_floors: num_floors || 1,
+        year_built: year_built || null
+      });
+
+      // Notify all admins
+      if (Notification && User) {
+        const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }, '_id').lean();
+        if (admins.length > 0) {
+          await Notification.create({
+            type: 'property_approval',
+            recipient_role: 'admin',
+            recipient_ids: admins.map(a => a._id),
+            title: 'New Property Awaiting Approval',
+            message: `Landlord ${req.user.full_name} has submitted property "${name}" (${propCode}) for approval. Please review and approve or reject.`,
+            related_entity_id: property._id
+          });
+        }
+      }
+
+      logger.info('Landlord property submitted', { propertyId: property._id, landlord: req.user._id, code: propCode });
+      res.status(201).json({
+        success: true,
+        data: property,
+        message: 'Property submitted for admin approval. You will be notified once approved.'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/properties/:id/approve
+ * Admin approves a pending landlord property.
+ */
+router.post('/:id/approve',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  param('id').isMongoId().withMessage('Invalid property ID'),
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const property = await Property.findById(req.params.id);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+      if (property.status !== 'pending_admin_approval') {
+        return res.status(409).json({ success: false, error: { code: 'INVALID_STATE', message: 'Property is not pending approval' } });
+      }
+
+      property.status = 'active';
+      await property.save();
+
+      // Notify the landlord
+      if (Notification && property.landlord_id) {
+        await Notification.create({
+          type: 'property_approval',
+          recipient_role: 'landlord',
+          recipient_ids: [property.landlord_id],
+          title: 'Your Property Has Been Approved',
+          message: `Congratulations! Your property "${property.name}" (${property.property_code}) has been approved and is now active on MutuneRent Pro.`,
+          related_entity_id: property._id
+        });
+      }
+
+      logger.info('Property approved', { propertyId: property._id, by: req.user._id });
+      res.json({ success: true, data: property, message: 'Property approved successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/properties/:id/reject
+ * Admin rejects a pending landlord property with a reason.
+ */
+router.post('/:id/reject',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid property ID'),
+    body('reason').trim().notEmpty().withMessage('Rejection reason is required')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const property = await Property.findById(req.params.id);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+      property.status = 'inactive';
+      await property.save();
+
+      if (Notification && property.landlord_id) {
+        await Notification.create({
+          type: 'property_approval',
+          recipient_role: 'landlord',
+          recipient_ids: [property.landlord_id],
+          title: 'Property Submission Not Approved',
+          message: `Your property "${property.name}" was not approved. Reason: ${req.body.reason.trim()}. Please contact admin for further details.`,
+          related_entity_id: property._id
+        });
+      }
+
+      logger.info('Property rejected', { propertyId: property._id, by: req.user._id });
+      res.json({ success: true, message: 'Property rejected' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+module.exports = router;

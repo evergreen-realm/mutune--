@@ -4,6 +4,8 @@ const Property = require('../models/Property');
 const Tenant = require('../models/Tenant');
 const User = require('../models/User');
 const Notice = require('../models/Notice');
+const Task = require('../models/Task');
+const Notification = require('../models/Notification');
 
 jest.setTimeout(30000);
 
@@ -26,26 +28,46 @@ jest.mock('resend', () => {
   };
 });
 
+let mockClerkId = 'clerk_admin_001';
+
 jest.mock('@clerk/clerk-sdk-node', () => ({
   ClerkExpressRequireAuth: () => (req, res, next) => {
-    req.auth = { userId: 'clerk_admin_001' };
+    req.auth = { userId: mockClerkId };
     next();
   }
 }));
 
 describe('Phase 4 Features', () => {
-  let admin, property, tenant;
+  let admin, agent, landlord, property, tenant;
+
+  beforeEach(() => {
+    mockClerkId = 'clerk_admin_001';
+  });
 
   beforeAll(async () => {
     await Property.deleteMany({});
     await Tenant.deleteMany({});
     await User.deleteMany({});
     await Notice.deleteMany({});
+    await Task.deleteMany({});
+    await Notification.deleteMany({});
 
     admin = await User.create({
       user_code: 'ADM-001', role: 'super_admin', full_name: 'Admin',
       email: 'admin@mutune.test', phone: '254700000001',
       password_hash: '$2a$10$test', is_active: true, clerk_id: 'clerk_admin_001'
+    });
+
+    agent = await User.create({
+      user_code: 'AGT-001', role: 'agent', full_name: 'Agent User',
+      email: 'agent@mutune.test', phone: '254700000002',
+      password_hash: '$2a$10$test', is_active: true, clerk_id: 'clerk_agent_001'
+    });
+
+    landlord = await User.create({
+      user_code: 'LLD-001', role: 'landlord', full_name: 'Landlord User',
+      email: 'landlord@mutune.test', phone: '254700000003',
+      password_hash: '$2a$10$test', is_active: true, clerk_id: 'clerk_landlord_001'
     });
 
     property = await Property.create({
@@ -56,11 +78,14 @@ describe('Phase 4 Features', () => {
         type: 'Polygon',
         coordinates: [[[39.709, -4.041], [39.711, -4.041], [39.711, -4.039], [39.709, -4.039], [39.709, -4.041]]]
       },
-      landlord_id: admin._id, agent_ids: [admin._id],
+      landlord_id: landlord._id, agent_ids: [agent._id],
       units: [
         { unit_number: '3B', rent_kes: 25000, status: 'occupied', lock_status: 'locked' },
         { unit_number: '4A', rent_kes: 28000, status: 'occupied', lock_status: 'payment_confirmed' },
         { unit_number: '2C', rent_kes: 22000, status: 'vacant', lock_status: 'unlocked' }
+      ],
+      inventory: [
+        { item_id: 'item-sofa-001', name: 'Sofa', estimated_value_kes: 15000, condition: 'good', auction_status: 'pending' }
       ]
     });
 
@@ -77,6 +102,8 @@ describe('Phase 4 Features', () => {
     await Tenant.deleteMany({});
     await User.deleteMany({});
     await Notice.deleteMany({});
+    await Task.deleteMany({});
+    await Notification.deleteMany({});
   });
 
   test('Unit geolocation update', async () => {
@@ -131,5 +158,143 @@ describe('Phase 4 Features', () => {
     const res = await request(app).get('/api/v1/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+  });
+
+  test('Task creation and status flow', async () => {
+    // Admin creates task
+    const createRes = await request(app)
+      .post('/api/v1/tasks')
+      .send({
+        assigned_to: agent._id.toString(),
+        title: 'Inspect Unit 3B',
+        description: 'Verify if water damage in toilet is fixed.',
+        type: 'inspection',
+        related_property_id: property._id.toString(),
+        due_date: new Date(Date.now() + 86400000).toISOString()
+      });
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.success).toBe(true);
+    const taskId = createRes.body.data._id;
+
+    // Agent retrieves their own tasks
+    mockClerkId = 'clerk_agent_001';
+    const listRes = await request(app)
+      .get('/api/v1/tasks/agent/my');
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.some(t => t._id === taskId)).toBe(true);
+
+    // Agent updates task status to in_progress
+    const updateRes = await request(app)
+      .patch(`/api/v1/tasks/${taskId}/status`)
+      .send({ status: 'in_progress' });
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.data.status).toBe('in_progress');
+  });
+
+  test('Notification creation and mark as read flow', async () => {
+    // Admin broadcasts notification to agents
+    const createRes = await request(app)
+      .post('/api/v1/notifications')
+      .send({
+        type: 'property_approval',
+        recipient_role: 'agent',
+        title: 'New Property Registered',
+        message: 'A new property is pending approval.'
+      });
+    expect(createRes.status).toBe(201);
+    const notifId = createRes.body.data._id;
+
+    // Agent retrieves notifications
+    mockClerkId = 'clerk_agent_001';
+    const listRes = await request(app)
+      .get('/api/v1/notifications');
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.some(n => n._id === notifId)).toBe(true);
+
+    // Agent marks notification as read
+    const readRes = await request(app)
+      .patch(`/api/v1/notifications/${notifId}/read`);
+    expect(readRes.status).toBe(200);
+    expect(readRes.body.data.read_by.some(id => id.toString() === agent._id.toString())).toBe(true);
+  });
+
+  test('Inventory and Auction flow', async () => {
+    const itemId = property.inventory[0]._id.toString();
+
+    // Mark item as auctionable (Admin)
+    const markRes = await request(app)
+      .post(`/api/v1/inventory/${property._id}/mark-auctionable`)
+      .send({ item_id: itemId, reason: 'Abandoned by departed tenant' });
+    expect(markRes.status).toBe(200);
+    expect(markRes.body.data.auction_status).toBe('pending');
+
+    // Get list of auctionable items
+    const listRes = await request(app)
+      .get('/api/v1/inventory/auctionable');
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.some(item => item._id === itemId)).toBe(true);
+
+    // Record auction sale (Admin)
+    const saleRes = await request(app)
+      .post(`/api/v1/inventory/${property._id}/auction-sold`)
+      .send({ item_id: itemId, buyer: 'Mombasa Auctions Ltd', sale_amount: 18000 });
+    expect(saleRes.status).toBe(200);
+    expect(saleRes.body.data.auction_status).toBe('sold');
+
+    // Get KRA CSV report
+    const reportRes = await request(app)
+      .get('/api/v1/inventory/auction-report');
+    expect(reportRes.status).toBe(200);
+    expect(reportRes.headers['content-type']).toContain('text/csv');
+    expect(reportRes.text).toContain('Mombasa Auctions Ltd');
+  });
+
+  test('Landlord property lifecycle', async () => {
+    // Landlord submits new property
+    mockClerkId = 'clerk_landlord_001';
+    const submitRes = await request(app)
+      .post('/api/v1/properties/landlord/submit')
+      .send({
+        name: 'Landlord Beach Villas',
+        type: 'apartment',
+        address: { street: 'Serena Road', area: 'Shanzu', city: 'Mombasa' },
+        location: { coordinates: [39.75, -3.98] },
+        signature_data_url: 'data:image/png;base64,fake-signature-base64',
+        units: [{ unit_number: '1A', rent_kes: 45000 }]
+      });
+    expect(submitRes.status).toBe(201);
+    expect(submitRes.body.data.status).toBe('pending_admin_approval');
+    const newPropId = submitRes.body.data._id;
+
+    // Admin approves property
+    mockClerkId = 'clerk_admin_001';
+    const approveRes = await request(app)
+      .post(`/api/v1/properties/${newPropId}/approve`);
+    expect(approveRes.status).toBe(200);
+    expect(approveRes.body.data.status).toBe('active');
+
+    // Admin rejects is tested on a separate villa
+    mockClerkId = 'clerk_landlord_001';
+    const submitRes2 = await request(app)
+      .post('/api/v1/properties/landlord/submit')
+      .send({
+        name: 'Landlord Villa 2',
+        type: 'apartment',
+        address: { street: 'Serena Road', area: 'Shanzu', city: 'Mombasa' },
+        location: { coordinates: [39.75, -3.98] },
+        signature_data_url: 'data:image/png;base64,fake-signature-base64',
+        units: [{ unit_number: '1A', rent_kes: 45000 }]
+      });
+    const villa2Id = submitRes2.body.data._id;
+
+    mockClerkId = 'clerk_admin_001';
+    const rejectRes = await request(app)
+      .post(`/api/v1/properties/${villa2Id}/reject`)
+      .send({ reason: 'Invalid coordinates' });
+    expect(rejectRes.status).toBe(200);
+    
+    const villa2 = await Property.findById(villa2Id);
+    expect(villa2).toBeTruthy();
+    expect(villa2.status).toBe('inactive');
   });
 });

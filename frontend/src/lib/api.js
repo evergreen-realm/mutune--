@@ -156,4 +156,53 @@ export const deletePropertyUnit    = (id, unitId) => api.delete(`/properties/${i
 export const lockPropertyUnit      = (id, unitId, action) => api.post(`/properties/${id}/units/${unitId}/lock`, { action });
 export const checkInAgent          = (data) => api.post('/agents/checkin', data);
 
+// ── Admin User Management (Phase 4) ──────────────────────────────────────────
+export const disableUser  = (id)       => api.patch(`/users/${id}/disable`);
+export const enableUser   = (id)       => api.patch(`/users/${id}/enable`);
+export const softDeleteUser = (id)     => api.delete(`/users/${id}/soft`);
+
+// ── Landlord Property Workflow (Phase 4) ──────────────────────────────────────
+export const submitLandlordProperty = (data) => api.post('/properties/landlord/submit', data);
+export const approveProperty        = (id)   => api.post(`/properties/${id}/approve`);
+export const rejectProperty         = (id, reason) => api.post(`/properties/${id}/reject`, { reason });
+export const fetchPendingProperties = ()     => api.get('/properties', { params: { status: 'pending_admin_approval' } });
+
+// ── Tasks (Phase 4) ──────────────────────────────────────────────────────────
+export const fetchMyTasks    = ()         => api.get('/tasks/agent/my');
+export const fetchAllTasks   = (params)   => api.get('/tasks', { params });
+export const createTask      = (data)     => api.post('/tasks', data);
+export const updateTaskStatus = (id, status) => api.patch(`/tasks/${id}/status`, { status });
+export const deleteTask      = (id)       => api.delete(`/tasks/${id}`);
+
+// ── Inventory & Auction (Phase 4) ────────────────────────────────────────────
+export const fetchAuctionableItems = ()               => api.get('/inventory/auctionable');
+export const fetchAllInventory     = ()               => api.get('/inventory/all');
+export const markItemAuctionable   = (propId, data)   => api.post(`/inventory/${propId}/mark-auctionable`, data);
+export const recordAuctionSale     = (propId, data)   => api.post(`/inventory/${propId}/auction-sold`, data);
+export const downloadAuctionReport = async () => {
+  let token = null;
+  try {
+    const clerk = window.Clerk;
+    if (clerk?.session) token = await clerk.session.getToken();
+  } catch (_) { /* no session */ }
+  const base = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
+  const response = await fetch(`${base}/inventory/auction-report`, {
+    headers: { Authorization: token ? `Bearer ${token}` : '' }
+  });
+  if (!response.ok) { const j = await response.json().catch(() => ({})); throw j; }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `auction-report-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+};
+
+// ── Notifications (Phase 4) ──────────────────────────────────────────────────
+export const fetchNotifications  = ()   => api.get('/notifications');
+export const markNotifRead       = (id) => api.patch(`/notifications/${id}/read`);
+export const markAllNotifsRead   = ()   => api.patch('/notifications/read-all');
+
+// ── Agent Performance (Phase 4) ──────────────────────────────────────────────
+export const fetchAgentPerformance = (params = {}) => api.get('/admin/agent-performance', { params });
+
 export default api;

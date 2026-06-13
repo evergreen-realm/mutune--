@@ -1,453 +1,522 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Home, CreditCard, Wrench, Bell, Loader2, CheckCircle2,
-  AlertTriangle, Clock, XCircle, ChevronRight, Receipt
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useUser } from '@clerk/clerk-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  fetchMyPayments, fetchMyNotices, fetchMyTickets,
-  createMaintenanceTicket, initiatePayment, fetchMyProfile
+  fetchMyProfile, fetchMyPayments, fetchMyNotices,
+  createMaintenanceTicket, fetchMyTickets,
+  fetchNotifications, markNotifRead, markAllNotifsRead
 } from '../lib/api';
+import {
+  Home, Wallet, Wrench, FileText, Bell, ChevronRight,
+  CheckCircle2, AlertTriangle, Clock, TrendingUp, Star,
+  Phone, Mail, MapPin, Calendar, CreditCard, Activity,
+  ArrowUpRight, Plus, X, ZoomIn
+} from 'lucide-react';
 
-const CATEGORIES = ['plumbing', 'electrical', 'structural', 'security', 'appliance', 'pest_control', 'cleaning', 'other'];
-const PRIORITIES  = ['low', 'medium', 'high', 'emergency'];
+const FMT_KES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
+const FMT_DATE = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
-const TICKET_STATUS_CFG = {
-  open:             { label: 'Open',          color: 'text-yellow-700 bg-yellow-50 border-yellow-200', icon: Clock },
-  assigned:         { label: 'Assigned',      color: 'text-blue-700 bg-blue-50 border-blue-200',   icon: ChevronRight },
-  in_progress:      { label: 'In Progress',   color: 'text-purple-700 bg-purple-50 border-purple-200', icon: Loader2 },
-  pending_parts:    { label: 'Pending Parts', color: 'text-orange-700 bg-orange-50 border-orange-200', icon: Clock },
-  resolved:         { label: 'Resolved',      color: 'text-green-700 bg-green-50 border-green-200',  icon: CheckCircle2 },
-  closed:           { label: 'Closed',        color: 'text-gray-700 bg-gray-50 border-gray-200',    icon: XCircle },
-  tenant_disputed:  { label: 'Disputed',      color: 'text-red-700 bg-red-50 border-red-200',       icon: AlertTriangle }
-};
+const statusColor = (s) => ({
+  confirmed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+  pending:   'bg-amber-500/15 text-amber-400 border-amber-500/20',
+  failed:    'bg-red-500/15 text-red-400 border-red-500/20'
+}[s] || 'bg-slate-500/15 text-slate-400 border-slate-500/20');
 
-const PRIORITY_CFG = {
-  low:       'text-gray-500 bg-gray-50 border-gray-200',
-  medium:    'text-blue-600 bg-blue-50 border-blue-200',
-  high:      'text-orange-600 bg-orange-50 border-orange-200',
-  emergency: 'text-red-700 bg-red-50 border-red-200'
-};
-
-function PaymentStatusBadge({ status }) {
-  const cfg = {
-    confirmed: { color: 'text-green-700 bg-green-50 border-green-200', label: 'Confirmed' },
-    pending:   { color: 'text-yellow-700 bg-yellow-50 border-yellow-200', label: 'Pending' },
-    failed:    { color: 'text-red-700 bg-red-50 border-red-200', label: 'Failed' }
-  };
-  const s = cfg[status] || cfg.pending;
-  return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${s.color}`}>
-      {s.label}
-    </span>
-  );
-}
-
-function TabButton({ id, label, icon: Icon, active, onClick, badge }) {
-  return (
-    <button
-      id={id}
-      onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
-        active
-          ? 'bg-green-600 text-white shadow-sm'
-          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-      }`}
-    >
-      <Icon size={15} />
-      {label}
-      {badge > 0 && (
-        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
-          active ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600'
-        }`}>
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-}
+const ticketStatusColor = (s) => ({
+  open:        'bg-blue-500/15 text-blue-400',
+  in_progress: 'bg-amber-500/15 text-amber-400',
+  resolved:    'bg-emerald-500/15 text-emerald-400',
+  closed:      'bg-slate-500/15 text-slate-400'
+}[s] || 'bg-slate-500/15 text-slate-400');
 
 export default function TenantPortalPage() {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [mForm, setMForm] = useState({ category: 'plumbing', priority: 'medium', description: '' });
-  const queryClient = useQueryClient();
+  const { user: clerkUser } = useUser();
 
-  const { data: profile }   = useQuery({ queryKey: ['myProfile'],  queryFn: fetchMyProfile,  retry: false });
-  const { data: payments }  = useQuery({ queryKey: ['myPayments'], queryFn: fetchMyPayments });
-  const { data: notices }   = useQuery({ queryKey: ['myNotices'],  queryFn: fetchMyNotices });
-  const { data: tickets }   = useQuery({ queryKey: ['myTickets'],  queryFn: fetchMyTickets });
+  const [profile,    setProfile]    = useState(null);
+  const [payments,   setPayments]   = useState([]);
+  const [notices,    setNotices]    = useState([]);
+  const [tickets,    setTickets]    = useState([]);
+  const [notifs,     setNotifs]     = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [activeTab,  setActiveTab]  = useState('overview');
+  const [notifOpen,  setNotifOpen]  = useState(false);
+  const [ticketForm, setTicketForm] = useState({ open: false, title: '', description: '', priority: 'medium' });
+  const [submitting, setSubmitting] = useState(false);
 
-  const { mutate: submitTicket, isPending: submitting } = useMutation({
-    mutationFn: createMaintenanceTicket,
-    onSuccess: () => {
-      toast.success('Maintenance request submitted ✓');
-      setMForm({ category: 'plumbing', priority: 'medium', description: '' });
-      queryClient.invalidateQueries({ queryKey: ['myTickets'] });
-      setActiveTab('maintenance');
-    },
-    onError: (err) => toast.error(err?.error?.message || 'Failed to submit request')
-  });
-
-  const handlePayRent = async () => {
-    const tenant = profile?.data;
-    if (!tenant) { toast.error('Profile not loaded'); return; }
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await initiatePayment({
-        tenant_id: tenant._id,
-        unit_id:   tenant.current_unit_id,
-        amount:    tenant.rent_amount_kes,
-        payment_type: 'rent'
-      });
-      toast.success(res.message || 'M-Pesa STK push sent to your phone 📱');
-    } catch (err) {
-      toast.error(err?.error?.message || 'Payment initiation failed');
+      const [p, pay, n, t, notif] = await Promise.allSettled([
+        fetchMyProfile(),
+        fetchMyPayments(),
+        fetchMyNotices(),
+        fetchMyTickets(),
+        fetchNotifications()
+      ]);
+      if (p.status === 'fulfilled') setProfile(p.value?.data || null);
+      if (pay.status === 'fulfilled') setPayments(Array.isArray(pay.value?.data) ? pay.value.data : []);
+      if (n.status === 'fulfilled') setNotices(Array.isArray(n.value?.data) ? n.value.data : []);
+      if (t.status === 'fulfilled') setTickets(Array.isArray(t.value?.data) ? t.value.data : []);
+      if (notif.status === 'fulfilled') setNotifs(Array.isArray(notif.value?.data) ? notif.value.data : []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const lastPayment = payments.find(p => p.status === 'confirmed') || payments[0] || null;
+  const arrears     = Number(profile?.arrears_kes || 0);
+  const rent        = Number(profile?.rent_amount_kes || 0);
+  const unread      = notifs.filter(n => !n.read_by?.includes(clerkUser?.id)).length;
+
+  const handleMarkAllRead = async () => {
+    await markAllNotifsRead().catch(() => {});
+    setNotifs(prev => prev.map(n => ({ ...n, read_by: [...(n.read_by || []), clerkUser?.id] })));
+  };
+
+  const handleNotifClick = async (notif) => {
+    if (!notif.read_by?.includes(clerkUser?.id)) {
+      await markNotifRead(notif._id).catch(() => {});
+      setNotifs(prev => prev.map(n => n._id === notif._id ? { ...n, read_by: [...(n.read_by || []), clerkUser?.id] } : n));
     }
   };
 
-  const handleMaintenance = (e) => {
-    e.preventDefault();
-    if (!mForm.description.trim()) { toast.error('Please describe the issue'); return; }
-    const tenant = profile?.data;
-    submitTicket({
-      ...mForm,
-      property_id: tenant?.current_property_id?._id || tenant?.current_property_id,
-      unit_id:     tenant?.current_unit_id || 'self'
-    });
+  const submitTicket = async () => {
+    if (!ticketForm.title.trim() || !ticketForm.description.trim()) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createMaintenanceTicket({
+        title: ticketForm.title.trim(),
+        description: ticketForm.description.trim(),
+        priority: ticketForm.priority
+      });
+      toast.success('Maintenance request submitted!');
+      setTicketForm({ open: false, title: '', description: '', priority: 'medium' });
+      load();
+    } catch (err) {
+      toast.error(err?.error?.message || 'Failed to submit request');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const tenantData     = profile?.data;
-  const paymentList    = payments?.data || [];
-  const noticeList     = notices?.data  || [];
-  const ticketList     = tickets?.data  || [];
-  const openTickets    = ticketList.filter((t) => ['open', 'assigned', 'in_progress'].includes(t.status)).length;
-
-  const leaseEnd = tenantData?.lease_end ? new Date(tenantData.lease_end) : null;
-  const daysLeft = leaseEnd ? Math.ceil((leaseEnd - Date.now()) / 86400000) : null;
-
-  // If the tenant has no assigned property, show a helpful setup screen
-  if (!profile?.isLoading && tenantData && !tenantData.current_property_id) {
+  if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-gradient-to-tr from-amber-900/30 to-slate-900 border border-amber-700/30 rounded-2xl p-10 text-center">
-          <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
-            <Home size={28} className="text-amber-400" />
-          </div>
-          <h2 className="text-xl font-black text-white mb-2">No Property Assigned Yet</h2>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto mb-6">
-            Your account is set up, but you haven't been linked to a specific unit yet.
-            Please contact Mutune Estate Agency to complete your move-in registration.
-          </p>
-          <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 text-left max-w-xs mx-auto">
-            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">Contact Details</p>
-            <p className="text-sm text-white font-medium">Mutune Estate Agency</p>
-            <p className="text-xs text-slate-400 mt-1">📍 Mombasa, Kenya</p>
-            <p className="text-xs text-slate-400 mt-0.5">📞 +254 700 000 000</p>
-            <p className="text-xs text-slate-400 mt-0.5">🏷 Ref: {tenantData.tenant_code || 'N/A'}</p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            border: '3px solid rgba(99,102,241,0.3)',
+            borderTop: '3px solid #6366f1',
+            animation: 'spin 1s linear infinite', margin: '0 auto 16px'
+          }} />
+          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>Loading your portal…</p>
         </div>
       </div>
     );
   }
 
+  const unitNumber = profile?.unit_number || profile?.unit_id || 'N/A';
+  const propertyName = profile?.current_property_id?.name || 'Your Property';
+  const propertyArea = profile?.current_property_id?.address?.area || 'Mombasa';
+  const tenantName = profile?.full_name || clerkUser?.fullName || 'Tenant';
+
+  const tabs = [
+    { key: 'overview',  label: 'Overview',   icon: <Home size={14} /> },
+    { key: 'payments',  label: 'Payments',   icon: <CreditCard size={14} /> },
+    { key: 'tickets',   label: 'Maintenance',icon: <Wrench size={14} /> },
+    { key: 'notices',   label: 'Notices',    icon: <FileText size={14} /> }
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-tr from-green-900 to-slate-900 rounded-2xl p-6 text-white">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-green-400 text-xs font-bold uppercase tracking-widest mb-1">Tenant Portal</p>
-            <h1 className="text-xl font-black">
-              {tenantData?.full_name || 'My Portal'}
-            </h1>
-            {tenantData?.current_property_id && (
-              <p className="text-slate-300 text-sm mt-1">
-                {tenantData.current_property_id.name || tenantData.current_property_id} ·{' '}
-                <span className="font-mono text-xs">{tenantData.tenant_code}</span>
-              </p>
-            )}
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)', position: 'relative' }}>
+      {/* Animated background orbs */}
+      <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+        <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', top: '40%', left: '40%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+      </div>
+
+      <div style={{ position: 'relative', zIndex: 1, padding: '24px', maxWidth: 1100, margin: '0 auto' }}>
+
+        {/* ── HERO HERO CARD ── */}
+        <div style={{
+          borderRadius: 24, overflow: 'hidden', marginBottom: 28,
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.2) 50%, rgba(16,185,129,0.15) 100%)',
+          backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.12)',
+          boxShadow: '0 32px 64px rgba(0,0,0,0.4)'
+        }}>
+          {/* Building top band */}
+          <div style={{ background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #10b981 100%)', height: 6 }} />
+
+          <div style={{ padding: '32px 36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+              {/* Building silhouette icon */}
+              <div style={{
+                width: 80, height: 80, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.4), rgba(139,92,246,0.4))',
+                border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 8px 32px rgba(99,102,241,0.4)',
+                flexShrink: 0
+              }}>
+                <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+                  <rect x="4" y="10" width="36" height="34" rx="3" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/>
+                  <rect x="8" y="14" width="6" height="6" rx="1" fill="rgba(16,185,129,0.7)"/>
+                  <rect x="18" y="14" width="6" height="6" rx="1" fill="rgba(16,185,129,0.7)"/>
+                  <rect x="28" y="14" width="6" height="6" rx="1" fill="rgba(16,185,129,0.5)"/>
+                  <rect x="8" y="24" width="6" height="6" rx="1" fill="rgba(255,255,255,0.3)"/>
+                  <rect x="18" y="24" width="6" height="6" rx="1" fill="rgba(99,102,241,0.8)"/>
+                  <rect x="28" y="24" width="6" height="6" rx="1" fill="rgba(255,255,255,0.3)"/>
+                  <rect x="16" y="34" width="10" height="10" rx="2" fill="rgba(16,185,129,0.6)"/>
+                  <rect x="10" y="2" width="24" height="10" rx="2" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
+                </svg>
+              </div>
+              <div>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+                  {propertyArea} · {propertyName}
+                </p>
+                <h1 style={{ color: '#fff', fontSize: 32, fontWeight: 900, lineHeight: 1, marginBottom: 6, letterSpacing: '-0.02em' }}>
+                  Unit <span style={{ background: 'linear-gradient(135deg, #a78bfa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{unitNumber}</span>
+                </h1>
+                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, fontWeight: 500 }}>
+                  Welcome back, {tenantName.split(' ')[0]} 👋
+                </p>
+              </div>
+            </div>
+
+            {/* Unit badge & quick stats */}
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {/* Rent amount */}
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 130 }}>
+                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Monthly Rent</p>
+                <p style={{ color: '#fff', fontSize: 20, fontWeight: 800 }}>{FMT_KES(rent)}</p>
+                <p style={{ color: arrears > 0 ? '#f87171' : '#34d399', fontSize: 11, fontWeight: 600, marginTop: 2 }}>
+                  {arrears > 0 ? `Arrears: ${FMT_KES(arrears)}` : '✓ All Clear'}
+                </p>
+              </div>
+
+              {/* Last payment */}
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 130 }}>
+                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Last Payment</p>
+                <p style={{ color: '#34d399', fontSize: 13, fontWeight: 700 }}>
+                  {lastPayment ? FMT_KES(lastPayment.amount_kes) : '—'}
+                </p>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
+                  {lastPayment ? FMT_DATE(lastPayment.created_at) : 'No payments yet'}
+                </p>
+              </div>
+
+              {/* Lease end */}
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)', minWidth: 130 }}>
+                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>Lease End</p>
+                <p style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>
+                  {FMT_DATE(profile?.lease_end_date)}
+                </p>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
+                  Status: <span style={{ color: profile?.tenancy_status === 'active' ? '#34d399' : '#f87171', fontWeight: 700, textTransform: 'capitalize' }}>{profile?.tenancy_status || 'Active'}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Notification bell */}
+            <button onClick={() => setNotifOpen(true)} style={{
+              position: 'relative', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 12, padding: 12, cursor: 'pointer', color: '#fff',
+              transition: 'all 0.2s'
+            }}>
+              <Bell size={20} />
+              {unread > 0 && (
+                <span style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 18, height: 18, fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #1a1a2e' }}>
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
           </div>
-          <button
-            id="btn-pay-rent"
-            onClick={handlePayRent}
-            className="flex-shrink-0 bg-green-500 hover:bg-green-400 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-green-900/30"
-          >
-            <CreditCard size={15} /> Pay Rent
-          </button>
+
+          {/* Tab bar */}
+          <div style={{ padding: '0 36px 20px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {tabs.map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 700, transition: 'all 0.2s',
+                background: activeTab === tab.key ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.06)',
+                color: activeTab === tab.key ? '#fff' : 'rgba(255,255,255,0.5)',
+                boxShadow: activeTab === tab.key ? '0 4px 16px rgba(99,102,241,0.4)' : 'none'
+              }}>
+                {tab.icon}{tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Lease info strip */}
-        {tenantData && (
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-white/10">
-            <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Rent</p>
-              <p className="font-black text-sm mt-0.5">KES {tenantData.rent_amount_kes?.toLocaleString()}</p>
+        {/* ── TAB CONTENT ── */}
+
+        {/* OVERVIEW TAB */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+            {/* Quick Actions */}
+            {[
+              { label: 'Pay Rent', desc: 'M-Pesa STK push', icon: <Wallet size={20} />, color: '#10b981', action: () => setActiveTab('payments') },
+              { label: 'Maintenance', desc: 'Submit a request', icon: <Wrench size={20} />, color: '#6366f1', action: () => setTicketForm(f => ({ ...f, open: true })) },
+              { label: 'View Notices', desc: `${notices.length} notices`, icon: <FileText size={20} />, color: '#f59e0b', action: () => setActiveTab('notices') },
+              { label: 'Contact Agent', desc: profile?.agent_phone || '+254 700 000000', icon: <Phone size={20} />, color: '#ec4899', action: () => {} }
+            ].map((item, i) => (
+              <button key={i} onClick={item.action} style={{
+                background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 20, padding: 24, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${item.color}22`, border: `1px solid ${item.color}44` }}>
+                    <span style={{ color: item.color }}>{item.icon}</span>
+                  </div>
+                  <div>
+                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{item.label}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>{item.desc}</p>
+                  </div>
+                </div>
+                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
+              </button>
+            ))}
+
+            {/* Recent payments */}
+            <div style={{ gridColumn: '1/-1', background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h3 style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>Recent Payments</h3>
+                <button onClick={() => setActiveTab('payments')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  View All <ArrowUpRight size={14} />
+                </button>
+              </div>
+              {payments.slice(0, 4).length === 0 ? (
+                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No payment records found</p>
+              ) : payments.slice(0, 4).map(p => (
+                <div key={p._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckCircle2 size={16} style={{ color: '#6366f1' }} />
+                    </div>
+                    <div>
+                      <p style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{FMT_KES(p.amount_kes)}</p>
+                      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{FMT_DATE(p.created_at)}</p>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 100, border: '1px solid', ...Object.fromEntries(Object.entries(statusColor(p.status)).map(([k]) => [k, ''])) }} className={statusColor(p.status)}>
+                    {p.status}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Lease Ends</p>
-              <p className="font-black text-sm mt-0.5">
-                {leaseEnd ? leaseEnd.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-              </p>
+          </div>
+        )}
+
+        {/* PAYMENTS TAB */}
+        {activeTab === 'payments' && (
+          <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24 }}>
+            <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 20 }}>Payment History</h2>
+            {payments.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <CreditCard size={40} style={{ color: 'rgba(255,255,255,0.2)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No payment records yet</p>
+              </div>
+            ) : (
+              <div>
+                {payments.map(p => (
+                  <div key={p._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{
+                        width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: p.status === 'confirmed' ? 'rgba(16,185,129,0.2)' : 'rgba(99,102,241,0.2)'
+                      }}>
+                        {p.status === 'confirmed' ? <CheckCircle2 size={20} style={{ color: '#10b981' }} /> : <Clock size={20} style={{ color: '#6366f1' }} />}
+                      </div>
+                      <div>
+                        <p style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{FMT_KES(p.amount_kes)}</p>
+                        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                          {p.mpesa_code ? `M-Pesa: ${p.mpesa_code}` : 'Manual entry'} · {FMT_DATE(p.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 100, textTransform: 'capitalize', background: p.status === 'confirmed' ? 'rgba(16,185,129,0.2)' : 'rgba(251,191,36,0.2)', color: p.status === 'confirmed' ? '#34d399' : '#fbbf24', border: `1px solid ${p.status === 'confirmed' ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.3)'}` }}>
+                      {p.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MAINTENANCE TAB */}
+        {activeTab === 'tickets' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Maintenance Requests</h2>
+              <button onClick={() => setTicketForm(f => ({ ...f, open: true }))} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                color: '#fff', border: 'none', borderRadius: 12, cursor: 'pointer', fontSize: 13, fontWeight: 700
+              }}>
+                <Plus size={15} /> New Request
+              </button>
             </div>
-            <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Days Left</p>
-              <p className={`font-black text-sm mt-0.5 ${daysLeft !== null && daysLeft < 30 ? 'text-red-400' : ''}`}>
-                {daysLeft !== null ? `${daysLeft}d` : '—'}
-              </p>
+            <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden' }}>
+              {tickets.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <Wrench size={40} style={{ color: 'rgba(255,255,255,0.2)', margin: '0 auto 12px' }} />
+                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No maintenance requests</p>
+                </div>
+              ) : tickets.map(t => (
+                <div key={t._id} style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{t.title}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 8 }}>{t.description}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>{FMT_DATE(t.created_at)}</p>
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap' }}
+                    className={ticketStatusColor(t.status)}>
+                    {t.status?.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Status</p>
-              <p className="font-black text-sm mt-0.5 capitalize">{tenantData.tenancy_status || 'active'}</p>
-            </div>
+          </div>
+        )}
+
+        {/* NOTICES TAB */}
+        {activeTab === 'notices' && (
+          <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24 }}>
+            <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 20 }}>Official Notices</h2>
+            {notices.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <FileText size={40} style={{ color: 'rgba(255,255,255,0.2)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No notices at this time</p>
+              </div>
+            ) : notices.map(n => (
+              <div key={n._id} style={{ padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <p style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{n.title}</p>
+                  <span style={{ fontSize: 10, padding: '3px 10px', borderRadius: 100, background: n.type === 'urgent' ? 'rgba(239,68,68,0.2)' : 'rgba(99,102,241,0.2)', color: n.type === 'urgent' ? '#f87171' : '#a78bfa', fontWeight: 700 }}>
+                    {n.type || 'General'}
+                  </span>
+                </div>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>{n.body || n.content}</p>
+                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 6 }}>{FMT_DATE(n.created_at)}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <TabButton id="tab-overview"     label="Overview"     icon={Home}    active={activeTab === 'overview'}     onClick={() => setActiveTab('overview')} />
-        <TabButton id="tab-payments"     label="Payments"     icon={Receipt} active={activeTab === 'payments'}     onClick={() => setActiveTab('payments')}  badge={0} />
-        <TabButton id="tab-maintenance"  label="Maintenance"  icon={Wrench}  active={activeTab === 'maintenance'}  onClick={() => setActiveTab('maintenance')} badge={openTickets} />
-        <TabButton id="tab-notices"      label="Notices"      icon={Bell}    active={activeTab === 'notices'}      onClick={() => setActiveTab('notices')} badge={noticeList.length} />
-      </div>
-
-      {/* ── Overview Tab ── */}
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div
-            onClick={() => setActiveTab('payments')}
-            className="bg-white border border-gray-100 rounded-2xl p-5 cursor-pointer hover:border-green-200 hover:shadow-sm transition group"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-2 bg-green-50 rounded-xl group-hover:bg-green-100 transition">
-                <Receipt size={16} className="text-green-600" />
+      {/* ── NOTIFICATIONS DRAWER ── */}
+      {notifOpen && (
+        <>
+          <div onClick={() => setNotifOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, backdropFilter: 'blur(4px)' }} />
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0, width: 380, zIndex: 101,
+            background: 'linear-gradient(180deg, #1a1a3e 0%, #0f0c29 100%)',
+            border: '1px solid rgba(255,255,255,0.1)', borderRight: 'none',
+            display: 'flex', flexDirection: 'column', boxShadow: '-32px 0 64px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 800 }}>Notifications</h3>
+                {unread > 0 && <p style={{ color: '#6366f1', fontSize: 12, fontWeight: 600 }}>{unread} unread</p>}
               </div>
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Payments</span>
-            </div>
-            <p className="text-2xl font-black text-gray-900">{paymentList.length}</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {paymentList.filter((p) => p.status === 'confirmed').length} confirmed
-            </p>
-          </div>
-
-          <div
-            onClick={() => setActiveTab('maintenance')}
-            className="bg-white border border-gray-100 rounded-2xl p-5 cursor-pointer hover:border-blue-200 hover:shadow-sm transition group"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-2 bg-blue-50 rounded-xl group-hover:bg-blue-100 transition">
-                <Wrench size={16} className="text-blue-600" />
+              <div style={{ display: 'flex', gap: 8 }}>
+                {unread > 0 && <button onClick={handleMarkAllRead} style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)', color: '#a78bfa', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Mark all read</button>}
+                <button onClick={() => setNotifOpen(false)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+                  <X size={18} />
+                </button>
               </div>
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Maintenance</span>
             </div>
-            <p className="text-2xl font-black text-gray-900">{ticketList.length}</p>
-            <p className="text-xs text-gray-400 mt-1">{openTickets} open</p>
-          </div>
-
-          <div
-            onClick={() => setActiveTab('notices')}
-            className="bg-white border border-gray-100 rounded-2xl p-5 cursor-pointer hover:border-yellow-200 hover:shadow-sm transition group"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-2 bg-yellow-50 rounded-xl group-hover:bg-yellow-100 transition">
-                <Bell size={16} className="text-yellow-600" />
-              </div>
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Notices</span>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+              {notifs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 24px' }}>
+                  <Bell size={32} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
+                  <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>No notifications yet</p>
+                </div>
+              ) : notifs.map(n => {
+                const isRead = n.read_by?.includes(clerkUser?.id);
+                return (
+                  <div key={n._id} onClick={() => handleNotifClick(n)} style={{
+                    padding: '14px 24px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                    background: isRead ? 'transparent' : 'rgba(99,102,241,0.06)',
+                    borderLeft: isRead ? '3px solid transparent' : '3px solid #6366f1',
+                    transition: 'all 0.2s'
+                  }}>
+                    <p style={{ color: isRead ? 'rgba(255,255,255,0.7)' : '#fff', fontSize: 13, fontWeight: isRead ? 400 : 700, marginBottom: 4 }}>{n.title}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, lineHeight: 1.5 }}>{n.message}</p>
+                    <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, marginTop: 6 }}>{FMT_DATE(n.created_at)}</p>
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-2xl font-black text-gray-900">{noticeList.length}</p>
-            <p className="text-xs text-gray-400 mt-1">From management</p>
           </div>
-        </div>
+        </>
       )}
 
-      {/* ── Payments Tab ── */}
-      {activeTab === 'payments' && (
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
-            <h3 className="font-bold text-gray-900">Payment History</h3>
-            <span className="text-xs text-gray-400">{paymentList.length} records</span>
-          </div>
-          {paymentList.length ? (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Receipt</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Amount</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Status</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {paymentList.map((p) => (
-                  <tr key={p._id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="px-5 py-3 font-mono text-xs text-gray-600">
-                      {p.mpesa_receipt || p.transaction_id?.slice(0, 16) || '—'}
-                    </td>
-                    <td className="px-5 py-3 font-black text-gray-900">
-                      KES {p.amount_kes?.toLocaleString()}
-                    </td>
-                    <td className="px-5 py-3">
-                      <PaymentStatusBadge status={p.status} />
-                    </td>
-                    <td className="px-5 py-3 text-xs text-gray-400">
-                      {new Date(p.created_at).toLocaleDateString('en-KE', {
-                        day: 'numeric', month: 'short', year: 'numeric'
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="py-16 text-center text-gray-400">
-              <Receipt size={32} className="mx-auto mb-2 text-gray-200" />
-              <p className="text-sm font-medium">No payment history yet</p>
+      {/* ── TICKET MODAL ── */}
+      {ticketForm.open && (
+        <>
+          <div onClick={() => setTicketForm(f => ({ ...f, open: false }))} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            width: '90%', maxWidth: 480, zIndex: 201,
+            background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)',
+            border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32,
+            boxShadow: '0 32px 64px rgba(0,0,0,0.6)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>New Maintenance Request</h3>
+              <button onClick={() => setTicketForm(f => ({ ...f, open: false }))} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Maintenance Tab ── */}
-      {activeTab === 'maintenance' && (
-        <div className="space-y-5">
-          {/* New Request Form */}
-          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Submit Maintenance Request</h3>
-            <form id="maintenance-request-form" onSubmit={handleMaintenance} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5" htmlFor="m-category">Category</label>
-                  <select
-                    id="m-category"
-                    value={mForm.category}
-                    onChange={(e) => setMForm((f) => ({ ...f, category: e.target.value }))}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
-                  >
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5" htmlFor="m-priority">Priority</label>
-                  <select
-                    id="m-priority"
-                    value={mForm.priority}
-                    onChange={(e) => setMForm((f) => ({ ...f, priority: e.target.value }))}
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
-                  >
-                    {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Issue Title</label>
+                <input value={ticketForm.title} onChange={e => setTicketForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Water leak in bathroom"
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5" htmlFor="m-description">Description *</label>
-                <textarea
-                  id="m-description"
-                  value={mForm.description}
-                  onChange={(e) => setMForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Describe the issue in detail — location, severity, when it started…"
+                <label style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</label>
+                <textarea value={ticketForm.description} onChange={e => setTicketForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Describe the issue in detail..."
                   rows={4}
-                  maxLength={2000}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none transition"
-                  required
-                />
-                <p className="text-[10px] text-gray-400 mt-1 text-right">{mForm.description.length}/2000</p>
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
               </div>
-              <button
-                id="btn-submit-maintenance"
-                type="submit"
-                disabled={submitting}
-                className="px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition disabled:opacity-50"
-              >
-                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Wrench size={14} />}
+              <div>
+                <label style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priority</label>
+                <select value={ticketForm.priority} onChange={e => setTicketForm(f => ({ ...f, priority: e.target.value }))}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}>
+                  <option value="low" style={{ background: '#1a1a3e' }}>Low</option>
+                  <option value="medium" style={{ background: '#1a1a3e' }}>Medium</option>
+                  <option value="high" style={{ background: '#1a1a3e' }}>High</option>
+                  <option value="urgent" style={{ background: '#1a1a3e' }}>Urgent 🚨</option>
+                </select>
+              </div>
+              <button onClick={submitTicket} disabled={submitting} style={{
+                padding: '14px', background: submitting ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer',
+                boxShadow: '0 8px 24px rgba(99,102,241,0.4)', marginTop: 4
+              }}>
                 {submitting ? 'Submitting…' : 'Submit Request'}
               </button>
-            </form>
-          </div>
-
-          {/* Ticket List */}
-          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b bg-gray-50 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">My Tickets</h3>
-              <span className="text-xs text-gray-400">{ticketList.length} total</span>
             </div>
-            {ticketList.length ? (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Ticket</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Category</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Priority</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Status</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500">Opened</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {ticketList.map((t) => {
-                    const scfg = TICKET_STATUS_CFG[t.status] || TICKET_STATUS_CFG.open;
-                    const StatusIcon = scfg.icon;
-                    return (
-                      <tr key={t._id} className="hover:bg-gray-50/60 transition-colors">
-                        <td className="px-5 py-3">
-                          <span className="font-mono text-xs font-semibold text-gray-700">{t.ticket_code}</span>
-                        </td>
-                        <td className="px-5 py-3 capitalize text-xs text-gray-600">{t.category?.replace('_', ' ')}</td>
-                        <td className="px-5 py-3">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${PRIORITY_CFG[t.priority] || PRIORITY_CFG.medium}`}>
-                            {t.priority}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${scfg.color}`}>
-                            <StatusIcon size={9} /> {scfg.label}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-xs text-gray-400">
-                          {new Date(t.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <div className="py-16 text-center text-gray-400">
-                <Wrench size={32} className="mx-auto mb-2 text-gray-200" />
-                <p className="text-sm font-medium">No maintenance tickets yet</p>
-                <p className="text-xs mt-1">Submit a request above</p>
-              </div>
-            )}
           </div>
-        </div>
+        </>
       )}
 
-      {/* ── Notices Tab ── */}
-      {activeTab === 'notices' && (
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b bg-gray-50">
-            <h3 className="font-bold text-gray-900">Notices from Management</h3>
-          </div>
-          {noticeList.length ? (
-            <div className="divide-y divide-gray-50">
-              {noticeList.map((n) => (
-                <div key={n._id} className="px-5 py-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-gray-800">{n.title || 'Notice'}</p>
-                    <span className="text-[10px] text-gray-400 flex-shrink-0">
-                      {new Date(n.created_at).toLocaleDateString('en-KE')}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">{n.body || n.message}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-16 text-center text-gray-400">
-              <Bell size={32} className="mx-auto mb-2 text-gray-200" />
-              <p className="text-sm font-medium">No notices yet</p>
-            </div>
-          )}
-        </div>
-      )}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        button:hover { opacity: 0.85; }
+        input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
+      `}</style>
     </div>
   );
 }

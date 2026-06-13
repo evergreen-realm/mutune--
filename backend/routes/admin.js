@@ -6,6 +6,8 @@ const Payment = require('../models/Payment');
 const Property = require('../models/Property');
 const Tenant = require('../models/Tenant');
 const User = require('../models/User');
+const Task = require('../models/Task');
+const MaintenanceTicket = require('../models/MaintenanceTicket');
 const logger = require('../utils/logger');
 
 /**
@@ -168,4 +170,135 @@ router.get('/overdue',
   }
 );
 
+
+/**
+ * GET /api/v1/admin/agent-performance
+ * Aggregated KPIs per agent: tasks completion rate, rent collected, maintenance resolution time.
+ * Optional query: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+ */
+router.get('/agent-performance',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  async (req, res, next) => {
+    try {
+      const fromDate = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 30 * 86400000);
+      const toDate   = req.query.to   ? new Date(req.query.to)   : new Date();
+
+      const agents = await User.find({ role: 'agent', is_active: true }).lean();
+
+      const agentIds = agents.map(a => a._id);
+
+      const [taskStats, paymentStats, ticketStats] = await Promise.all([
+        // Task stats per agent
+        Task.aggregate([
+          {
+            $match: {
+              assigned_to: { $in: agentIds },
+              created_at: { $gte: fromDate, $lte: toDate }
+            }
+          },
+          {
+            $group: {
+              _id: '$assigned_to',
+              total_tasks: { $sum: 1 },
+              completed_tasks: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+              overdue_tasks: { $sum: { $cond: [{ $eq: ['$status', 'overdue'] }, 1, 0] } },
+              avg_completion_ms: {
+                $avg: {
+                  $cond: [
+                    { $and: [{ $eq: ['$status', 'completed'] }, { $ifNull: ['$completed_at', false] }] },
+                    { $subtract: ['$completed_at', '$created_at'] },
+                    null
+                  ]
+                }
+              }
+            }
+          }
+        ]),
+
+        // Payment collection per agent (verified_by_agent_id)
+        Payment.aggregate([
+          {
+            $match: {
+              status: 'confirmed',
+              verified_by_agent_id: { $in: agentIds },
+              created_at: { $gte: fromDate, $lte: toDate }
+            }
+          },
+          {
+            $group: {
+              _id: '$verified_by_agent_id',
+              total_collected_kes: { $sum: '$amount_kes' },
+              transactions: { $sum: 1 }
+            }
+          }
+        ]),
+
+        // Maintenance tickets resolved per agent
+        MaintenanceTicket.aggregate([
+          {
+            $match: {
+              assigned_agent_id: { $in: agentIds },
+              status: 'resolved',
+              updated_at: { $gte: fromDate, $lte: toDate }
+            }
+          },
+          {
+            $group: {
+              _id: '$assigned_agent_id',
+              resolved_tickets: { $sum: 1 },
+              avg_resolution_ms: { $avg: { $subtract: ['$updated_at', '$created_at'] } }
+            }
+          }
+        ])
+      ]);
+
+      // Build lookup maps
+      const taskMap = Object.fromEntries(taskStats.map(t => [t._id.toString(), t]));
+      const payMap  = Object.fromEntries(paymentStats.map(p => [p._id.toString(), p]));
+      const tickMap = Object.fromEntries(ticketStats.map(t => [t._id.toString(), t]));
+
+      const report = agents.map(agent => {
+        const id = agent._id.toString();
+        const tasks = taskMap[id] || { total_tasks: 0, completed_tasks: 0, overdue_tasks: 0, avg_completion_ms: null };
+        const pay   = payMap[id]  || { total_collected_kes: 0, transactions: 0 };
+        const tick  = tickMap[id] || { resolved_tickets: 0, avg_resolution_ms: null };
+
+        const completionRate = tasks.total_tasks > 0
+          ? Math.round((tasks.completed_tasks / tasks.total_tasks) * 100)
+          : 0;
+
+        return {
+          agent_id: agent._id,
+          name: agent.full_name,
+          email: agent.email,
+          phone: agent.phone,
+          task_completion_rate_pct: completionRate,
+          total_tasks: tasks.total_tasks,
+          completed_tasks: tasks.completed_tasks,
+          overdue_tasks: tasks.overdue_tasks,
+          avg_task_completion_hours: tasks.avg_completion_ms
+            ? Math.round(tasks.avg_completion_ms / 3600000 * 10) / 10
+            : null,
+          rent_collected_kes: pay.total_collected_kes,
+          transactions: pay.transactions,
+          tickets_resolved: tick.resolved_tickets,
+          avg_ticket_resolution_hours: tick.avg_resolution_ms
+            ? Math.round(tick.avg_resolution_ms / 3600000 * 10) / 10
+            : null
+        };
+      });
+
+      // Sort by rent collected descending (leaderboard)
+      report.sort((a, b) => b.rent_collected_kes - a.rent_collected_kes);
+
+      logger.info('Agent performance report generated', { agents: report.length, by: req.user._id });
+      res.json({ success: true, data: report, period: { from: fromDate, to: toDate } });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
+

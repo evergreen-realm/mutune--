@@ -442,4 +442,142 @@ router.post('/webhook', async (req, res, next) => {
   }
 });
 
+
+/**
+ * PATCH /api/v1/users/:id/disable
+ * Admin deactivates a user account. Sets is_active=false and revokes all Clerk sessions.
+ */
+router.patch('/:id/disable',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    try {
+      const target = await User.findById(req.params.id);
+      if (!target) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+      if (target._id.toString() === req.user._id.toString()) {
+        return res.status(400).json({ success: false, error: { code: 'SELF_DISABLE', message: 'You cannot disable your own account' } });
+      }
+
+      target.is_active = false;
+      await target.save();
+
+      // Revoke all Clerk sessions
+      if (target.clerk_id) {
+        try {
+          const { clerkClient } = require('@clerk/clerk-sdk-node');
+          const sessions = await clerkClient.sessions.getSessionList({ userId: target.clerk_id });
+          for (const session of sessions.data || sessions) {
+            if (session.status === 'active') {
+              await clerkClient.sessions.revokeSession(session.id);
+            }
+          }
+        } catch (clerkErr) {
+          logger.warn('Failed to revoke Clerk sessions on disable', { userId: req.params.id, message: clerkErr.message });
+        }
+      }
+
+      logger.info('User disabled', { targetId: req.params.id, by: req.user._id });
+      res.json({ success: true, message: 'User account disabled successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/users/:id/enable
+ * Admin re-activates a user account.
+ */
+router.patch('/:id/enable',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    try {
+      const target = await User.findById(req.params.id);
+      if (!target) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+
+      target.is_active = true;
+      await target.save();
+
+      logger.info('User enabled', { targetId: req.params.id, by: req.user._id });
+      res.json({ success: true, message: 'User account enabled successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /api/v1/users/:id/soft
+ * Admin soft-deletes a user: anonymizes PII, deactivates, and vacates tenant unit.
+ * The record is NOT physically removed — is_deleted=true is set for audit trail.
+ */
+router.delete('/:id/soft',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  param('id').isMongoId().withMessage('Invalid user ID'),
+  async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    try {
+      const target = await User.findById(req.params.id);
+      if (!target) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+      if (target._id.toString() === req.user._id.toString()) {
+        return res.status(400).json({ success: false, error: { code: 'SELF_DELETE', message: 'You cannot delete your own account' } });
+      }
+
+      const deletedAt = Date.now();
+
+      // Anonymize PII
+      target.full_name = `Deleted User ${deletedAt}`;
+      target.email = `deleted_${deletedAt}@mutunerent.deleted`;
+      target.phone = `0000000000`;
+      target.is_active = false;
+      target.is_deleted = true;
+      await target.save();
+
+      // Vacate tenant record if any
+      const tenant = await Tenant.findOne({ user_id: target._id, tenancy_status: { $in: ['active', 'expired'] } });
+      if (tenant) {
+        if (tenant.current_property_id && tenant.unit_id) {
+          const property = await Property.findById(tenant.current_property_id);
+          if (property) {
+            const unit = property.units.id(tenant.unit_id);
+            if (unit) { unit.status = 'vacant'; unit.tenant_id = null; }
+            await property.save();
+          }
+        }
+        tenant.tenancy_status = 'departed';
+        tenant.departed_at = new Date();
+        await tenant.save();
+      }
+
+      // Revoke Clerk sessions
+      if (target.clerk_id) {
+        try {
+          const { clerkClient } = require('@clerk/clerk-sdk-node');
+          const sessions = await clerkClient.sessions.getSessionList({ userId: target.clerk_id });
+          for (const session of sessions.data || sessions) {
+            if (session.status === 'active') await clerkClient.sessions.revokeSession(session.id);
+          }
+          await clerkClient.users.deleteUser(target.clerk_id);
+        } catch (clerkErr) {
+          logger.warn('Clerk cleanup failed on soft-delete', { userId: req.params.id, message: clerkErr.message });
+        }
+      }
+
+      logger.info('User soft-deleted', { targetId: req.params.id, by: req.user._id });
+      res.json({ success: true, message: 'User account permanently removed and PII anonymized' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;

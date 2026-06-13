@@ -1,10 +1,5 @@
-const Groq = require('groq-sdk');
+const axios = require('axios');
 const logger = require('../utils/logger');
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-  maxRetries: 2
-});
 
 // ── Lazy model requires to avoid circular deps ──────────────────────────────
 const getModels = () => ({
@@ -14,7 +9,7 @@ const getModels = () => ({
   MaintenanceTicket: require('../models/MaintenanceTicket')
 });
 
-// ── Tool definitions for Groq ───────────────────────────────────────────────
+// ── Tool definitions for Kimi AI ─────────────────────────────────────────────
 const TOOLS = [
   {
     type: 'function',
@@ -109,7 +104,6 @@ async function executeTool(toolName, args, callerUser) {
       case 'create_maintenance_ticket': {
         if (!callerUser) return { error: 'Authentication required' };
 
-        // Get user's property/unit context
         let propertyId = callerUser.current_property_id;
         let unitId = callerUser.current_unit_id;
 
@@ -218,6 +212,12 @@ Current user: ${user.full_name || 'User'} — Role: ${user.role}`;
 
   prompt += `
 
+ROLE-SPECIFIC CAPABILITIES:
+${user.role === 'agent' ? `- View assigned properties and tenants\n- Create maintenance tickets\n- Check payment status\n- Record check‑in visits` : ''}
+${user.role === 'landlord' ? `- View property performance metrics\n- Request property addition (pending admin approval)\n- View rental income reports` : ''}
+${user.role === 'admin' ? `- Full system management\n- Approve landlord property additions\n- Monitor agent performance\n- Manage inventory and auctions` : ''}
+${user.role === 'tenant' ? `- View lease details\n- Pay rent (guide through M-Pesa STK)\n- Submit maintenance requests\n- View notices` : ''}
+
 RULES:
 1. Only discuss properties and data the user has access to based on their role.
 2. Never reveal: National ID numbers, full bank account details, or other users' passwords.
@@ -227,7 +227,7 @@ RULES:
 6. Greet in English with Swahili when appropriate ("Habari! Here's what I found…").
 7. If uncertain about legal advice, recommend EARB (Estate Agents Registration Board) or Rent Tribunal, Mombasa.
 8. Responses must be concise (under 200 words) and actionable.
-9. Use tools when the user's intent matches a tool function — don't just suggest, actually call them.
+9. Use tools when the user's intent matches a tool function — don't just suggest, call them.
 
 M-PESA REMINDER FORMAT:
 Paybill: 400200 | Reference: [TENANT CODE or UNIT NUMBER] | Amount: KES [RENT AMOUNT]`;
@@ -235,10 +235,11 @@ Paybill: 400200 | Reference: [TENANT CODE or UNIT NUMBER] | Amount: KES [RENT AM
   return prompt;
 }
 
-// ── Session store with 30-min TTL ────────────────────────────────────────────
-class AIService {
+class KimiAIService {
   constructor() {
-    this.sessions = new Map(); // key -> { messages, lastAccess, rateWindow }
+    this.apiKey = process.env.KIMI_API_KEY;
+    this.baseURL = process.env.KIMI_API_URL || 'https://api.moonshot.ai/v1/chat/completions';
+    this.sessions = new Map();
 
     // Clean stale sessions every 30 minutes
     setInterval(() => {
@@ -280,13 +281,8 @@ class AIService {
     const histKey = `hist_${sessionId}`;
     const session = this._getSession(histKey);
 
-    // Caller user object (passed from route)
     const callerUser = user || { _id: userId, role: _role };
-
-    // Build system prompt with context
     const systemPrompt = buildSystemPrompt(callerUser, context);
-
-    // Keep last 16 exchanges (32 messages) for context window
     const historySlice = session.messages.slice(-20);
 
     const messages = [
@@ -295,68 +291,98 @@ class AIService {
       { role: 'user', content: message }
     ];
 
-    // First Groq call with tools
-    const completion = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      messages,
-      tools: TOOLS,
-      tool_choice: 'auto',
-      temperature: parseFloat(process.env.GROQ_TEMPERATURE) || 0.3,
-      max_tokens: parseInt(process.env.GROQ_MAX_TOKENS, 10) || 1024
-    });
+    try {
+      const payload = {
+        model: 'kimi-k2.5',
+        messages,
+        tools: TOOLS,
+        tool_choice: 'auto',
+        temperature: 0.3,
+        max_tokens: 4096,
+        thinking: { type: 'enabled' }
+      };
 
-    let assistantMessage = completion.choices[0].message;
-    let finalResponse = assistantMessage.content || '';
-
-    // ── Tool call loop ──────────────────────────────────────────────────────
-    if (assistantMessage.tool_calls?.length) {
-      const toolMessages = [assistantMessage];
-
-      for (const toolCall of assistantMessage.tool_calls) {
-        let args = {};
-        try { args = JSON.parse(toolCall.function.arguments); } catch (_) { args = {}; }
-
-        const result = await executeTool(toolCall.function.name, args, callerUser);
-        logger.info('AI tool executed', { tool: toolCall.function.name, userId, result: JSON.stringify(result).slice(0, 200) });
-
-        toolMessages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(result)
-        });
-      }
-
-      // Second call with tool results
-      const secondCompletion = await groq.chat.completions.create({
-        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-        messages: [...messages, ...toolMessages],
-        temperature: parseFloat(process.env.GROQ_TEMPERATURE) || 0.3,
-        max_tokens: parseInt(process.env.GROQ_MAX_TOKENS, 10) || 1024
+      const response = await axios.post(this.baseURL, payload, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      assistantMessage = secondCompletion.choices[0].message;
-      finalResponse = assistantMessage.content || finalResponse;
+      let assistantMessage = response.data.choices[0].message;
+      let finalResponse = assistantMessage.content || '';
+
+      // Tool Call Loop
+      if (assistantMessage.tool_calls?.length) {
+        const toolMessages = [assistantMessage];
+
+        for (const toolCall of assistantMessage.tool_calls) {
+          let args = {};
+          try {
+            args = JSON.parse(toolCall.function.arguments);
+          } catch (_) {
+            args = {};
+          }
+
+          const result = await executeTool(toolCall.function.name, args, callerUser);
+          logger.info('Kimi AI tool executed', { tool: toolCall.function.name, userId, result: JSON.stringify(result).slice(0, 200) });
+
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(result)
+          });
+        }
+
+        // Second API Call with tool outputs
+        const secondPayload = {
+          model: 'kimi-k2.5',
+          messages: [...messages, ...toolMessages],
+          temperature: 0.3,
+          max_tokens: 4096
+        };
+
+        const secondResponse = await axios.post(this.baseURL, secondPayload, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        assistantMessage = secondResponse.data.choices[0].message;
+        finalResponse = assistantMessage.content || finalResponse;
+      }
+
+      // Store in session
+      session.messages.push({ role: 'user', content: message });
+      session.messages.push({ role: 'assistant', content: finalResponse });
+
+      if (session.messages.length > 40) {
+        session.messages = session.messages.slice(-40);
+      }
+
+      const toolIntent = this._detectToolIntent(message);
+      const tokensUsed = response.data.usage?.total_tokens || 0;
+
+      logger.info('Kimi AI chat completed', { userId, sessionId, tokensUsed });
+
+      return {
+        response: finalResponse,
+        sessionId,
+        toolIntent,
+        tokensUsed
+      };
+    } catch (err) {
+      logger.error('Kimi AI request failed', { message: err.message, stack: err.stack });
+      // Fallback response on failure
+      const fallbackMsg = "Pole sana, I'm having trouble connecting to my brain right now. Can you please repeat that or contact admin if the issue persists?";
+      return {
+        response: fallbackMsg,
+        sessionId,
+        toolIntent: null,
+        tokensUsed: 0
+      };
     }
-
-    // Store exchange in session
-    session.messages.push({ role: 'user', content: message });
-    session.messages.push({ role: 'assistant', content: finalResponse });
-
-    // Trim to max 40 messages
-    if (session.messages.length > 40) {
-      session.messages = session.messages.slice(-40);
-    }
-
-    const toolIntent = this._detectToolIntent(message);
-
-    logger.info('AI chat completed', { userId, sessionId, tokensUsed: completion.usage?.total_tokens });
-
-    return {
-      response: finalResponse,
-      sessionId,
-      toolIntent,
-      tokensUsed: completion.usage?.total_tokens || 0
-    };
   }
 
   _detectToolIntent(userMessage) {
@@ -388,4 +414,4 @@ class AIService {
   }
 }
 
-module.exports = new AIService();
+module.exports = new KimiAIService();

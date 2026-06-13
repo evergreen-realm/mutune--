@@ -17,9 +17,16 @@ const unitSchema = new mongoose.Schema({
 const inventoryItemSchema = new mongoose.Schema({
   item_id: { type: String, required: true },
   name: { type: String, required: true },
-  category: { type: String, enum: ['furniture', 'electronics', 'fixture', 'appliance'] },
-  condition: { type: String, enum: ['new', 'good', 'fair', 'damaged', 'auctionable'] },
+  category: { type: String, enum: ['furniture', 'electronics', 'fixture', 'appliance', 'other'], default: 'other' },
+  condition: { type: String, enum: ['new', 'good', 'fair', 'damaged', 'auctionable'], default: 'good' },
   auctionable: { type: Boolean, default: false },
+  auctionable_marked_at: Date,
+  auctionable_reason: String,
+  auction_status: { type: String, enum: ['pending', 'sold', 'removed'], default: 'pending' },
+  auction_sold_at: Date,
+  auction_buyer: String,
+  auction_sale_amount: Number,
+  unit_id: { type: mongoose.Schema.Types.ObjectId },
   estimated_value_kes: Number,
   photos: [String],
   added_date: { type: Date, default: Date.now },
@@ -51,6 +58,8 @@ const propertySchema = new mongoose.Schema({
   agent_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   inventory: [inventoryItemSchema],
   amenities: [String],
+  status: { type: String, enum: ['pending_admin_approval', 'active', 'inactive'], default: 'active' },
+  contract_pdf_url: String,
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
 });

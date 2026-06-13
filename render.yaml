@@ -32,6 +32,10 @@ services:
         value: "1024"
       - key: GROQ_TEMPERATURE
         value: "0.3"
+      - key: KIMI_API_KEY
+        sync: false
+      - key: KIMI_API_URL
+        value: https://api.moonshot.ai/v1/chat/completions
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL

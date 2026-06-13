@@ -78,6 +78,9 @@ app.use('/api/v1/maintenance', require('./routes/maintenance'));    // Phase 2: 
 app.use('/api/v1/reports', require('./routes/reports'));            // Phase 2: KRA CSV
 app.use('/api/v1/notices', require('./routes/notices'));            // Phase 3: digital notices
 app.use('/api/v1/ai', require('./routes/ai'));                      // Phase 3: AI chat
+app.use('/api/v1/tasks', require('./routes/tasks'));                  // Phase 4: Agent task tracking
+app.use('/api/v1/inventory', require('./routes/inventory'));          // Phase 4: Inventory & auction
+app.use('/api/v1/notifications', require('./routes/notifications')); // Phase 4: In-app notifications
 
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { path: req.path, method: req.method, message: err.message, stack: err.stack });
@@ -101,9 +104,13 @@ app.use((err, req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const tenantLeaseCleanup = require('./cron/tenant-lease-cleanup');
+
 const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => logger.info('Server started', { port: PORT, env: process.env.NODE_ENV || 'development' }));
+  tenantLeaseCleanup.start();
+  logger.info('Cron scheduled: tenant lease cleanup (daily 00:05 EAT)');
 };
 if (process.env.NODE_ENV !== 'test') {
   startServer();
