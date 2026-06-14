@@ -402,7 +402,15 @@ router.post('/sync-clerk',
 
       const clerkRole = clerkUser?.publicMetadata?.role;
 
-      const existing = await User.findOne({ clerk_id });
+      let existing = await User.findOne({ clerk_id });
+      if (!existing && email) {
+        existing = await User.findOne({ email });
+        if (existing) {
+          existing.clerk_id = clerk_id;
+          await existing.save();
+          logger.info('Linked existing user by email to Clerk ID in sync-clerk', { email, clerkId: clerk_id });
+        }
+      }
       if (existing) {
         const updateData = {
           email: email || existing.email,
@@ -519,9 +527,16 @@ router.post('/webhook', async (req, res, next) => {
     const rawPhone = data.phone_numbers?.[0]?.phone_number || '254700000000';
     let phone = rawPhone.replace('+', '');
     if (!phone.startsWith('254')) phone = '254700000000';
-
     if (type === 'user.created') {
-      const existing = await User.findOne({ clerk_id });
+      let existing = await User.findOne({ clerk_id });
+      if (!existing && email) {
+        existing = await User.findOne({ email });
+        if (existing) {
+          existing.clerk_id = clerk_id;
+          await existing.save();
+          logger.info('Linked existing user by email to Clerk ID in webhook user.created', { email, clerkId: clerk_id });
+        }
+      }
       if (!existing) {
         const count = await User.countDocuments();
         const role = data.public_metadata?.role || 'tenant';
