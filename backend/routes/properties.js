@@ -20,17 +20,26 @@ const validate = (req, res) => {
 // Admin/super_admin: all properties.  Agent: only assigned.  Landlord: only own.
 router.get('/', requireAuth, async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, area, type, status } = req.query;
+    const { page = 1, limit = 20, area, type, status, review_status } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
     const filter = {};
 
     if (req.user.role === 'agent') {
-      filter._id = { $in: req.user.assigned_property_ids || [] };
+      if (review_status === 'pending_agent') {
+        filter.review_status = 'pending_agent';
+      } else {
+        filter._id = { $in: req.user.assigned_property_ids || [] };
+        if (review_status) filter.review_status = review_status;
+      }
     } else if (req.user.role === 'landlord') {
       filter.landlord_id = req.user._id;
+      if (review_status) filter.review_status = review_status;
     } else if (req.user.role === 'tenant') {
       filter._id = req.user.current_property_id;
+      if (review_status) filter.review_status = review_status;
+    } else {
+      if (review_status) filter.review_status = review_status;
     }
 
     if (area) filter['address.area'] = { $regex: area, $options: 'i' };
@@ -145,28 +154,35 @@ router.post('/',
   requireAuth,
   requireRole(['admin', 'super_admin', 'agent', 'landlord']),
   [
-    body('property_code').trim().notEmpty().withMessage('Property code required'),
     body('name').trim().notEmpty().withMessage('Name required'),
     body('type').isIn(['apartment', 'single_family', 'commercial', 'mixed_use', 'bedsitter', 'studio'])
       .withMessage('Invalid property type'),
-    body('address.street').trim().notEmpty().withMessage('Street address required'),
+    body('address.street').optional().trim(),
     body('address.area').trim().notEmpty().withMessage('Area required'),
-    body('address.city').trim().notEmpty().withMessage('City required'),
-    body('location.coordinates').isArray({ min: 2, max: 2 }).withMessage('Coordinates [lng, lat] required'),
-    body('landlord_id').isMongoId().withMessage('Valid landlord_id required')
+    body('address.city').trim().notEmpty().withMessage('City required')
   ],
   async (req, res, next) => {
     try {
       if (!validate(req, res)) return;
 
-      const existing = await Property.findOne({ property_code: req.body.property_code });
+      const count = await Property.countDocuments();
+      const areaTag = (req.body.address?.area || 'UNK').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
+      const propertyCode = req.body.property_code || `MUT-${areaTag}-${String(count + 1).padStart(3, '0')}`;
+
+      const existing = await Property.findOne({ property_code: propertyCode });
       if (existing) {
         return res.status(409).json({ success: false, error: { code: 'DUPLICATE', message: 'Property code already exists' } });
       }
 
+      const coords = (req.body.location && req.body.location.coordinates) 
+        ? req.body.location.coordinates 
+        : [39.6682, -4.0435];
+
       const property = await Property.create({
         ...req.body,
-        location: { type: 'Point', coordinates: req.body.location.coordinates }
+        property_code: propertyCode,
+        location: { type: 'Point', coordinates: coords },
+        landlord_id: req.body.landlord_id || (req.user.role === 'landlord' ? req.user._id : undefined)
       });
 
       logger.info('Property created', { propertyId: property._id, by: req.user._id });
@@ -176,6 +192,51 @@ router.post('/',
     }
   }
 );
+
+/**
+ * POST /api/v1/properties/with-gps
+ * Backwards compatible route. Removed GPS accuracy restrictions.
+ */
+router.post('/with-gps',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent', 'landlord']),
+  async (req, res, next) => {
+    try {
+      const { name, type, address, rent_kes = 0, units = [], location } = req.body;
+      const count = await Property.countDocuments();
+      const areaTag = (address.area || 'UNK').substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
+      const propertyCode = `MUT-${areaTag}-${String(count + 1).padStart(3, '0')}`;
+      
+      const coords = (location && location.coordinates) ? location.coordinates : [39.6682, -4.0435];
+      
+      const propertyUnits = units.length > 0
+        ? units
+        : [{ unit_number: '1A', rent_kes: Number(rent_kes) || 0, status: 'vacant', lock_status: 'unlocked' }];
+
+      const property = await Property.create({
+        property_code: propertyCode,
+        name,
+        type,
+        address: {
+          ...address,
+          city: address.city || 'Mombasa',
+          county: address.county || 'Mombasa County'
+        },
+        location: { type: 'Point', coordinates: coords },
+        landlord_id: req.user.role === 'landlord' ? req.user._id : req.body.landlord_id || req.user._id,
+        agent_ids: [req.user._id],
+        units: propertyUnits,
+        review_status: 'pending_agent'
+      });
+
+      logger.info('Property created (via with-gps compatibility route)', { propertyId: property._id });
+      res.status(201).json({ success: true, data: property });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 
 // ─── PATCH /properties/:id ───────────────────────────────────────────────────
 router.patch('/:id',
@@ -487,8 +548,8 @@ const User = (() => {
 /**
  * POST /api/v1/properties/landlord/submit
  * Landlord submits a new property for admin approval.
- * Body: { name, type, address, units[], contract_terms, signature_data_url, num_floors, year_built }
- * Sets status to 'pending_admin_approval'. Notifies all admins.
+ * Body: { name, type, address, units[], contract_terms, signature_data_url, num_floors, year_built, photos }
+ * Sets status to 'pending_admin_approval'. Notifies all admins and agents.
  */
 router.post('/landlord/submit',
   requireAuth,
@@ -505,7 +566,7 @@ router.post('/landlord/submit',
     try {
       const {
         name, type, address, units,
-        signature_data_url, num_floors, year_built, description
+        signature_data_url, num_floors, year_built, description, photos
       } = req.body;
 
       // Generate property code
@@ -549,38 +610,108 @@ router.post('/landlord/submit',
         units: unitDocs,
         landlord_id: req.user._id,
         status: 'pending_admin_approval',
+        review_status: 'pending_agent',
         contract_pdf_url: signature_data_url || null,
         description: description || '',
         num_floors: num_floors || 1,
-        year_built: year_built || null
+        year_built: year_built || null,
+        photos: photos || []
       });
 
-      // Notify all admins
+      // Notify all admins and agents
       if (Notification && User) {
-        const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }, '_id').lean();
-        if (admins.length > 0) {
+        const staff = await User.find({ role: { $in: ['admin', 'super_admin', 'agent'] }, is_active: true }, '_id').lean();
+        if (staff.length > 0) {
           await Notification.create({
             type: 'property_approval',
             recipient_role: 'admin',
-            recipient_ids: admins.map(a => a._id),
-            title: 'New Property Awaiting Approval',
-            message: `Landlord ${req.user.full_name} has submitted property "${name}" (${propCode}) for approval. Please review and approve or reject.`,
+            recipient_ids: staff.map(s => s._id),
+            title: 'New Property Submitted',
+            message: `Landlord ${req.user.full_name} has submitted property "${name}" (${propCode}) for review.`,
             related_entity_id: property._id
           });
         }
+      }
+
+      // Send SMS and Email notifications to landlord
+      try {
+        const { sendEmail } = require('../services/email');
+        const smsService = require('../services/sms');
+
+        await sendEmail(
+          req.user.email,
+          'Property Submission Confirmation - MutuneRent Pro',
+          `<h1>Hello, ${req.user.full_name}!</h1>
+           <p>Thank you for submitting your property <strong>"${name}"</strong> for management with Mutune Estate Agency.</p>
+           <p>Your property code is <strong>${propCode}</strong>. It is now in the review queue. An agent will review the property and propose a tier classification shortly.</p>
+           <br/>
+           <p>Regards,<br/>Mutune Estate Agency Management</p>`
+        );
+
+        if (req.user.phone) {
+          await smsService.send(req.user.phone, `MutuneRent Pro: We have received your property submission "${name}" (${propCode}). Our team is reviewing it.`);
+        }
+      } catch (notifyErr) {
+        logger.error('Failed to send notifications to landlord on property submit', { message: notifyErr.message });
       }
 
       logger.info('Landlord property submitted', { propertyId: property._id, landlord: req.user._id, code: propCode });
       res.status(201).json({
         success: true,
         data: property,
-        message: 'Property submitted for admin approval. You will be notified once approved.'
+        message: 'Property submitted for agent review and admin approval. You will be notified once approved.'
       });
     } catch (error) {
       next(error);
     }
   }
 );
+
+/**
+ * PATCH /api/v1/properties/:id/agent-review
+ * Agent reviews a property, proposes a tier, and sends it to the admin.
+ */
+router.patch('/:id/agent-review',
+  requireAuth,
+  requireRole(['agent', 'admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid property ID'),
+    body('proposed_tier_id').isMongoId().withMessage('Valid proposed tier ID required')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const property = await Property.findById(req.params.id);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { message: 'Property not found' } });
+      }
+
+      const { proposed_tier_id } = req.body;
+      property.proposed_tier_id = proposed_tier_id;
+      property.review_status = 'pending_admin';
+      await property.save();
+
+      // Notify admins
+      if (Notification && User) {
+        const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }, '_id').lean();
+        await Notification.create({
+          type: 'property_approval',
+          recipient_role: 'admin',
+          recipient_ids: admins.map(a => a._id),
+          title: 'Property Tier Proposed',
+          message: `Agent ${req.user.full_name} has proposed a tier for property "${property.name}". Verification required.`,
+          related_entity_id: property._id
+        });
+      }
+
+      logger.info('Property proposed tier updated by agent', { propertyId: property._id, proposedTierId: proposed_tier_id, agentId: req.user._id });
+      res.json({ success: true, message: 'Property reviewed and proposed tier submitted for admin validation', data: property });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 
 /**
  * POST /api/v1/properties/:id/approve

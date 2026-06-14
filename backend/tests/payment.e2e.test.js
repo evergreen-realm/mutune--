@@ -28,6 +28,12 @@ jest.mock('@clerk/clerk-sdk-node', () => ({
   ClerkExpressRequireAuth: () => (req, res, next) => {
     req.auth = { userId: 'test_clerk_id_001' };
     next();
+  },
+  clerkClient: {
+    users: {
+      updateUserMetadata: jest.fn().mockResolvedValue({}),
+      getUser: jest.fn().mockResolvedValue({ id: 'test_clerk_id_001', publicMetadata: {} })
+    }
   }
 }));
 

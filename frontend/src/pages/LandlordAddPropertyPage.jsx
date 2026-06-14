@@ -3,9 +3,10 @@ import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { submitLandlordProperty } from '../lib/api';
-import { Building2, MapPin, Home, ChevronRight, ChevronLeft, Check, PenLine, Trash2, Plus, X } from 'lucide-react';
+import ImageUpload from '../components/ImageUpload';
+import { Building2, Home, ChevronRight, ChevronLeft, Check, Trash2, Plus } from 'lucide-react';
 
-const STEPS = ['Property Details', 'Units', 'Location', 'Contract & Sign'];
+const STEPS = ['Property Details', 'Units', 'Photos', 'Contract & Sign'];
 
 const glassCard = {
   background: 'rgba(255,255,255,0.06)',
@@ -35,15 +36,14 @@ export default function LandlordAddPropertyPage() {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
-  const [gpsStatus, setGpsStatus] = useState('idle'); // idle | loading | ok | error
-  const [gpsCoords, setGpsCoords] = useState(null);
 
   const [form, setForm] = useState({
     name: '', type: 'apartment', description: '', num_floors: 1, year_built: '',
     address: { street: '', area: '', city: 'Mombasa', county: 'Mombasa County' },
     units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', amenities: [] }],
     contract_terms: 'Standard 12-month management agreement. Mutune Estate Agency will manage the property and collect rent on behalf of the landlord. Agency fee: 10% of monthly rent. Agreement renewable annually.',
-    signature_data_url: ''
+    signature_data_url: '',
+    photos: []
   });
 
   const setField = (path, value) => {
@@ -76,26 +76,6 @@ export default function LandlordAddPropertyPage() {
       units[i] = { ...units[i], [key]: value };
       return { ...prev, units };
     });
-  };
-
-  // GPS capture
-  const captureGPS = () => {
-    setGpsStatus('loading');
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const acc = pos.coords.accuracy;
-        if (acc > 100) {
-          setGpsStatus('error');
-          toast.warn(`GPS accuracy is ${Math.round(acc)}m — too low. Move to open area and try again.`);
-          return;
-        }
-        setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(acc) });
-        setGpsStatus('ok');
-        toast.success(`GPS captured! Accuracy: ${Math.round(acc)}m`);
-      },
-      err => { setGpsStatus('error'); toast.error('GPS unavailable: ' + err.message); },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
   };
 
   // Canvas signature
@@ -199,7 +179,10 @@ export default function LandlordAddPropertyPage() {
       const payload = {
         ...form,
         units: form.units.map(u => ({ ...u, rent_kes: Number(u.rent_kes) || 0 })),
-        gps_coordinates: gpsCoords || null
+        location: {
+          type: 'Point',
+          coordinates: [39.6682, -4.0435] // Mombasa Central default
+        }
       };
       const res = await submitLandlordProperty(payload);
       toast.success(res.message || 'Property submitted for approval!');
@@ -243,7 +226,7 @@ export default function LandlordAddPropertyPage() {
                 }}>
                   {i < step ? <Check size={14} /> : i + 1}
                 </div>
-                <span style={{ color: i === step ? '#fff' : 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: i === step ? 700 : 400, display: window.innerWidth > 640 ? 'block' : 'none' }}>{label}</span>
+                <span style={{ color: i === step ? '#fff' : 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: i === step ? 700 : 400 }}>{label}</span>
               </div>
               {i < STEPS.length - 1 && (
                 <div style={{ flex: 1, height: 2, background: i < step ? '#10b981' : 'rgba(255,255,255,0.1)', margin: '0 8px', transition: 'all 0.3s' }} />
@@ -297,7 +280,7 @@ export default function LandlordAddPropertyPage() {
           {/* STEP 1: Units */}
           {step === 1 && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 20 }}>
                 <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Define Units ({form.units.length})</h2>
                 <button onClick={addUnit} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 10, padding: '8px 14px', color: '#a78bfa', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                   <Plus size={14} /> Add Unit
@@ -306,7 +289,7 @@ export default function LandlordAddPropertyPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 480, overflowY: 'auto' }}>
                 {form.units.map((unit, i) => (
                   <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 14 }}>
                       <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700 }}>Unit {i + 1}</span>
                       {form.units.length > 1 && (
                         <button onClick={() => removeUnit(i)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
@@ -342,50 +325,20 @@ export default function LandlordAddPropertyPage() {
             </div>
           )}
 
-          {/* STEP 2: GPS Location */}
+          {/* STEP 2: Photos */}
           {step === 2 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Property Location</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Property Photos</h2>
               <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, lineHeight: 1.6 }}>
-                For accurate property listing, please capture the GPS coordinates while at the property. Accuracy must be within 100 metres.
+                Upload high-quality images of the property. Drag and drop local images or capture directly via your webcam.
               </p>
-
-              <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 16, padding: 24, textAlign: 'center' }}>
-                {gpsStatus === 'idle' && (
-                  <>
-                    <MapPin size={40} style={{ color: '#6366f1', margin: '0 auto 12px' }} />
-                    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginBottom: 16 }}>Tap to capture your current GPS position</p>
-                    <button onClick={captureGPS} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(99,102,241,0.4)' }}>
-                      📍 Capture GPS
-                    </button>
-                  </>
-                )}
-                {gpsStatus === 'loading' && (
-                  <>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid rgba(99,102,241,0.3)', borderTop: '3px solid #6366f1', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-                    <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }}>Acquiring GPS signal…</p>
-                  </>
-                )}
-                {gpsStatus === 'ok' && gpsCoords && (
-                  <>
-                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                      <Check size={24} style={{ color: '#10b981' }} />
-                    </div>
-                    <p style={{ color: '#34d399', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>GPS Captured!</p>
-                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Lat: {gpsCoords.lat.toFixed(6)}, Lng: {gpsCoords.lng.toFixed(6)}</p>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>Accuracy: ±{gpsCoords.accuracy}m</p>
-                    <button onClick={captureGPS} style={{ marginTop: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: '8px 16px', fontSize: 12, cursor: 'pointer' }}>Recapture</button>
-                  </>
-                )}
-                {gpsStatus === 'error' && (
-                  <>
-                    <div style={{ color: '#f87171', fontSize: 32, margin: '0 auto 12px' }}>⚠️</div>
-                    <p style={{ color: '#f87171', fontSize: 14, marginBottom: 12 }}>GPS capture failed</p>
-                    <button onClick={captureGPS} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 24px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Try Again</button>
-                  </>
-                )}
-              </div>
-              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center' }}>GPS is optional — you can skip this step and add coordinates later</p>
+              
+              <ImageUpload
+                value={form.photos || []}
+                onChange={urls => setField('photos', urls)}
+                multiple={true}
+                label="Property Photos"
+              />
             </div>
           )}
 
@@ -398,7 +351,7 @@ export default function LandlordAddPropertyPage() {
               </div>
 
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 10 }}>
                   <label style={labelStyle}>Your Signature *</label>
                   {hasSigned && (
                     <button onClick={clearSignature} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
@@ -425,9 +378,9 @@ export default function LandlordAddPropertyPage() {
                     ['Type', form.type],
                     ['Area', form.address.area || '—'],
                     ['Units', form.units.length],
-                    ['GPS', gpsCoords ? `${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lng.toFixed(4)}` : 'Not captured']
+                    ['Photos', `${form.photos?.length || 0} uploaded`]
                   ].map(([k, v]) => (
-                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <div key={k} style={{ display: 'flex', justifycontent: 'space-between', fontSize: 13 }}>
                       <span style={{ color: 'rgba(255,255,255,0.45)' }}>{k}</span>
                       <span style={{ color: '#fff', fontWeight: 600 }}>{v}</span>
                     </div>
@@ -438,7 +391,7 @@ export default function LandlordAddPropertyPage() {
           )}
 
           {/* Navigation */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, gap: 12 }}>
+          <div style={{ display: 'flex', justifycontent: 'space-between', marginTop: 32, gap: 12 }}>
             <button onClick={back} disabled={step === 0} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '12px 24px',
               background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',

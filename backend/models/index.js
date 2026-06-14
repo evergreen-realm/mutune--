@@ -5,5 +5,7 @@ module.exports = {
   Payment: require('./Payment'),
   Notice: require('./Notice'),
   MaintenanceTicket: require('./MaintenanceTicket'),
-  LateFeeRule: require('./LateFeeRule')
+  LateFeeRule: require('./LateFeeRule'),
+  PropertyTier: require('./PropertyTier'),
+  SystemSetting: require('./SystemSetting')
 };

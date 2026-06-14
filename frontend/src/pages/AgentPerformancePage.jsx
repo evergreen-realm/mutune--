@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { toast } from 'react-toastify';
 import {
-  fetchAgentPerformance, fetchAllTasks, fetchUsers, createTask, deleteTask, updateTaskStatus
+  fetchAgentPerformance, fetchAllTasks, fetchUsers, createTask, deleteTask, updateTaskStatus,
+  fetchProperties, fetchPropertyTiers, submitAgentReview
 } from '../lib/api';
 import {
   Trophy, TrendingUp, CheckCircle2, AlertTriangle, Clock,
-  Target, Wallet, Wrench, Plus, Trash2, X, Users2, BarChart3, Medal
+  Target, Wallet, Wrench, Plus, Trash2, X, Users2, BarChart3, Medal,
+  ClipboardList, Check, Eye
 } from 'lucide-react';
 
 const FMT_KES = n => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
@@ -32,18 +34,29 @@ export default function AgentPerformancePage({ dbUser }) {
   const [taskForm, setTaskForm] = useState({ assigned_to: '', title: '', description: '', type: 'payment_followup', due_date: '', related_property_id: '' });
   const [submitting, setSubmitting] = useState(false);
 
+  // Agent Property Review Queue states
+  const [reviewProperties, setReviewProperties] = useState([]);
+  const [activeTiers, setActiveTiers] = useState([]);
+  const [selectedProposedTiers, setSelectedProposedTiers] = useState({});
+  const [reviewingId, setReviewingId] = useState(null);
+  const [viewPropertyModal, setViewPropertyModal] = useState(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const from = new Date(Date.now() - Number(period) * 86400000).toISOString().split('T')[0];
     try {
-      const [perf, t, users] = await Promise.allSettled([
+      const [perf, t, users, props, tiers] = await Promise.allSettled([
         fetchAgentPerformance({ from }),
         fetchAllTasks({ limit: 200 }),
-        fetchUsers({ role: 'agent', is_active: true })
+        fetchUsers({ role: 'agent', is_active: true }),
+        fetchProperties({ review_status: 'pending_agent' }),
+        fetchPropertyTiers()
       ]);
       if (perf.status === 'fulfilled') setAgents(Array.isArray(perf.value?.data) ? perf.value.data : []);
       if (t.status === 'fulfilled') setTasks(Array.isArray(t.value?.data) ? t.value.data : []);
       if (users.status === 'fulfilled') setAgentList(Array.isArray(users.value?.data) ? users.value.data : []);
+      if (props.status === 'fulfilled') setReviewProperties(Array.isArray(props.value?.data) ? props.value.data : []);
+      if (tiers.status === 'fulfilled') setActiveTiers(Array.isArray(tiers.value?.data) ? tiers.value.data : []);
     } finally {
       setLoading(false);
     }
@@ -81,6 +94,25 @@ export default function AgentPerformancePage({ dbUser }) {
       setTasks(prev => prev.filter(t => t._id !== id));
     } catch (err) {
       toast.error('Failed to delete task');
+    }
+  };
+
+  const handleSubmitReview = async (propertyId) => {
+    const proposed_tier_id = selectedProposedTiers[propertyId];
+    if (!proposed_tier_id) {
+      toast.error('Please select a proposed tier first.');
+      return;
+    }
+    setReviewingId(propertyId);
+    try {
+      await submitAgentReview(propertyId, proposed_tier_id);
+      toast.success('Property tier proposed successfully!');
+      // Remove from queue
+      setReviewProperties(prev => prev.filter(p => p._id !== propertyId));
+    } catch (err) {
+      toast.error(err?.error?.message || 'Failed to submit review');
+    } finally {
+      setReviewingId(null);
     }
   };
 
@@ -179,6 +211,7 @@ export default function AgentPerformancePage({ dbUser }) {
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           <button style={tabStyle('leaderboard')} onClick={() => setTab('leaderboard')}>🏆 Leaderboard</button>
           <button style={tabStyle('tasks')} onClick={() => setTab('tasks')}>📋 Tasks ({tasks.length})</button>
+          <button style={tabStyle('reviews')} onClick={() => setTab('reviews')}>🔍 Review Queue ({reviewProperties.length})</button>
         </div>
 
         {/* LEADERBOARD */}
@@ -269,6 +302,83 @@ export default function AgentPerformancePage({ dbUser }) {
             ))}
           </div>
         )}
+
+        {/* REVIEW QUEUE */}
+        {tab === 'reviews' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {reviewProperties.length === 0 ? (
+              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 48, textAlign: 'center' }}>
+                <ClipboardList size={40} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No properties pending agent review</p>
+              </div>
+            ) : reviewProperties.map(property => (
+              <div key={property._id} style={{
+                background: 'rgba(255,255,255,0.05)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 20, padding: '20px 24px',
+                display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap'
+              }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{property.name}</p>
+                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                    Code: {property.property_code} · Type: {property.type} · Area: {property.address?.area || '—'}, {property.address?.city || '—'}
+                  </p>
+                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 4 }}>
+                    Units: {property.units?.length || 0} units · Base Rent: {FMT_KES(property.units?.[0]?.rent_kes || 0)}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Details Button */}
+                  <button
+                    onClick={() => setViewPropertyModal(property)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+                      background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: 10, color: '#fff', fontSize: 13, cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                  >
+                    <Eye size={14} /> Details
+                  </button>
+
+                  {/* Proposed Tier Selection */}
+                  <select
+                    value={selectedProposedTiers[property._id] || ''}
+                    onChange={e => setSelectedProposedTiers(prev => ({ ...prev, [property._id]: e.target.value }))}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: 10, padding: '8px 14px', color: '#fff', fontSize: 13, outline: 'none'
+                    }}
+                  >
+                    <option value="" style={{ background: '#1a1a3e' }}>Select Proposed Tier…</option>
+                    {activeTiers.map(tier => (
+                      <option key={tier._id} value={tier._id} style={{ background: '#1a1a3e' }}>
+                        {tier.name} ({FMT_KES(tier.min_rent_kes)} - {FMT_KES(tier.max_rent_kes)})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Submit Review Button */}
+                  <button
+                    onClick={() => handleSubmitReview(property._id)}
+                    disabled={reviewingId === property._id || !selectedProposedTiers[property._id]}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px',
+                      background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff',
+                      border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                      cursor: (reviewingId === property._id || !selectedProposedTiers[property._id]) ? 'not-allowed' : 'pointer',
+                      opacity: (reviewingId === property._id || !selectedProposedTiers[property._id]) ? 0.5 : 1,
+                      boxShadow: selectedProposedTiers[property._id] ? '0 4px 12px rgba(16,185,129,0.3)' : 'none'
+                    }}
+                  >
+                    <Check size={14} /> {reviewingId === property._id ? 'Submitting…' : 'Submit Review'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Task assignment modal */}
@@ -319,6 +429,84 @@ export default function AgentPerformancePage({ dbUser }) {
               }}>
                 {submitting ? 'Assigning…' : '✓ Assign Task'}
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Property Details Modal */}
+      {viewPropertyModal && (
+        <>
+          <div onClick={() => setViewPropertyModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            width: '90%', maxWidth: 700, maxHeight: '85vh', overflowY: 'auto', zIndex: 201,
+            background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)',
+            border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32,
+            boxShadow: '0 32px 64px rgba(0,0,0,0.6)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h3 style={{ color: '#fff', fontSize: 20, fontWeight: 800 }}>Property Review: {viewPropertyModal.name}</h3>
+              <button onClick={() => setViewPropertyModal(null)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, color: 'rgba(255,255,255,0.8)' }}>
+              {/* Photo Carousel or Grid */}
+              {viewPropertyModal.photos && viewPropertyModal.photos.length > 0 ? (
+                <div>
+                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Photos</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+                    {viewPropertyModal.photos.map((photoUrl, idx) => (
+                      <img key={idx} src={photoUrl} alt={`Property ${idx + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)' }} />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+                  No photos uploaded for this property
+                </div>
+              )}
+
+              {/* Main Specs */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>General Info</p>
+                  <p style={{ fontSize: 13 }}><strong>Code:</strong> {viewPropertyModal.property_code}</p>
+                  <p style={{ fontSize: 13 }}><strong>Type:</strong> {viewPropertyModal.type}</p>
+                  <p style={{ fontSize: 13 }}><strong>Floors:</strong> {viewPropertyModal.num_floors || 1}</p>
+                  <p style={{ fontSize: 13 }}><strong>Year Built:</strong> {viewPropertyModal.year_built || '—'}</p>
+                </div>
+                <div>
+                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Address</p>
+                  <p style={{ fontSize: 13 }}><strong>Street:</strong> {viewPropertyModal.address?.street || '—'}</p>
+                  <p style={{ fontSize: 13 }}><strong>Area:</strong> {viewPropertyModal.address?.area}</p>
+                  <p style={{ fontSize: 13 }}><strong>City:</strong> {viewPropertyModal.address?.city}</p>
+                  <p style={{ fontSize: 13 }}><strong>County:</strong> {viewPropertyModal.address?.county}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              {viewPropertyModal.description && (
+                <div>
+                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Description</p>
+                  <p style={{ fontSize: 13, lineHeight: '1.6', background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12 }}>{viewPropertyModal.description}</p>
+                </div>
+              )}
+
+              {/* Units List */}
+              <div>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Units Configured</p>
+                <div style={{ maxHeight: 200, overflowY: 'auto', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {viewPropertyModal.units && viewPropertyModal.units.map((unit, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', borderBottom: idx < viewPropertyModal.units.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>Unit {unit.unit_number} ({unit.type})</span>
+                      <span style={{ fontSize: 13, color: '#34d399', fontWeight: 700 }}>{FMT_KES(unit.rent_kes)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </>

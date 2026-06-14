@@ -5,7 +5,8 @@ import { toast } from 'react-toastify';
 import {
   fetchMyProfile, fetchMyPayments, fetchMyNotices,
   createMaintenanceTicket, fetchMyTickets,
-  fetchNotifications, markNotifRead, markAllNotifsRead
+  fetchNotifications, markNotifRead, markAllNotifsRead,
+  fetchCustomerCareNumber, autoInitiatePayment
 } from '../lib/api';
 import {
   Home, Wallet, Wrench, FileText, Bell, ChevronRight,
@@ -44,21 +45,46 @@ export default function TenantPortalPage() {
   const [ticketForm, setTicketForm] = useState({ open: false, title: '', description: '', priority: 'medium' });
   const [submitting, setSubmitting] = useState(false);
 
+  const [customerCare, setCustomerCare] = useState('254700000000');
+  const [paying, setPaying] = useState(false);
+
+  const handlePayRent = async () => {
+    setPaying(true);
+    const toastId = toast.loading('Initiating rent payment STK push...');
+    try {
+      const res = await autoInitiatePayment();
+      if (res?.success) {
+        toast.update(toastId, { render: 'Payment request sent! Please enter your PIN on your handset.', type: 'success', isLoading: false, autoClose: 5000 });
+      } else {
+        toast.update(toastId, { render: res?.message || 'STK Push failed to initiate.', type: 'error', isLoading: false, autoClose: 5000 });
+      }
+      load();
+    } catch (err) {
+      toast.update(toastId, { render: err?.error?.message || 'Failed to initiate payment.', type: 'error', isLoading: false, autoClose: 5000 });
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, pay, n, t, notif] = await Promise.allSettled([
+      const [p, pay, n, t, notif, cc] = await Promise.allSettled([
         fetchMyProfile(),
         fetchMyPayments(),
         fetchMyNotices(),
         fetchMyTickets(),
-        fetchNotifications()
+        fetchNotifications(),
+        fetchCustomerCareNumber()
       ]);
       if (p.status === 'fulfilled') setProfile(p.value?.data || null);
       if (pay.status === 'fulfilled') setPayments(Array.isArray(pay.value?.data) ? pay.value.data : []);
       if (n.status === 'fulfilled') setNotices(Array.isArray(n.value?.data) ? n.value.data : []);
       if (t.status === 'fulfilled') setTickets(Array.isArray(t.value?.data) ? t.value.data : []);
       if (notif.status === 'fulfilled') setNotifs(Array.isArray(notif.value?.data) ? notif.value.data : []);
+      if (cc.status === 'fulfilled' && cc.value?.number) {
+        setCustomerCare(cc.value.number);
+      }
     } finally {
       setLoading(false);
     }
@@ -261,16 +287,18 @@ export default function TenantPortalPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
             {/* Quick Actions */}
             {[
-              { label: 'Pay Rent', desc: 'M-Pesa STK push', icon: <Wallet size={20} />, color: '#10b981', action: () => setActiveTab('payments') },
+              { label: 'Pay Rent', desc: paying ? 'Initiating...' : 'M-Pesa STK push', icon: <Wallet size={20} />, color: '#10b981', action: handlePayRent },
               { label: 'Maintenance', desc: 'Submit a request', icon: <Wrench size={20} />, color: '#6366f1', action: () => setTicketForm(f => ({ ...f, open: true })) },
               { label: 'View Notices', desc: `${notices.length} notices`, icon: <FileText size={20} />, color: '#f59e0b', action: () => setActiveTab('notices') },
-              { label: 'Contact Agent', desc: profile?.agent_phone || '+254 700 000000', icon: <Phone size={20} />, color: '#ec4899', action: () => {} }
-            ].map((item, i) => (
-              <button key={i} onClick={item.action} style={{
+              { label: 'Contact Agent', desc: customerCare, icon: <Phone size={20} />, color: '#ec4899', href: `tel:${customerCare}` }
+            ].map((item, i) => {
+              const cardStyle = {
                 background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 20, padding: 24, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-              }}>
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none',
+                width: '100%', boxSizing: 'border-box'
+              };
+              const content = (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div style={{ width: 48, height: 48, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${item.color}22`, border: `1px solid ${item.color}44` }}>
                     <span style={{ color: item.color }}>{item.icon}</span>
@@ -280,9 +308,24 @@ export default function TenantPortalPage() {
                     <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>{item.desc}</p>
                   </div>
                 </div>
-                <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
-              </button>
-            ))}
+              );
+
+              if (item.href) {
+                return (
+                  <a key={i} href={item.href} style={cardStyle}>
+                    {content}
+                    <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                  </a>
+                );
+              }
+
+              return (
+                <button key={i} onClick={item.action} disabled={item.label === 'Pay Rent' && paying} style={{ ...cardStyle, opacity: (item.label === 'Pay Rent' && paying) ? 0.6 : 1 }}>
+                  {content}
+                  <ChevronRight size={18} style={{ color: 'rgba(255,255,255,0.3)' }} />
+                </button>
+              );
+            })}
 
             {/* Recent payments */}
             <div style={{ gridColumn: '1/-1', background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24 }}>
@@ -317,7 +360,30 @@ export default function TenantPortalPage() {
         {/* PAYMENTS TAB */}
         {activeTab === 'payments' && (
           <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24 }}>
-            <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 20 }}>Payment History</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+              <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Payment History</h2>
+              <button
+                onClick={handlePayRent}
+                disabled={paying}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 20px',
+                  background: paying ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 12,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: paying ? 'not-allowed' : 'pointer',
+                  boxShadow: paying ? 'none' : '0 4px 14px rgba(16,185,129,0.4)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Wallet size={15} /> {paying ? 'Initiating STK Push…' : 'Pay Rent Now'}
+              </button>
+            </div>
             {payments.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <CreditCard size={40} style={{ color: 'rgba(255,255,255,0.2)', margin: '0 auto 12px' }} />

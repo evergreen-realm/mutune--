@@ -229,4 +229,19 @@ export const uploadDoc = (file) => {
   });
 };
 
+// ── Overhauled Admin & Tier Endpoints (Phase 5) ──────────────────────────────
+export const verifyAdminPassword      = (password)        => api.post('/admin/verify-password', { password });
+export const fetchPendingLandlords    = ()                => api.get('/admin/landlords/pending');
+export const approveLandlord          = (id)              => api.patch(`/admin/landlords/${id}/approve`);
+export const rejectLandlord           = (id, reason)      => api.patch(`/admin/landlords/${id}/reject`, { reason });
+export const createLandlordManually   = (data)            => api.post('/admin/landlords', data);
+export const fetchPropertyTiers       = ()                => api.get('/admin/tiers');
+export const createPropertyTier       = (data)            => api.post('/admin/tiers', data);
+export const updatePropertyTier       = (id, data)        => api.patch(`/admin/tiers/${id}`, data);
+export const verifyPropertyTier       = (id, data)        => api.patch(`/admin/properties/${id}/verify-tier`, data);
+export const fetchCustomerCareNumber  = ()                => api.get('/admin/settings/customer-care');
+export const updateCustomerCareNumber = (number)          => api.post('/admin/settings/customer-care', { number });
+export const submitAgentReview        = (id, proposed_tier_id) => api.patch(`/properties/${id}/agent-review`, { proposed_tier_id });
+export const autoInitiatePayment      = ()                => api.post('/payments/auto-initiate');
+
 export default api;

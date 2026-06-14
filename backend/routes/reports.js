@@ -48,14 +48,17 @@ router.get('/kra',
         return res.send('Date,Receipt_No,Tenant_Name,Tenant_Code,National_ID,Property_Code,Property_Name,Area,Unit,Payment_Type,Amount_KES,Tax_Classification,Withholding_Tax_KES,Net_Amount_KES\r\n');
       }
 
-      const COMMERCIAL_WITHHOLDING_RATE = 0.05;
+      const COMMERCIAL_WITHHOLDING_RATE = 0.10;
+      const RESIDENTIAL_MRI_RATE = 0.075;
 
       const rows = payments.map((p) => {
         const isCommercial = p.property_id?.type === 'commercial';
         const amountKes = p.amount_kes || 0;
-        const withholdingKes = isCommercial ? Math.round(amountKes * COMMERCIAL_WITHHOLDING_RATE) : 0;
-        const netKes = amountKes - withholdingKes;
-        const taxClassification = isCommercial ? 'Commercial Rent (WHT 5%)' : 'Residential Rent (Exempt)';
+        const taxKes = isCommercial 
+          ? Math.round(amountKes * COMMERCIAL_WITHHOLDING_RATE) 
+          : Math.round(amountKes * RESIDENTIAL_MRI_RATE);
+        const netKes = amountKes - taxKes;
+        const taxClassification = isCommercial ? 'Commercial Rent (WHT 10%)' : 'Residential Rent (MRI 7.5%)';
 
         // Escape CSV fields (wrap in quotes if they contain commas)
         const esc = (v) => {
@@ -78,18 +81,23 @@ router.get('/kra',
           esc(p.payment_type),
           amountKes,
           esc(taxClassification),
-          withholdingKes,
+          taxKes,
           netKes
         ].join(',');
       });
 
       const totalRevenue = payments.reduce((s, p) => s + (p.amount_kes || 0), 0);
-      const totalWithholding = payments
-        .filter((p) => p.property_id?.type === 'commercial')
-        .reduce((s, p) => s + Math.round((p.amount_kes || 0) * COMMERCIAL_WITHHOLDING_RATE), 0);
+      const totalTax = payments.reduce((s, p) => {
+        const amount = p.amount_kes || 0;
+        const isCommercial = p.property_id?.type === 'commercial';
+        const tax = isCommercial 
+          ? Math.round(amount * COMMERCIAL_WITHHOLDING_RATE)
+          : Math.round(amount * RESIDENTIAL_MRI_RATE);
+        return s + tax;
+      }, 0);
 
       const header = 'Date,Receipt_No,Tenant_Name,Tenant_Code,National_ID,Property_Code,Property_Name,Area,Unit,Payment_Type,Amount_KES,Tax_Classification,Withholding_Tax_KES,Net_Amount_KES';
-      const footer = `\r\n,,,,,,,,TOTAL,,${totalRevenue},,${totalWithholding},${totalRevenue - totalWithholding}`;
+      const footer = `\r\n,,,,,,,,TOTAL,,${totalRevenue},,${totalTax},${totalRevenue - totalTax}`;
       const csv = [header, ...rows].join('\r\n') + footer;
 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -101,7 +109,7 @@ router.get('/kra',
         month,
         records: payments.length,
         totalRevenue,
-        totalWithholding,
+        totalTax,
         generatedBy: req.user._id
       });
     } catch (error) {

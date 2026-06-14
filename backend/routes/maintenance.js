@@ -6,6 +6,7 @@ const { requirePermission } = require('../middleware/rbac');
 const logger = require('../utils/logger');
 
 const MaintenanceTicket = require('../models/MaintenanceTicket');
+const Tenant = require('../models/Tenant');
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 const validate = (req, res) => {
@@ -40,11 +41,13 @@ router.post('/',
       const count = await MaintenanceTicket.countDocuments();
       const ticketCode = `MT-${Date.now().toString(36).toUpperCase()}-${String(count + 1).padStart(3, '0')}`;
 
+      const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
       const ticket = await MaintenanceTicket.create({
         ticket_code: ticketCode,
         property_id,
         unit_id,
-        tenant_id: req.user._id,
+        tenant_id: tenant ? tenant._id : undefined,
+        created_by: req.user._id,
         category,
         priority,
         description,
@@ -54,7 +57,7 @@ router.post('/',
       logger.info('Maintenance ticket created', {
         ticketId: ticket._id,
         ticketCode,
-        tenantId: req.user._id,
+        tenantId: tenant ? tenant._id : undefined,
         category,
         priority
       });
@@ -72,7 +75,9 @@ router.get('/my-tickets',
   requirePermission('view:maintenance'),
   async (req, res, next) => {
     try {
-      const tickets = await MaintenanceTicket.find({ tenant_id: req.user._id })
+      const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+      const tenantId = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
+      const tickets = await MaintenanceTicket.find({ tenant_id: tenantId })
         .sort({ created_at: -1 })
         .lean();
       res.json({ success: true, data: tickets });
@@ -96,7 +101,8 @@ router.get('/',
       if (req.user.role === 'agent') {
         filter.property_id = { $in: req.user.assigned_property_ids || [] };
       } else if (req.user.role === 'tenant') {
-        filter.tenant_id = req.user._id;
+        const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+        filter.tenant_id = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
       } else if (req.user.role === 'landlord') {
         const Property = require('../models/Property');
         const ownedProps = await Property.find({ landlord_id: req.user._id }).select('_id').lean();
@@ -189,7 +195,8 @@ router.delete('/:id',
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Ticket not found' } });
       }
 
-      const isOwner = ticket.tenant_id.toString() === req.user._id.toString();
+      const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+      const isOwner = tenant && ticket.tenant_id && ticket.tenant_id.toString() === tenant._id.toString();
       const isAdmin = ['admin', 'super_admin'].includes(req.user.role);
 
       if (!isOwner && !isAdmin) {

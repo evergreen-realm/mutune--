@@ -101,18 +101,18 @@ async function executeTool(toolName, args, callerUser) {
         };
       }
 
-      case 'create_maintenance_ticket': {
+        case 'create_maintenance_ticket': {
         if (!callerUser) return { error: 'Authentication required' };
 
         let propertyId = callerUser.current_property_id;
         let unitId = callerUser.current_unit_id;
+        let tenantId = undefined;
 
-        if (callerUser.role === 'tenant') {
-          const tenant = await Tenant.findOne({ user_id: callerUser._id }).lean();
-          if (tenant) {
-            propertyId = tenant.current_property_id;
-            unitId = tenant.current_unit_id;
-          }
+        const tenant = await Tenant.findOne({ user_id: callerUser._id }).lean();
+        if (tenant) {
+          propertyId = tenant.current_property_id;
+          unitId = tenant.current_unit_id;
+          tenantId = tenant._id;
         }
 
         const count = await MaintenanceTicket.countDocuments();
@@ -124,6 +124,7 @@ async function executeTool(toolName, args, callerUser) {
           status: 'open',
           property_id: propertyId,
           unit_id: unitId,
+          tenant_id: tenantId,
           created_by: callerUser._id
         });
 

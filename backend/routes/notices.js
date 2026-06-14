@@ -211,8 +211,11 @@ router.get('/:id/download', requireAuth, async (req, res, next) => {
     }
 
     // Scope check: tenants can only download their own notices
-    if (req.user.role === 'tenant' && notice.tenant_id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Not your notice' } });
+    if (req.user.role === 'tenant') {
+      const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+      if (!tenant || notice.tenant_id.toString() !== tenant._id.toString()) {
+        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Not your notice' } });
+      }
     }
 
     if (!notice.pdf_url) {
@@ -231,7 +234,8 @@ router.get('/', requireAuth, async (req, res, next) => {
     const query = {};
 
     if (req.user.role === 'tenant') {
-      query.tenant_id = req.user._id;
+      const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+      query.tenant_id = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
     } else if (req.user.role === 'agent') {
       query.property_id = { $in: req.user.assigned_property_ids || [] };
     } else if (req.user.role === 'landlord') {
@@ -254,7 +258,9 @@ router.get('/', requireAuth, async (req, res, next) => {
 // ── POST/PATCH /api/v1/notices/:id/acknowledge — Tenant acknowledges receipt ────────
 const acknowledgeHandler = async (req, res, next) => {
   try {
-    const notice = await Notice.findOne({ _id: req.params.id, tenant_id: req.user._id });
+    const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+    const tenantId = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
+    const notice = await Notice.findOne({ _id: req.params.id, tenant_id: tenantId });
     if (!notice) {
       throw Object.assign(new Error('Notice not found'), { status: 404, code: 'NOTICE_NOT_FOUND' });
     }

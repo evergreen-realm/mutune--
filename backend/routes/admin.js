@@ -10,6 +10,15 @@ const User = require('../models/User');
 const Task = require('../models/Task');
 const MaintenanceTicket = require('../models/MaintenanceTicket');
 const logger = require('../utils/logger');
+const rateLimit = require('express-rate-limit');
+
+const verifyPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => res.status(429).json({ success: false, error: { code: 'RATE_LIMIT', message: 'Too many password verification attempts. Please try again after 15 minutes.' } })
+});
 
 /**
  * GET /api/v1/admin/stats
@@ -585,5 +594,478 @@ router.delete('/late-fee-rules/:id',
   }
 );
 
+
+/**
+ * POST /api/v1/admin/verify-password
+ * Verifies admin password against hardcoded hash.
+ */
+router.post('/verify-password',
+  verifyPasswordLimiter,
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    body('password').trim().notEmpty().withMessage('Password required')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const { password } = req.body;
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return res.status(404).json({ success: false, error: { message: 'User not found' } });
+      }
+      
+      const bcrypt = require('bcryptjs');
+      if (!user.admin_hardcoded_hash) {
+        const defaultPassword = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+        user.admin_hardcoded_hash = await bcrypt.hash(defaultPassword, 10);
+        await user.save();
+      }
+
+      const isMatch = await bcrypt.compare(password, user.admin_hardcoded_hash);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, error: { message: 'Incorrect password' } });
+      }
+
+      logger.info('Admin hardcoded password verified successfully', { userId: req.user._id });
+      res.json({ success: true, message: 'Password verified successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/v1/admin/landlords/pending
+ * List all landlords pending approval.
+ */
+router.get('/landlords/pending',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  async (req, res, next) => {
+    try {
+      const pending = await User.find({ role: 'landlord', landlord_approval_status: 'pending' })
+        .select('-password_hash')
+        .lean();
+      res.json({ success: true, data: pending });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/admin/landlords/:id/approve
+ * Approves a pending landlord, sets active to true, generates unique 6-digit landlord ID, and sends email.
+ */
+router.patch('/landlords/:id/approve',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid landlord ID')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const landlord = await User.findOne({ _id: req.params.id, role: 'landlord' });
+      if (!landlord) {
+        return res.status(404).json({ success: false, error: { message: 'Landlord not found' } });
+      }
+      if (landlord.landlord_approval_status === 'approved') {
+        return res.status(400).json({ success: false, error: { message: 'Landlord already approved' } });
+      }
+
+      const count = await User.countDocuments({ role: 'landlord', landlord_approval_status: 'approved' });
+      const landlordIdCode = String(100000 + count + 1);
+
+      landlord.landlord_approval_status = 'approved';
+      landlord.is_active = true;
+      landlord.landlord_id = landlordIdCode;
+      await landlord.save();
+
+      // Create notification
+      await Notification.create({
+        type: 'general',
+        recipient_role: 'landlord',
+        recipient_ids: [landlord._id],
+        title: 'Landlord Application Approved',
+        message: `Your landlord application has been approved. Your unique Landlord ID is ${landlordIdCode}.`,
+        related_entity_id: landlord._id
+      });
+
+      // Send email
+      await sendEmail(
+        landlord.email,
+        'Welcome to MutuneRent Pro - Landlord Account Approved!',
+        `<h1>Welcome, ${landlord.full_name}!</h1>
+         <p>Your landlord application has been approved by Mutune Estate Agency.</p>
+         <p><strong>Your Unique 6-Digit Landlord ID:</strong> ${landlordIdCode}</p>
+         <p>You can now log in to the MutuneRent Pro dashboard using Google and enter your Landlord ID.</p>
+         <br/>
+         <p>Regards,<br/>Mutune Estate Agency Management</p>`
+      );
+
+      logger.info('Landlord approved successfully', { landlordId: landlord._id, landlordIdCode, by: req.user._id });
+      res.json({ success: true, message: 'Landlord approved successfully', data: landlord });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/admin/landlords/:id/reject
+ * Rejects a pending landlord and records the reason.
+ */
+router.patch('/landlords/:id/reject',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid landlord ID'),
+    body('reason').trim().notEmpty().withMessage('Rejection reason is required')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const landlord = await User.findOne({ _id: req.params.id, role: 'landlord' });
+      if (!landlord) {
+        return res.status(404).json({ success: false, error: { message: 'Landlord not found' } });
+      }
+
+      const { reason } = req.body;
+      landlord.landlord_approval_status = 'rejected';
+      landlord.is_active = false;
+      await landlord.save();
+
+      await Notification.create({
+        type: 'general',
+        recipient_role: 'landlord',
+        recipient_ids: [landlord._id],
+        title: 'Landlord Application Rejected',
+        message: `Your landlord application was not approved. Reason: ${reason}`,
+        related_entity_id: landlord._id
+      });
+
+      await sendEmail(
+        landlord.email,
+        'Landlord Application Update',
+        `<h1>Application Status: Rejected</h1>
+         <p>Dear ${landlord.full_name},</p>
+         <p>Thank you for registering on MutuneRent Pro. Unfortunately, your landlord application was rejected for the following reason:</p>
+         <blockquote><em>${reason}</em></blockquote>
+         <p>If you believe this is a mistake, please contact support.</p>`
+      );
+
+      logger.info('Landlord registration rejected', { landlordId: landlord._id, reason, by: req.user._id });
+      res.json({ success: true, message: 'Landlord application rejected', data: landlord });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/admin/landlords
+ * Admin manually creates a landlord (auto-approved).
+ */
+router.post('/landlords',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    body('full_name').trim().notEmpty().withMessage('Full name is required'),
+    body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+    body('phone').trim().notEmpty().withMessage('Phone is required'),
+    body('landlord_verification_doc_url').optional().trim().notEmpty().withMessage('Document URL cannot be empty'),
+    body('assigned_property_ids').optional().isArray().withMessage('Assigned property IDs must be an array')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const { full_name, email, phone, landlord_verification_doc_url, assigned_property_ids = [] } = req.body;
+      
+      const existing = await User.findOne({ email });
+      if (existing) {
+        return res.status(409).json({ success: false, error: { message: 'User with this email already exists' } });
+      }
+
+      const count = await User.countDocuments({ role: 'landlord', landlord_approval_status: 'approved' });
+      const landlordIdCode = String(100000 + count + 1);
+      
+      const userCount = await User.countDocuments();
+      const userCode = `USR-LLD-${String(userCount + 1).padStart(4, '0')}`;
+
+      const landlord = await User.create({
+        user_code: userCode,
+        role: 'landlord',
+        full_name,
+        email,
+        phone,
+        landlord_id: landlordIdCode,
+        landlord_approval_status: 'approved',
+        landlord_verification_doc_url: landlord_verification_doc_url || 'https://mutunerent.s3.amazonaws.com/placeholder-landlord.pdf',
+        assigned_property_ids,
+        is_active: true
+      });
+
+      // Send email
+      await sendEmail(
+        email,
+        'MutuneRent Pro - Landlord Account Created',
+        `<h1>Hello, ${full_name}!</h1>
+         <p>An administrator has manually registered your landlord account on MutuneRent Pro.</p>
+         <p><strong>Your Unique Landlord ID:</strong> ${landlordIdCode}</p>
+         <p>To access your portal, log in with Google using this email address: <strong>${email}</strong> and verify your Landlord ID.</p>
+         <br/>
+         <p>Regards,<br/>Mutune Estate Agency Management</p>`
+      );
+
+      logger.info('Landlord manually created by admin', { landlordId: landlord._id, landlordIdCode, by: req.user._id });
+      res.status(201).json({ success: true, message: 'Landlord created successfully', data: landlord });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/v1/admin/tiers
+ * Get all property tiers.
+ */
+router.get('/tiers',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent']),
+  async (req, res, next) => {
+    try {
+      const PropertyTier = require('../models/PropertyTier');
+      const tiers = await PropertyTier.find({ is_active: true }).sort({ created_at: -1 }).lean();
+      res.json({ success: true, data: tiers });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/admin/tiers
+ * Admin creates a property tier.
+ */
+router.post('/tiers',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    body('name').trim().notEmpty().withMessage('Tier name required'),
+    body('min_rent_kes').isNumeric().withMessage('Min rent must be numeric'),
+    body('max_rent_kes').isNumeric().withMessage('Max rent must be numeric'),
+    body('description').optional().trim(),
+    body('criteria').optional().trim()
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const PropertyTier = require('../models/PropertyTier');
+      const { name, min_rent_kes, max_rent_kes, description, criteria } = req.body;
+      
+      const existing = await PropertyTier.findOne({ name });
+      if (existing) {
+        return res.status(409).json({ success: false, error: { message: 'Property tier with this name already exists' } });
+      }
+
+      const tier = await PropertyTier.create({
+        name,
+        min_rent_kes: Number(min_rent_kes),
+        max_rent_kes: Number(max_rent_kes),
+        description,
+        criteria,
+        created_by: req.user._id
+      });
+
+      logger.info('Property tier created', { tierId: tier._id, name, by: req.user._id });
+      res.status(201).json({ success: true, data: tier });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/admin/tiers/:id
+ * Admin updates a property tier.
+ */
+router.patch('/tiers/:id',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid tier ID'),
+    body('name').optional().trim().notEmpty().withMessage('Tier name cannot be empty'),
+    body('min_rent_kes').optional().isNumeric().withMessage('Min rent must be numeric'),
+    body('max_rent_kes').optional().isNumeric().withMessage('Max rent must be numeric'),
+    body('description').optional().trim(),
+    body('criteria').optional().trim(),
+    body('is_active').optional().isBoolean()
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const PropertyTier = require('../models/PropertyTier');
+      const tier = await PropertyTier.findById(req.params.id);
+      if (!tier) {
+        return res.status(404).json({ success: false, error: { message: 'Property tier not found' } });
+      }
+
+      const fields = ['name', 'min_rent_kes', 'max_rent_kes', 'description', 'criteria', 'is_active'];
+      fields.forEach(f => {
+        if (req.body[f] !== undefined) {
+          tier[f] = req.body[f];
+        }
+      });
+
+      await tier.save();
+      logger.info('Property tier updated', { tierId: tier._id, by: req.user._id });
+      res.json({ success: true, data: tier });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * PATCH /api/v1/admin/properties/:id/verify-tier
+ * Admin verifies and validates property tier classification.
+ */
+router.patch('/properties/:id/verify-tier',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('id').isMongoId().withMessage('Invalid property ID'),
+    body('action').isIn(['approve', 'reject']).withMessage('Action must be approve or reject'),
+    body('tier_id').optional().isMongoId().withMessage('Valid tier ID required'),
+    body('reason').optional().trim()
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const property = await Property.findById(req.params.id);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { message: 'Property not found' } });
+      }
+
+      const { action, tier_id, reason } = req.body;
+
+      if (action === 'approve') {
+        const approvedTierId = tier_id || property.proposed_tier_id;
+        if (!approvedTierId) {
+          return res.status(400).json({ success: false, error: { message: 'Property tier selection is required for approval' } });
+        }
+
+        property.tier_id = approvedTierId;
+        property.review_status = 'approved';
+        property.status = 'active';
+        property.tier_approved_by = req.user._id;
+        property.tier_approved_at = new Date();
+        await property.save();
+
+        // Notify landlord
+        if (property.landlord_id) {
+          await Notification.create({
+            type: 'property_approval',
+            recipient_role: 'landlord',
+            recipient_ids: [property.landlord_id],
+            title: 'Property Tier Approved',
+            message: `Your property "${property.name}" has been tier-verified and is now active on MutuneRent Pro.`,
+            related_entity_id: property._id
+          });
+          
+          const landlord = await User.findById(property.landlord_id).lean();
+          if (landlord && landlord.phone) {
+            try {
+              await smsService.send(landlord.phone, `MutuneRent Pro: Your property "${property.name}" has been approved and listing is active.`);
+            } catch (smsErr) {
+              logger.warn('SMS notification failed for property approval', { message: smsErr.message });
+            }
+          }
+        }
+
+        logger.info('Property tier approved by admin', { propertyId: property._id, tierId: approvedTierId, by: req.user._id });
+        res.json({ success: true, message: 'Property tier approved and listing activated successfully', data: property });
+      } else {
+        property.review_status = 'rejected';
+        property.status = 'inactive';
+        await property.save();
+
+        if (property.landlord_id) {
+          await Notification.create({
+            type: 'property_approval',
+            recipient_role: 'landlord',
+            recipient_ids: [property.landlord_id],
+            title: 'Property Tier Verification Rejected',
+            message: `Your property "${property.name}" tier classification was not approved. Reason: ${reason || 'Not specified'}.`,
+            related_entity_id: property._id
+          });
+        }
+
+        logger.info('Property tier rejected by admin', { propertyId: property._id, reason, by: req.user._id });
+        res.json({ success: true, message: 'Property tier verification rejected successfully', data: property });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/v1/admin/settings/customer-care
+ * Public settings getter for authenticated users (tenants need to display this).
+ */
+router.get('/settings/customer-care',
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const SystemSetting = require('../models/SystemSetting');
+      let setting = await SystemSetting.findOne({ key: 'customer_care' });
+      if (!setting) {
+        setting = await SystemSetting.create({
+          key: 'customer_care',
+          value: '254700000000',
+          description: 'Default Mutune Estate Agency customer care phone number'
+        });
+      }
+      res.json({ success: true, number: setting.value });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/admin/settings/customer-care
+ * Updates the customer care phone number setting (admin only).
+ */
+router.post('/settings/customer-care',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    body('number').trim().notEmpty().withMessage('Phone number is required')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const { number } = req.body;
+      const SystemSetting = require('../models/SystemSetting');
+      let setting = await SystemSetting.findOne({ key: 'customer_care' });
+      if (!setting) {
+        setting = new SystemSetting({ key: 'customer_care' });
+      }
+      setting.value = number;
+      await setting.save();
+
+      logger.info('Customer care number updated', { number, by: req.user._id });
+      res.json({ success: true, number: setting.value, message: 'Customer care number updated successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
+
 

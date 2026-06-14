@@ -70,7 +70,6 @@ app.get('/api/v1/health', (req, res) => {
 
 app.use('/api/v1/payments', require('./routes/payments'));
 app.use('/api/v1/properties', require('./routes/properties'));
-app.use('/api/v1/properties', require('./routes/properties-gps'));   // Phase 2: GPS capture
 app.use('/api/v1/tenants', require('./routes/tenants'));
 app.use('/api/v1/users', require('./routes/users'));
 app.use('/api/v1/agents', require('./routes/agents'));              // Phase 2: check-in

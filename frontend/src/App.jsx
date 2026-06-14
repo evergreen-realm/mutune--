@@ -37,6 +37,8 @@ import AdminInventoryPage from './pages/AdminInventoryPage';
 // Components
 import PropertyList  from './components/PropertyList';
 import ChatAssistant from './components/ChatAssistant';
+import AdminPasswordGuard from './components/AdminPasswordGuard';
+import RoleIdVerification from './components/RoleIdVerification';
 import { syncClerk, fetchNotifications, markNotifRead, markAllNotifsRead } from './lib/api';
 import { Sentry } from './lib/sentry';
 import { toast } from 'react-toastify';
@@ -65,7 +67,15 @@ function AppShell() {
   const [dbUser,      setDbUser]      = useState(null);
   const [notifOpen,   setNotifOpen]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isRoleVerified, setIsRoleVerified] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    if (dbUser) {
+      const key = `mutunerent_verified_id_${dbUser._id}`;
+      setIsRoleVerified(localStorage.getItem(key) === 'true');
+    }
+  }, [dbUser]);
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
@@ -248,6 +258,103 @@ function AppShell() {
         </div>
       );
     }
+  }
+
+  if (derivedRole === 'landlord' && dbUser) {
+    if (dbUser.landlord_approval_status === 'pending') {
+      return (
+        <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
+          <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
+          <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
+          
+          <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
+            <div className="h-16 w-16 mx-auto bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-6">
+              <ShieldCheck size={32} className="animate-pulse" />
+            </div>
+            
+            <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
+              Landlord Verification Pending
+            </h1>
+            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+              Your Landlord registration is undergoing review. The admin team at Mutune Estate Agency is verifying your uploaded verification documents.
+            </p>
+
+            <div className="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl mb-8 text-left font-mono">
+              <div className="flex justify-between items-center text-xs mb-1.5">
+                <span className="text-slate-500 font-medium">Full Name:</span>
+                <span className="text-slate-300 font-semibold">{dbUser.full_name}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs mb-1.5">
+                <span className="text-slate-500 font-medium">Email Address:</span>
+                <span className="text-slate-300 font-semibold">{dbUser.email}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-medium">Verification Doc:</span>
+                <span className={`font-semibold text-xs ${dbUser.landlord_verification_doc_url ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {dbUser.landlord_verification_doc_url ? '✓ Submitted' : '⚠ Not uploaded'}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-500 mb-8 font-medium">
+              We'll send an email to <span className="text-slate-400">{dbUser.email}</span> as soon as your account is approved.
+            </p>
+
+            <button
+              onClick={() => signOut()}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
+            >
+              <LogOut size={14} /> Log Out of Account
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (dbUser.landlord_approval_status === 'rejected') {
+      return (
+        <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
+          <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-red-500/10 blur-[120px]" />
+          <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-orange-500/10 blur-[120px]" />
+          
+          <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
+            <div className="h-16 w-16 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 text-red-400 mb-6">
+              <X size={32} />
+            </div>
+            
+            <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
+              Landlord Registration Rejected
+            </h1>
+            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+              Unfortunately, your Landlord registration could not be approved by the admin team.
+            </p>
+
+            <div className="bg-red-500/5 border border-red-500/10 p-5 rounded-2xl mb-8 text-left">
+              <p className="text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1">Status details:</p>
+              <p className="text-xs text-slate-300 italic">
+                Please contact support for more details regarding your registration.
+              </p>
+            </div>
+
+            <p className="text-[10px] text-slate-500 mb-8 font-medium">
+              You can contact management or sign out to register using a different role.
+            </p>
+
+            <button
+              onClick={() => signOut()}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
+            >
+              <LogOut size={14} /> Log Out of Account
+            </button>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Identity verification gatekeeper for landlords/agents
+  if (dbUser && (derivedRole === 'landlord' || derivedRole === 'agent') && !isRoleVerified) {
+    return <RoleIdVerification dbUser={dbUser} onVerified={() => setIsRoleVerified(true)} />;
   }
 
 
@@ -582,13 +689,14 @@ function AppShell() {
               derivedRole === 'landlord' ? <LandlordAddPropertyPage /> :
               <AddPropertyPage />
             } />
+            <Route path="/properties/add-landlord" element={<LandlordAddPropertyPage />} />
             <Route path="/properties/:id" element={<PropertyDetailPage />} />
             <Route path="/tenants"        element={<TenantsPage />} />
             <Route path="/payments"       element={<PaymentsPage />} />
             <Route path="/maintenance"    element={<MaintenancePage />} />
-            <Route path="/admin"          element={<AdminDashboardPage />} />
-            <Route path="/admin/users"    element={<AdminUserManagementPage />} />
-            <Route path="/admin/inventory" element={<AdminInventoryPage />} />
+            <Route path="/admin"          element={<AdminPasswordGuard><AdminDashboardPage /></AdminPasswordGuard>} />
+            <Route path="/admin/users"    element={<AdminPasswordGuard><AdminUserManagementPage /></AdminPasswordGuard>} />
+            <Route path="/admin/inventory" element={<AdminPasswordGuard><AdminInventoryPage /></AdminPasswordGuard>} />
             <Route path="/tenant"         element={isTenant ? <Navigate to="/" replace /> : <TenantPortalPage />} />
             <Route path="/notices"        element={<NoticesPage user={user} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />

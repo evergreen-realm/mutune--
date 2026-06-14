@@ -34,6 +34,17 @@ jest.mock('@clerk/clerk-sdk-node', () => ({
   ClerkExpressRequireAuth: () => (req, res, next) => {
     req.auth = { userId: mockClerkId };
     next();
+  },
+  clerkClient: {
+    users: {
+      updateUserMetadata: jest.fn().mockResolvedValue({}),
+      getUser: jest.fn().mockImplementation((id) => Promise.resolve({ id, publicMetadata: { role: 'tenant' } })),
+      deleteUser: jest.fn().mockResolvedValue({})
+    },
+    sessions: {
+      getSessionList: jest.fn().mockResolvedValue([]),
+      revokeSession: jest.fn().mockResolvedValue({})
+    }
   }
 }));
 

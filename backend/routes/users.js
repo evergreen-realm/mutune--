@@ -45,6 +45,14 @@ router.get('/me', requireAuth, async (req, res, next) => {
       }
     }
 
+    if (user && ['admin', 'super_admin'].includes(user.role) && !user.admin_hardcoded_hash) {
+      const bcrypt = require('bcryptjs');
+      const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+      const hash = await bcrypt.hash(adminPass, 10);
+      await User.findByIdAndUpdate(user._id, { $set: { admin_hardcoded_hash: hash } });
+      user.admin_hardcoded_hash = hash;
+    }
+
     res.json({ success: true, data: user });
   } catch (error) {
     next(error);
@@ -60,6 +68,7 @@ router.patch('/me/role',
     body('phone').optional().trim().notEmpty().withMessage('Phone cannot be empty'),
     body('earb_license').optional().trim().notEmpty().withMessage('EARB license cannot be empty'),
     body('earb_verification_doc_url').optional().trim().notEmpty().withMessage('EARB document link cannot be empty'),
+    body('landlord_verification_doc_url').optional().trim().notEmpty().withMessage('Landlord verification document link cannot be empty'),
     body('assigned_areas').optional().isArray().withMessage('Assigned areas must be an array'),
     body('property_id').optional().isMongoId().withMessage('property_id must be a valid Mongo ID'),
     body('unit_id').optional().notEmpty().withMessage('unit_id cannot be empty')
@@ -71,7 +80,7 @@ router.patch('/me/role',
         return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
       }
 
-      const { role, phone, earb_license, earb_verification_doc_url, assigned_areas, property_id, unit_id } = req.body;
+      const { role, phone, earb_license, earb_verification_doc_url, landlord_verification_doc_url, assigned_areas, property_id, unit_id } = req.body;
       const userId = req.user._id;
 
       const updateData = { role };
@@ -83,39 +92,45 @@ router.patch('/me/role',
         updateData.is_active = false;
         updateData.agent_approval_status = 'pending';
         updateData.earb_verification_doc_url = earb_verification_doc_url || 'https://mutunerent.s3.amazonaws.com/placeholder-earb.pdf';
+        updateData.landlord_approval_status = 'n_a';
+      } else if (role === 'landlord') {
+        updateData.is_active = false;
+        updateData.landlord_approval_status = 'pending';
+        updateData.landlord_verification_doc_url = landlord_verification_doc_url || 'https://mutunerent.s3.amazonaws.com/placeholder-landlord.pdf';
+        updateData.agent_approval_status = 'n_a';
       } else {
         updateData.agent_approval_status = 'n_a';
+        updateData.landlord_approval_status = 'n_a';
+      }
+
+      if (['admin', 'super_admin'].includes(role)) {
+        const bcrypt = require('bcryptjs');
+        const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+        updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
       }
 
       // —— Tenant-specific: auto-create Tenant document and link to unit ——
       if (role === 'tenant') {
+        if (!property_id || !unit_id) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'Property and unit selection are required for tenants' }
+          });
+        }
+
         const existingTenant = await Tenant.findOne({ user_id: userId }).lean();
         if (!existingTenant) {
-          let assignedPropertyId = property_id || null;
-          let assignedUnitId = unit_id || null;
-
-          // If admin provided a specific unit, use it; otherwise find first vacant
-          if (!assignedPropertyId || !assignedUnitId) {
-            const vacantProperty = await Property.findOne({ 'units.status': 'vacant' }).lean();
-            if (vacantProperty) {
-              const vacantUnit = vacantProperty.units.find(u => u.status === 'vacant');
-              if (vacantUnit) {
-                assignedPropertyId = vacantProperty._id;
-                assignedUnitId = vacantUnit._id;
-              }
-            }
-          }
+          let assignedPropertyId = property_id;
+          let assignedUnitId = unit_id;
 
           // Verify the selected unit is actually vacant (prevent race condition)
-          if (assignedPropertyId && assignedUnitId) {
-            const prop = await Property.findById(assignedPropertyId).lean();
-            const unit = prop?.units?.find(u => u._id.toString() === assignedUnitId.toString());
-            if (unit && unit.status !== 'vacant') {
-              return res.status(409).json({
-                success: false,
-                error: { code: 'UNIT_OCCUPIED', message: 'Selected unit is no longer vacant. Please choose another.' }
-              });
-            }
+          const prop = await Property.findById(assignedPropertyId).lean();
+          const unit = prop?.units?.find(u => u._id.toString() === assignedUnitId.toString());
+          if (!unit || unit.status !== 'vacant') {
+            return res.status(409).json({
+              success: false,
+              error: { code: 'UNIT_OCCUPIED', message: 'Selected unit is no longer vacant. Please choose another.' }
+            });
           }
 
           const tenantCount = await Tenant.countDocuments();
@@ -127,28 +142,26 @@ router.patch('/me/role',
             full_name: req.user.full_name,
             phone: phone || req.user.phone || '254700000000',
             email: req.user.email,
-            id_number: req.body.id_number || '',
-            current_property_id: assignedPropertyId || undefined,
-            current_unit_id: assignedUnitId || undefined,
+            id_number: req.body.id_number || '00000000',
+            current_property_id: assignedPropertyId,
+            current_unit_id: assignedUnitId,
             lease_start: req.body.lease_start ? new Date(req.body.lease_start) : new Date(),
             lease_end: req.body.lease_end
               ? new Date(req.body.lease_end)
               : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-            rent_amount_kes: req.body.rent_amount_kes || 0,
+            rent_amount_kes: req.body.rent_amount_kes || unit.rent_kes || 0,
             tenancy_status: 'pending'
           });
 
           // Mark unit as occupied and link tenant
-          if (assignedPropertyId && assignedUnitId) {
-            await Property.updateOne(
-              { _id: assignedPropertyId, 'units._id': assignedUnitId },
-              { $set: { 'units.$.status': 'occupied' } }
-            );
-          }
+          await Property.updateOne(
+            { _id: assignedPropertyId, 'units._id': assignedUnitId },
+            { $set: { 'units.$.status': 'occupied' } }
+          );
 
           // Update User with property/unit links
-          if (assignedPropertyId) updateData.current_property_id = assignedPropertyId;
-          if (assignedUnitId) updateData.current_unit_id = assignedUnitId;
+          updateData.current_property_id = assignedPropertyId;
+          updateData.current_unit_id = assignedUnitId;
 
           logger.info('Tenant auto-created during onboarding', { userId, tenantCode, assignedPropertyId, assignedUnitId });
         }
@@ -177,6 +190,23 @@ router.patch('/me/role',
         } catch (notifErr) {
           logger.error('Failed to create admin notification for pending agent', { message: notifErr.message });
         }
+      } else if (role === 'landlord') {
+        try {
+          const admins = await User.find({ role: { $in: ['admin', 'super_admin'] } }).select('_id');
+          const adminIds = admins.map(a => a._id);
+          const Notification = require('../models/Notification');
+          await Notification.create({
+            type: 'landlord_approval',
+            recipient_role: 'admin',
+            recipient_ids: adminIds,
+            title: 'New Landlord Pending Approval',
+            message: `Landlord ${updatedUser.full_name} (${updatedUser.email}) has registered and is pending verification.`,
+            related_entity_id: updatedUser._id
+          });
+          logger.info('Admin notification created for pending landlord', { landlordId: updatedUser._id });
+        } catch (notifErr) {
+          logger.error('Failed to create admin notification for pending landlord', { message: notifErr.message });
+        }
       }
 
       // Update Clerk publicMetadata
@@ -200,6 +230,7 @@ router.patch('/me/role',
     }
   }
 );
+
 
 
 // ─── GET /users ───────────────────────────────────────────────────────────────
@@ -380,6 +411,13 @@ router.post('/sync-clerk',
         };
         if (clerkRole && existing.role !== clerkRole) {
           updateData.role = clerkRole;
+          updateData.agent_approval_status = clerkRole === 'agent' ? 'pending' : 'n_a';
+          updateData.landlord_approval_status = clerkRole === 'landlord' ? 'pending' : 'n_a';
+          if (['admin', 'super_admin'].includes(clerkRole) && !existing.admin_hardcoded_hash) {
+            const bcrypt = require('bcryptjs');
+            const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+            updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+          }
           logger.info('Syncing role from Clerk to existing user', { clerkId: clerk_id, oldRole: existing.role, newRole: clerkRole });
         }
         const updated = await User.findOneAndUpdate(
@@ -392,15 +430,26 @@ router.post('/sync-clerk',
 
       const count = await User.countDocuments();
       const initialRole = clerkRole || 'agent'; // fallback to agent if no metadata role is set yet
-      const user = await User.create({
+      
+      const createPayload = {
         clerk_id,
         email,
         full_name: full_name || email,
         phone: phone || '254700000000',
         user_code: `USR-NEW-${String(count + 1).padStart(4, '0')}`,
         role: initialRole,
-        is_active: true
-      });
+        is_active: true,
+        agent_approval_status: initialRole === 'agent' ? 'pending' : 'n_a',
+        landlord_approval_status: initialRole === 'landlord' ? 'pending' : 'n_a'
+      };
+
+      if (['admin', 'super_admin'].includes(initialRole)) {
+        const bcrypt = require('bcryptjs');
+        const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+        createPayload.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+      }
+
+      const user = await User.create(createPayload);
 
       const safeUser = user.toObject();
       delete safeUser.password_hash;
@@ -439,21 +488,43 @@ router.post('/webhook', async (req, res, next) => {
       if (!existing) {
         const count = await User.countDocuments();
         const role = data.public_metadata?.role || 'tenant';
-        await User.create({
+        
+        const createPayload = {
           clerk_id,
           email,
           full_name,
           phone,
           user_code: `USR-NEW-${String(count + 1).padStart(4, '0')}`,
           role,
-          is_active: true
-        });
+          is_active: true,
+          agent_approval_status: role === 'agent' ? 'pending' : 'n_a',
+          landlord_approval_status: role === 'landlord' ? 'pending' : 'n_a'
+        };
+
+        if (['admin', 'super_admin'].includes(role)) {
+          const bcrypt = require('bcryptjs');
+          const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+          createPayload.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+        }
+
+        await User.create(createPayload);
         logger.info('User created via Clerk webhook', { clerkId: clerk_id });
       }
     } else if (type === 'user.updated') {
       const role = data.public_metadata?.role;
       const updateData = { email, full_name, phone, updated_at: new Date() };
-      if (role) updateData.role = role;
+      if (role) {
+        updateData.role = role;
+        updateData.agent_approval_status = role === 'agent' ? 'pending' : 'n_a';
+        updateData.landlord_approval_status = role === 'landlord' ? 'pending' : 'n_a';
+
+        const existing = await User.findOne({ clerk_id });
+        if (existing && ['admin', 'super_admin'].includes(role) && !existing.admin_hardcoded_hash) {
+          const bcrypt = require('bcryptjs');
+          const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+          updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+        }
+      }
 
       await User.findOneAndUpdate(
         { clerk_id },
@@ -469,6 +540,7 @@ router.post('/webhook', async (req, res, next) => {
     next(error);
   }
 });
+
 
 
 /**

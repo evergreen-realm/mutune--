@@ -383,8 +383,10 @@ router.get('/:id/payment-history',
 // ─── GET /tenants/my/payments — Tenant portal self-service ───────────────────
 router.get('/my/payments', requireAuth, requirePermission('view:payments'), async (req, res, next) => {
   try {
+    const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+    const tenantId = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
     const Payment = require('../models/Payment');
-    const payments = await Payment.find({ tenant_id: req.user._id })
+    const payments = await Payment.find({ tenant_id: tenantId })
       .populate('property_id', 'name property_code')
       .sort({ created_at: -1 })
       .lean();
@@ -397,8 +399,10 @@ router.get('/my/payments', requireAuth, requirePermission('view:payments'), asyn
 // ─── GET /tenants/my/notices — Tenant self-service notices ───────────────────
 router.get('/my/notices', requireAuth, requirePermission('view:notices'), async (req, res, next) => {
   try {
+    const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+    const tenantId = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
     const Notice = require('../models/Notice');
-    const notices = await Notice.find({ tenant_id: req.user._id })
+    const notices = await Notice.find({ tenant_id: tenantId })
       .populate('property_id', 'name property_code')
       .sort({ created_at: -1 })
       .lean();

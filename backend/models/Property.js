@@ -62,6 +62,12 @@ const propertySchema = new mongoose.Schema({
   amenities: [String],
   status: { type: String, enum: ['pending_admin_approval', 'active', 'inactive'], default: 'active' },
   contract_pdf_url: String,
+  tier_id: { type: mongoose.Schema.Types.ObjectId, ref: 'PropertyTier' },
+  proposed_tier_id: { type: mongoose.Schema.Types.ObjectId, ref: 'PropertyTier' },
+  tier_approved_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  tier_approved_at: Date,
+  review_status: { type: String, enum: ['pending_agent', 'pending_admin', 'approved', 'rejected'], default: 'pending_agent' },
+  photos: [String],
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
 });

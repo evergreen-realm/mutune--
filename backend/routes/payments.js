@@ -60,6 +60,85 @@ router.post('/initiate-stk',
   }
 );
 
+router.post('/auto-initiate',
+  requireAuth,
+  requirePermission('pay:rent'),
+  async (req, res, next) => {
+    try {
+      const tenant = await Tenant.findOne({ user_id: req.user._id }).lean();
+      if (!tenant) {
+        return res.status(404).json({ success: false, error: { code: 'TENANT_NOT_FOUND', message: 'No tenant profile found for this user' } });
+      }
+
+      if (!tenant.current_property_id || !tenant.current_unit_id) {
+        return res.status(400).json({ success: false, error: { code: 'UNIT_NOT_ASSIGNED', message: 'No unit currently assigned to this tenant' } });
+      }
+
+      const outstanding = (tenant.rent_amount_kes || 0) + (tenant.arrears_kes || 0);
+      if (outstanding <= 0) {
+        return res.status(400).json({ success: false, error: { code: 'NO_OUTSTANDING_BALANCE', message: 'You have no outstanding rent or arrears to pay' } });
+      }
+
+      const property = await Property.findById(tenant.current_property_id).lean();
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'PROPERTY_NOT_FOUND', message: 'Property not found' } });
+      }
+
+      const transactionId = `MUT-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      const payment = await Payment.create({
+        transaction_id: transactionId,
+        tenant_id: tenant._id,
+        property_id: property._id,
+        unit_id: tenant.current_unit_id,
+        amount_kes: outstanding,
+        payment_type: 'rent',
+        channel: 'mpesa_stk',
+        status: 'pending',
+        workflow_state: 'PENDING_VIEWING'
+      });
+
+      const stk = await mpesaService.initiateSTKPush({
+        phone: tenant.phone,
+        amount: outstanding,
+        accountReference: `${property.property_code}-${tenant.current_unit_id}`,
+        transactionDesc: `Rent Payment for ${property.name}`
+      });
+
+      payment.transaction_id = stk.checkoutRequestId || transactionId;
+      await payment.save();
+
+      const Notification = require('../models/Notification');
+      if (Notification) {
+        await Notification.create({
+          type: 'general',
+          recipient_role: 'tenant',
+          recipient_ids: [req.user._id],
+          title: 'Rent Payment Initiated',
+          message: `An M-Pesa STK push for KES ${outstanding} has been sent to your phone.`,
+          related_entity_id: payment._id
+        });
+      }
+
+      try {
+        await smsService.send(tenant.phone, `MutuneRent Pro: An M-Pesa STK Push of KES ${outstanding} has been initiated to your phone for unit ${tenant.current_unit_id}. Please enter your M-Pesa PIN.`);
+      } catch (smsErr) {
+        logger.warn('Failed to send SMS on auto-initiate', { message: smsErr.message });
+      }
+
+      logger.info('Auto-initiated STK push', { tenantId: tenant._id, amount: outstanding, checkoutRequestId: stk.checkoutRequestId });
+      res.json({
+        success: true,
+        checkout_request_id: stk.checkoutRequestId,
+        amount: outstanding,
+        status: 'pending',
+        message: stk.customerMessage || 'STK Push sent to your phone'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.post('/callback/validate', async (req, res) => {
   res.status(200).json({ ResultCode: 0, ResultDesc: 'Accepted' });
 });
@@ -167,7 +246,8 @@ router.get('/',
         const ownedProps = await Property.find({ landlord_id: req.user._id }).select('_id').lean();
         filter.property_id = { $in: ownedProps.map(p => p._id) };
       } else if (req.user.role === 'tenant') {
-        filter.tenant_id = req.user._id;
+        const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
+        filter.tenant_id = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
       }
 
       if (status) filter.status = status;
