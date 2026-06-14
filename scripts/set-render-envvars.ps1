@@ -95,7 +95,7 @@ Write-Host "Setting $($envVars.Count) env vars on service $ServiceId ..." -Foreg
 # Try bulk PUT first
 $body = $envVars | ConvertTo-Json -Depth 3
 try {
-  $resp = Invoke-RestMethod `
+  $null = Invoke-RestMethod `
     -Uri "https://api.render.com/v1/services/$ServiceId/env-vars" `
     -Method PUT `
     -Headers $headers `

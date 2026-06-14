@@ -96,6 +96,21 @@ function AppShell() {
           });
           if (res?.success && res.data) {
             setDbUser(res.data);
+
+            // ── CLERK METADATA RELOAD ─────────────────────────────────────────
+            // If Clerk publicMetadata doesn't have a role yet but the DB does,
+            // the backend just backfilled it. Reload the Clerk user so that
+            // publicMetadata.role is fresh BEFORE we set isSynced = true.
+            // This prevents approved agents/landlords from being wrongly
+            // redirected to /onboarding on login.
+            if (!clerkUser.publicMetadata?.role && res.data?.role) {
+              try {
+                await clerkUser.reload();
+              } catch (reloadErr) {
+                console.warn('[MutuneRent] Clerk user reload failed:', reloadErr?.message);
+              }
+            }
+            // ─────────────────────────────────────────────────────────────────
           }
           if (import.meta.env.VITE_SENTRY_DSN) {
             Sentry.setUser({
@@ -142,9 +157,27 @@ function AppShell() {
     );
   }
 
-  // Derive role from Clerk public metadata
-  const role = clerkUser?.publicMetadata?.role;
-
+  // ── ROLE DERIVATION ────────────────────────────────────────────────────────
+  // Primary: Clerk publicMetadata.role (set during onboarding/backfill).
+  // Fallback: DB role — but ONLY for users who demonstrably completed
+  // registration (approved or uploaded docs). This prevents a brand-new
+  // auto-created user (no docs, no approval) from skipping /onboarding.
+  const hasCompletedRegistration = dbUser && (
+    ['admin', 'super_admin', 'accountant'].includes(dbUser.role) ||
+    dbUser.role === 'tenant' ||
+    (dbUser.role === 'agent' && (
+      dbUser.earb_license ||
+      dbUser.agent_approval_status === 'approved'
+    )) ||
+    (dbUser.role === 'landlord' && (
+      (dbUser.landlord_verification_doc_url &&
+        !dbUser.landlord_verification_doc_url.includes('placeholder')) ||
+      dbUser.landlord_approval_status === 'approved'
+    ))
+  );
+  const role = clerkUser?.publicMetadata?.role ||
+    (hasCompletedRegistration ? dbUser.role : undefined);
+  // ──────────────────────────────────────────────────────────────────────────
 
   if (!role) {
     if (location.pathname !== '/onboarding') {
