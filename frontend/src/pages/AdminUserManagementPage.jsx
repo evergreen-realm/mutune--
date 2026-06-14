@@ -7,7 +7,7 @@ import {
   createLateFeeRule, updateLateFeeRule, deleteLateFeeRule,
   fetchPendingLandlords, approveLandlord, rejectLandlord,
   createLandlordManually, fetchPropertyTiers, createPropertyTier,
-  updatePropertyTier
+  updatePropertyTier, fetchPendingProperties
 } from '../lib/api';
 import {
   Users2, ShieldCheck, ShieldOff, Trash2, Building2,
@@ -51,9 +51,7 @@ export default function AdminUserManagementPage() {
     try {
       const [u, p, a, r, l, t] = await Promise.allSettled([
         fetchUsers({ limit: 200 }),
-        fetch(`${import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1'}/properties?status=pending_admin_approval`, {
-          headers: { Authorization: `Bearer ${await window.Clerk?.session?.getToken()}` }
-        }).then(res => res.json()),
+        fetchPendingProperties(),
         fetchPendingAgents(),
         fetchLateFeeRules(),
         fetchPendingLandlords(),

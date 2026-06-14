@@ -44,7 +44,13 @@ router.get('/', requireAuth, async (req, res, next) => {
 
     if (area) filter['address.area'] = { $regex: area, $options: 'i' };
     if (type) filter.type = type;
-    if (status) filter['units.status'] = status;
+    if (status) {
+      if (['pending_admin_approval', 'active', 'inactive'].includes(status)) {
+        filter.status = status;
+      } else {
+        filter['units.status'] = status;
+      }
+    }
 
     const [properties, total] = await Promise.all([
       Property.find(filter)
