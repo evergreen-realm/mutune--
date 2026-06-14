@@ -92,6 +92,12 @@ export default function TenantPortalPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh every 10s for real-time M-Pesa payment status updates
+  useEffect(() => {
+    const interval = setInterval(() => { load(); }, 10000);
+    return () => clearInterval(interval);
+  }, [load]);
+
   const lastPayment = payments.find(p => p.status === 'confirmed') || payments[0] || null;
   const arrears     = Number(profile?.arrears_kes || 0);
   const rent        = Number(profile?.rent_amount_kes || 0);

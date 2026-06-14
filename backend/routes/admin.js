@@ -12,6 +12,15 @@ const MaintenanceTicket = require('../models/MaintenanceTicket');
 const logger = require('../utils/logger');
 const rateLimit = require('express-rate-limit');
 
+const validate = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+    return false;
+  }
+  return true;
+};
+
 const verifyPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // limit each IP to 5 requests per windowMs

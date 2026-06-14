@@ -30,7 +30,8 @@ export default function PaymentsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['payments', search, statusFilter],
-    queryFn: () => fetchPayments({ search, status: statusFilter || undefined })
+    queryFn: () => fetchPayments({ search, status: statusFilter || undefined }),
+    refetchInterval: 10000
   });
 
 

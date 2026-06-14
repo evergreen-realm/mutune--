@@ -97,7 +97,7 @@ export default function LandlordDashboardPage() {
               Welcome back, {clerkUser?.fullName?.split(' ')[0] || 'Landlord'} — Mombasa, KE
             </p>
           </div>
-          <Link to="/properties/add-landlord" style={{
+          <Link to="/properties/add" style={{
             display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px',
             background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
             borderRadius: 14, textDecoration: 'none', fontSize: 14, fontWeight: 700,
@@ -158,7 +158,7 @@ export default function LandlordDashboardPage() {
               <div style={{ textAlign: 'center', padding: '32px 0' }}>
                 <Building2 size={36} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 10px' }} />
                 <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>No properties yet</p>
-                <Link to="/properties/add-landlord" style={{ color: '#6366f1', fontSize: 13, fontWeight: 700 }}>Add your first property →</Link>
+                <Link to="/properties/add" style={{ color: '#6366f1', fontSize: 13, fontWeight: 700 }}>Add your first property →</Link>
               </div>
             ) : properties.slice(0, 5).map(prop => {
               const propUnits = prop.units?.length || 0;

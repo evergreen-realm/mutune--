@@ -7,8 +7,10 @@ import {
   createLateFeeRule, updateLateFeeRule, deleteLateFeeRule,
   fetchPendingLandlords, approveLandlord, rejectLandlord,
   createLandlordManually, fetchPropertyTiers, createPropertyTier,
-  updatePropertyTier, fetchPendingProperties
+  updatePropertyTier, fetchPendingProperties,
+  verifyPropertyTier, fetchCustomerCareNumber, updateCustomerCareNumber
 } from '../lib/api';
+import ImageUpload from '../components/ImageUpload';
 import {
   Users2, ShieldCheck, ShieldOff, Trash2, Building2,
   CheckCircle2, XCircle, AlertTriangle, Search, Filter,
@@ -43,19 +45,23 @@ export default function AdminUserManagementPage() {
   const [landlordModal, setLandlordModal] = useState({ open: false, full_name: '', email: '', phone: '', landlord_verification_doc_url: '' });
   const [tierModal, setTierModal]         = useState({ open: false, tier: null, name: '', min_rent_kes: '', max_rent_kes: '', description: '', criteria: '' });
   const [working, setWorking]             = useState({});
+  const [selectedTiers, setSelectedTiers] = useState({});
+  const [customerCareNumber, setCustomerCareNumber] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const setWorking_ = (id, val) => setWorking(prev => ({ ...prev, [id]: val }));
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, p, a, r, l, t] = await Promise.allSettled([
+      const [u, p, a, r, l, t, cc] = await Promise.allSettled([
         fetchUsers({ limit: 200 }),
         fetchPendingProperties(),
         fetchPendingAgents(),
         fetchLateFeeRules(),
         fetchPendingLandlords(),
-        fetchPropertyTiers()
+        fetchPropertyTiers(),
+        fetchCustomerCareNumber()
       ]);
       
       if (u.status === 'fulfilled') setUsers(Array.isArray(u.value?.data) ? u.value.data : []);
@@ -64,6 +70,7 @@ export default function AdminUserManagementPage() {
       if (r.status === 'fulfilled' && r.value?.data) setLateFeeRules(Array.isArray(r.value.data) ? r.value.data : []);
       if (l.status === 'fulfilled' && l.value?.data) setPendingLandlords(Array.isArray(l.value.data) ? l.value.data : []);
       if (t.status === 'fulfilled' && t.value?.data) setPropertyTiers(Array.isArray(t.value.data) ? t.value.data : []);
+      if (cc.status === 'fulfilled' && cc.value?.number) setCustomerCareNumber(cc.value.number);
     } catch (err) {
       toast.error('Failed to load administrative panel statistics');
     } finally {
@@ -106,12 +113,17 @@ export default function AdminUserManagementPage() {
     }
   };
 
-  // Property approvals
+  // Property approvals & tier verification
   const handleApproveProp = async (propId) => {
+    const tierId = selectedTiers[propId] || pendingProps.find(p => p._id === propId)?.proposed_tier_id;
+    if (!tierId) {
+      toast.error('Please select or verify a property tier first.');
+      return;
+    }
     setWorking_(propId, true);
     try {
-      await approveProperty(propId);
-      toast.success('Property approved!');
+      await verifyPropertyTier(propId, { action: 'approve', tier_id: tierId });
+      toast.success('Property approved and tier verified!');
       setPending(prev => prev.filter(p => p._id !== propId));
     } catch (err) {
       toast.error(err?.error?.message || 'Failed to approve');
@@ -124,14 +136,31 @@ export default function AdminUserManagementPage() {
     if (!rejectModal.reason.trim()) { toast.error('Please provide a rejection reason'); return; }
     setWorking_(rejectModal.propId, 'reject');
     try {
-      await rejectProperty(rejectModal.propId, rejectModal.reason);
-      toast.success('Property rejected');
+      await verifyPropertyTier(rejectModal.propId, { action: 'reject', reason: rejectModal.reason });
+      toast.success('Property tier verification rejected');
       setPending(prev => prev.filter(p => p._id !== rejectModal.propId));
       setRejectModal({ open: false, propId: null, reason: '' });
     } catch (err) {
       toast.error(err?.error?.message || 'Rejection failed');
     } finally {
       setWorking_(rejectModal.propId, false);
+    }
+  };
+
+  const handleUpdateCustomerCare = async (e) => {
+    e.preventDefault();
+    if (!customerCareNumber.trim()) {
+      toast.error('Customer care number is required');
+      return;
+    }
+    setSavingSettings(true);
+    try {
+      await updateCustomerCareNumber(customerCareNumber.trim());
+      toast.success('Customer care number updated successfully');
+    } catch (err) {
+      toast.error(err?.error?.message || 'Failed to update customer care number');
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -391,6 +420,7 @@ export default function AdminUserManagementPage() {
           </button>
           <button style={tabStyle('tiers')} onClick={() => setTab('tiers')}>💎 Property Tiers ({propertyTiers.length})</button>
           <button style={tabStyle('rules')} onClick={() => setTab('rules')}>⚙️ Late Fee Rules ({lateFeeRules.length})</button>
+          <button style={tabStyle('settings')} onClick={() => setTab('settings')}>📞 Customer Care</button>
         </div>
 
         {/* USERS TAB */}
@@ -473,41 +503,79 @@ export default function AdminUserManagementPage() {
                 <Building2 size={40} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
                 <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No properties pending approval</p>
               </div>
-            ) : pendingProps.map(prop => (
-              <div key={prop._id} style={{ background: 'rgba(251,191,36,0.06)', backdropFilter: 'blur(20px)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 20, padding: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyBetween: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>⏳ Pending Approval</span>
-                      <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>{prop.property_code}</span>
+            ) : pendingProps.map(prop => {
+              const proposedTier = propertyTiers.find(t => t._id === prop.proposed_tier_id);
+              const selectedTier = selectedTiers[prop._id] || prop.proposed_tier_id || '';
+              return (
+                <div key={prop._id} style={{ background: 'rgba(251,191,36,0.06)', backdropFilter: 'blur(20px)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 20, padding: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>⏳ Pending Approval</span>
+                        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>{prop.property_code}</span>
+                      </div>
+                      <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{prop.name}</h3>
+                      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 4 }}>
+                        📍 {prop.address?.area}, {prop.address?.city} · {prop.type}
+                      </p>
+                      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                        {prop.units?.length || 0} units · {prop.num_floors || 1} floor(s)
+                      </p>
+                      {prop.description && (
+                        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 8 }}>{prop.description}</p>
+                      )}
+
+                      <div style={{ marginTop: 14, padding: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Proposed Classification Tier:</span>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: proposedTier ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}>
+                            {proposedTier ? proposedTier.name : 'None proposed by agent'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }} htmlFor={`tier-select-${prop._id}`}>Select/Verify Tier:</label>
+                          <select
+                            id={`tier-select-${prop._id}`}
+                            value={selectedTier}
+                            onChange={(e) => setSelectedTiers(prev => ({ ...prev, [prop._id]: e.target.value }))}
+                            style={{
+                              background: '#1a1a3e',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                              color: '#fff',
+                              borderRadius: 8,
+                              padding: '6px 12px',
+                              fontSize: 12,
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="">-- Verify & Select Tier --</option>
+                            {propertyTiers.map(t => (
+                              <option key={t._id} value={t._id}>
+                                {t.name} (KES {t.min_rent_kes?.toLocaleString()} - {t.max_rent_kes?.toLocaleString()})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{prop.name}</h3>
-                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 4 }}>
-                      📍 {prop.address?.area}, {prop.address?.city} · {prop.type}
-                    </p>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                      {prop.units?.length || 0} units · {prop.num_floors || 1} floor(s)
-                    </p>
-                    {prop.description && (
-                      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 8 }}>{prop.description}</p>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-                    <button
-                      onClick={() => handleApproveProp(prop._id)}
-                      disabled={!!working[prop._id]}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
-                      <CheckCircle2 size={15} /> {working[prop._id] === true ? 'Approving…' : 'Approve'}
-                    </button>
-                    <button
-                      onClick={() => setRejectModal({ open: true, propId: prop._id, reason: '' })}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', background: 'rgba(239,68,68,0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                      <XCircle size={15} /> Reject
-                    </button>
+
+                    <div style={{ display: 'flex', gap: 10, flexShrink: 0, alignSelf: 'center' }}>
+                      <button
+                        onClick={() => handleApproveProp(prop._id)}
+                        disabled={!!working[prop._id]}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(16,185,129,0.4)' }}>
+                        <CheckCircle2 size={15} /> {working[prop._id] === true ? 'Approving…' : 'Approve & Verify Tier'}
+                      </button>
+                      <button
+                        onClick={() => setRejectModal({ open: true, propId: prop._id, reason: '' })}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', background: 'rgba(239,68,68,0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                        <XCircle size={15} /> Reject
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -762,6 +830,56 @@ export default function AdminUserManagementPage() {
             )}
           </div>
         )}
+
+        {/* CUSTOMER CARE SETTINGS TAB */}
+        {tab === 'settings' && (
+          <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 32, maxWidth: 500, margin: '0 auto' }}>
+            <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Settings size={20} style={{ color: '#10b981' }} /> Customer Care Settings
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 20 }}>
+              Configure the primary contact phone number shown to tenants and landlords for support inquiries.
+            </p>
+            <form onSubmit={handleUpdateCustomerCare} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }} htmlFor="customer-care-phone">
+                  Customer Care Number (Format: e.g. 2547XXXXXXXX)
+                </label>
+                <input
+                  id="customer-care-phone"
+                  type="text"
+                  value={customerCareNumber}
+                  onChange={e => setCustomerCareNumber(e.target.value)}
+                  placeholder="254700000000"
+                  required
+                  style={inputStyle}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingSettings}
+                style={{
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 12,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8
+                }}
+              >
+                {savingSettings ? <RefreshCw size={14} className="animate-spin" /> : null}
+                {savingSettings ? 'Saving...' : 'Update Settings'}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Manual Landlord creation modal */}
@@ -784,8 +902,13 @@ export default function AdminUserManagementPage() {
                 <input value={landlordModal.phone} onChange={e => setLandlordModal(m => ({ ...m, phone: e.target.value }))} type="text" placeholder="e.g. 254700000000" required style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verification Document Link (Optional)</label>
-                <input value={landlordModal.landlord_verification_doc_url} onChange={e => setLandlordModal(m => ({ ...m, landlord_verification_doc_url: e.target.value }))} type="text" placeholder="https://..." style={inputStyle} />
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verification Document (Optional)</label>
+                <ImageUpload
+                  value={landlordModal.landlord_verification_doc_url ? [landlordModal.landlord_verification_doc_url] : []}
+                  onChange={(urls) => setLandlordModal(m => ({ ...m, landlord_verification_doc_url: urls[0] || '' }))}
+                  multiple={false}
+                  label="Upload Property Deed/ID"
+                />
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                 <button type="submit" disabled={working['new_landlord']} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>

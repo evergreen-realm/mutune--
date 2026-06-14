@@ -249,10 +249,10 @@ function AppShell() {
             </p>
 
             <button
-              onClick={() => signOut()}
+              onClick={() => signOut({ redirectUrl: '/sign-up' })}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
             >
-              <LogOut size={14} /> Log Out of Account
+              <LogOut size={14} /> Sign Out & Register New Account
             </button>
           </div>
         </div>
@@ -341,10 +341,10 @@ function AppShell() {
             </p>
 
             <button
-              onClick={() => signOut()}
+              onClick={() => signOut({ redirectUrl: '/sign-up' })}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
             >
-              <LogOut size={14} /> Log Out of Account
+              <LogOut size={14} /> Sign Out & Register New Account
             </button>
           </div>
         </div>
@@ -468,7 +468,7 @@ function AppShell() {
     </aside>
   );
 
-  return (
+  const layout = (
     <div className="flex h-screen overflow-hidden bg-gray-50/50">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
@@ -694,9 +694,9 @@ function AppShell() {
             <Route path="/tenants"        element={<TenantsPage />} />
             <Route path="/payments"       element={<PaymentsPage />} />
             <Route path="/maintenance"    element={<MaintenancePage />} />
-            <Route path="/admin"          element={<AdminPasswordGuard><AdminDashboardPage /></AdminPasswordGuard>} />
-            <Route path="/admin/users"    element={<AdminPasswordGuard><AdminUserManagementPage /></AdminPasswordGuard>} />
-            <Route path="/admin/inventory" element={<AdminPasswordGuard><AdminInventoryPage /></AdminPasswordGuard>} />
+            <Route path="/admin"          element={<AdminDashboardPage />} />
+            <Route path="/admin/users"    element={<AdminUserManagementPage />} />
+            <Route path="/admin/inventory" element={<AdminInventoryPage />} />
             <Route path="/tenant"         element={isTenant ? <Navigate to="/" replace /> : <TenantPortalPage />} />
             <Route path="/notices"        element={<NoticesPage user={user} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
@@ -708,6 +708,12 @@ function AppShell() {
       </div>
     </div>
   );
+
+  if (isAdmin) {
+    return <AdminPasswordGuard>{layout}</AdminPasswordGuard>;
+  }
+
+  return layout;
 }
 
 export default function App() {
