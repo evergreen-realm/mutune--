@@ -2,23 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { LogOut, ShieldAlert, KeyRound } from 'lucide-react';
 import { useClerk } from '@clerk/clerk-react';
 
-export default function RoleIdVerification({ dbUser, onVerified }) {
+
+export default function RoleIdVerification({ dbUser, user, onVerified }) {
   const { signOut } = useClerk();
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const isLandlord = dbUser?.role === 'landlord';
-  const isAgent = dbUser?.role === 'agent';
+  const currentUser = dbUser || user;
+  const isLandlord = currentUser?.role === 'landlord';
+  const isAgent = currentUser?.role === 'agent';
 
   // If user is neither, or if they are already verified, we shouldn't show this
   if (!isLandlord && !isAgent) {
     return null;
   }
 
-  const expectedId = isLandlord ? dbUser?.landlord_id : dbUser?.user_code;
+  const expectedId = isLandlord ? currentUser?.landlord_id : currentUser?.user_code;
   const label = isLandlord ? '6-Digit Landlord ID' : 'Agent ID (e.g., AGT-MOM-XXX)';
-  const storageKey = `mutunerent_verified_id_${dbUser?._id}`;
+  const storageKey = `mutunerent_verified_id_${currentUser?._id}`;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -35,6 +37,7 @@ export default function RoleIdVerification({ dbUser, onVerified }) {
 
       if (cleanInput.toLowerCase() === expectedId?.toLowerCase()) {
         localStorage.setItem(storageKey, 'true');
+        sessionStorage.setItem(`role_verified_${currentUser?._id}`, 'true');
         setLoading(false);
         onVerified();
       } else {

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +8,7 @@ import {
   Phone, Award, MapPin, Home, RefreshCw, AlertCircle,
   UploadCloud, CheckCircle2, FileText, X
 } from 'lucide-react';
-import { updateUserRole, fetchVacantUnits, uploadDoc } from '../lib/api';
+import { updateUserRole, fetchVacantUnits, uploadDoc, fetchMe } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 
 const AVAILABLE_AREAS = [
@@ -21,9 +21,42 @@ const AVAILABLE_AREAS = [
 export default function OnboardingPage() {
   const { user: clerkUser, isLoaded } = useUser();
   const { signOut } = useClerk();
-  const navigate = useNavigate();
 
-  const [role,             setRole]             = useState('');
+  const navigate = useNavigate();
+  const [role, setRole] = useState('');
+
+  useEffect(() => {
+    const checkExistingUser = async () => {
+      try {
+        const res = await fetchMe();
+        const user = res.data;
+        if (user && user.role) {
+          const isApproved =
+            ['admin', 'super_admin', 'accountant', 'tenant'].includes(user.role) ||
+            (user.role === 'agent' && user.agent_approval_status === 'approved') ||
+            (user.role === 'landlord' && user.landlord_approval_status === 'approved');
+
+          if (isApproved) {
+            if (user.role === 'admin' || user.role === 'super_admin') {
+              navigate('/admin');
+            } else if (user.role === 'agent') {
+              navigate('/properties');
+            } else if (user.role === 'landlord') {
+              navigate('/properties');
+            } else if (user.role === 'tenant') {
+              navigate('/tenant');
+            }
+          }
+        }
+      } catch (err) {
+        // No existing user -> show onboarding
+      }
+    };
+    if (isLoaded && clerkUser) {
+      checkExistingUser();
+    }
+  }, [isLoaded, clerkUser, navigate]);
+
   const [phone,            setPhone]            = useState('');
   const [earbLicense,      setEarbLicense]      = useState('');
   const [earbDocUrl,       setEarbDocUrl]       = useState('');

@@ -4,11 +4,12 @@ import { verifyAdminPassword } from '../lib/api';
 import { toast } from 'react-toastify';
 import { useClerk } from '@clerk/clerk-react';
 
-export default function AdminPasswordGuard({ children }) {
+
+export default function AdminPasswordGuard({ children, onVerified }) {
   const { signOut } = useClerk();
   const [password, setPassword] = useState('');
   const [isVerified, setIsVerified] = useState(() => {
-    return sessionStorage.getItem('mutune_admin_verified') === 'true';
+    return sessionStorage.getItem('mutunet_admin_verified') === 'true';
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -26,9 +27,10 @@ export default function AdminPasswordGuard({ children }) {
     try {
       const res = await verifyAdminPassword(password);
       if (res?.success) {
-        sessionStorage.setItem('mutune_admin_verified', 'true');
+        sessionStorage.setItem('mutunet_admin_verified', 'true');
         setIsVerified(true);
         toast.success('Admin authorization approved');
+        if (onVerified) onVerified();
       } else {
         setError(res?.error?.message || 'Verification failed. Incorrect admin password.');
       }

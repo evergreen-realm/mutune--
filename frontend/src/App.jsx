@@ -70,10 +70,28 @@ function AppShell() {
   const [isRoleVerified, setIsRoleVerified] = useState(false);
   const location = useLocation();
 
+  const handleLogout = (options = {}) => {
+    sessionStorage.removeItem('mutunet_admin_verified');
+    sessionStorage.removeItem('mutune_admin_verified');
+    if (dbUser?._id) {
+      sessionStorage.removeItem(`role_verified_${dbUser._id}`);
+      localStorage.removeItem(`mutunerent_verified_id_${dbUser._id}`);
+    }
+    signOut(options);
+  };
+
   useEffect(() => {
     if (dbUser) {
-      const key = `mutunerent_verified_id_${dbUser._id}`;
-      setIsRoleVerified(localStorage.getItem(key) === 'true');
+      const isAgentOrLandlord = ['agent', 'landlord'].includes(dbUser.role);
+      const isAdmin = ['admin', 'super_admin'].includes(dbUser.role);
+      if (isAgentOrLandlord) {
+        const key = `mutunerent_verified_id_${dbUser._id}`;
+        setIsRoleVerified(localStorage.getItem(key) === 'true' || sessionStorage.getItem(`role_verified_${dbUser._id}`) === 'true');
+      } else if (isAdmin) {
+        setIsRoleVerified(sessionStorage.getItem('mutunet_admin_verified') === 'true');
+      } else {
+        setIsRoleVerified(true);
+      }
     }
   }, [dbUser]);
 
@@ -242,7 +260,7 @@ function AppShell() {
             </p>
 
             <button
-              onClick={() => signOut()}
+              onClick={() => handleLogout()}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
             >
               <LogOut size={14} /> Log Out of Account
@@ -282,7 +300,7 @@ function AppShell() {
             </p>
 
             <button
-              onClick={() => signOut({ redirectUrl: '/sign-up' })}
+              onClick={() => handleLogout({ redirectUrl: '/sign-up' })}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
             >
               <LogOut size={14} /> Sign Out & Register New Account
@@ -334,7 +352,7 @@ function AppShell() {
             </p>
 
             <button
-              onClick={() => signOut()}
+              onClick={() => handleLogout()}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
             >
               <LogOut size={14} /> Log Out of Account
@@ -374,7 +392,7 @@ function AppShell() {
             </p>
 
             <button
-              onClick={() => signOut({ redirectUrl: '/sign-up' })}
+              onClick={() => handleLogout({ redirectUrl: '/sign-up' })}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
             >
               <LogOut size={14} /> Sign Out & Register New Account
@@ -385,11 +403,15 @@ function AppShell() {
     }
   }
 
-  // Identity verification gatekeeper for landlords/agents
-  if (dbUser && (derivedRole === 'landlord' || derivedRole === 'agent') && !isRoleVerified) {
-    return <RoleIdVerification dbUser={dbUser} onVerified={() => setIsRoleVerified(true)} />;
+  // 🔐 Role‑specific verification gate
+  if (dbUser && !isRoleVerified) {
+    if (derivedRole === 'agent' || derivedRole === 'landlord') {
+      return <RoleIdVerification user={dbUser} dbUser={dbUser} onVerified={() => setIsRoleVerified(true)} />;
+    }
+    if (derivedRole === 'admin' || derivedRole === 'super_admin') {
+      return <AdminPasswordGuard onVerified={() => setIsRoleVerified(true)} />;
+    }
   }
-
 
   const navItems = [
     { path: '/',               label: 'Dashboard',   icon: <LayoutDashboard size={18} />, show: true },
@@ -491,7 +513,7 @@ function AppShell() {
         {sidebarOpen && (
           <button
             id="logout-btn"
-            onClick={() => signOut()}
+            onClick={() => handleLogout()}
             className="mt-3 flex w-full items-center justify-center gap-2 px-3 py-1.5 border border-slate-800 hover:border-red-900 rounded-lg text-[10px] font-bold text-slate-400 hover:text-red-400 transition-colors uppercase tracking-wider"
           >
             <LogOut size={12} /> Log Out
@@ -691,7 +713,7 @@ function AppShell() {
                       </div>
                       
                       <button
-                        onClick={() => signOut()}
+                        onClick={() => handleLogout()}
                         className="w-full mt-2 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-[10px] font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider"
                       >
                         <LogOut size={12} /> Sign Out
@@ -741,10 +763,6 @@ function AppShell() {
       </div>
     </div>
   );
-
-  if (isAdmin) {
-    return <AdminPasswordGuard>{layout}</AdminPasswordGuard>;
-  }
 
   return layout;
 }
