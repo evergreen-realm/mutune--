@@ -8,6 +8,15 @@ const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
 
+router.get('/debug-role/:email', async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email }).select('-password_hash');
+    res.json({ success: true, role: user?.role, user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 const validate = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
