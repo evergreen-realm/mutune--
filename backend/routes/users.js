@@ -10,12 +10,20 @@ const logger = require('../utils/logger');
 
 router.get('/debug-role/:email', async (req, res) => {
   try {
+    const { clerkClient } = require('@clerk/clerk-sdk-node');
     if (req.params.email === 'all') {
       const users = await User.find({}).select('-password_hash');
       return res.json({ success: true, count: users.length, users });
     }
     const user = await User.findOne({ email: req.params.email }).select('-password_hash');
-    res.json({ success: true, role: user?.role, user });
+    let clerkUsers = [];
+    try {
+      const clerkRes = await clerkClient.users.getUserList({ emailAddress: [req.params.email] });
+      clerkUsers = clerkRes.data || clerkRes;
+    } catch (clerkErr) {
+      logger.warn('Failed to fetch user from Clerk in debug', { email: req.params.email, message: clerkErr.message });
+    }
+    res.json({ success: true, role: user?.role, user, clerkUsers });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
