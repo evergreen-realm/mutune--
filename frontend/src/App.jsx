@@ -69,7 +69,7 @@ function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isRoleVerified, setIsRoleVerified] = useState(false);
   const [role, setRole] = useState(() => {
-    return clerkUser?.publicMetadata?.role || dbUser?.role || undefined;
+    return dbUser?.role || clerkUser?.publicMetadata?.role || undefined;
   });
   const location = useLocation();
 
@@ -85,10 +85,10 @@ function AppShell() {
 
   useEffect(() => {
     if (clerkUser) {
-      if (clerkUser.publicMetadata?.role) {
-        setRole(clerkUser.publicMetadata.role);
-      } else if (dbUser?.role) {
+      if (dbUser?.role) {
         setRole(dbUser.role);
+      } else if (clerkUser.publicMetadata?.role) {
+        setRole(clerkUser.publicMetadata.role);
       }
     }
   }, [clerkUser, dbUser]);

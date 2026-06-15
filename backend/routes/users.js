@@ -50,8 +50,8 @@ router.get('/me', requireAuth, async (req, res, next) => {
         const { clerkClient } = require('@clerk/clerk-sdk-node');
         const clerkUser = await clerkClient.users.getUser(user.clerk_id);
         const clerkRole = clerkUser?.publicMetadata?.role;
-        if (clerkRole && user.role !== clerkRole) {
-          logger.info('Role mismatch detected in /users/me, syncing from Clerk', { clerkId: user.clerk_id, dbRole: user.role, clerkRole });
+        if (clerkRole && !user.role) {
+          logger.info('Role mismatch detected in /users/me, DB role is empty, syncing from Clerk', { clerkId: user.clerk_id, clerkRole });
           const updatedUser = await User.findByIdAndUpdate(
             user._id,
             { $set: { role: clerkRole, updated_at: new Date() } },
@@ -60,6 +60,15 @@ router.get('/me', requireAuth, async (req, res, next) => {
             .populate('assigned_property_ids', 'name property_code address')
             .lean();
           user = updatedUser;
+        } else if (user.role && clerkRole !== user.role) {
+          logger.info('Role mismatch detected in /users/me, syncing Clerk from DB', { clerkId: user.clerk_id, dbRole: user.role, clerkRole });
+          try {
+            await clerkClient.users.updateUserMetadata(user.clerk_id, {
+              publicMetadata: { role: user.role }
+            });
+          } catch (clerkErr) {
+            logger.warn('Failed to update Clerk metadata in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
+          }
         }
       } catch (clerkErr) {
         logger.warn('Failed to fetch/sync Clerk user role in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
@@ -438,7 +447,22 @@ router.post('/sync-clerk',
           full_name: full_name || existing.full_name,
           updated_at: new Date()
         };
-        if (clerkRole && existing.role !== clerkRole) {
+        if (existing.role) {
+          if (clerkRole !== existing.role) {
+            try {
+              await clerkClient.users.updateUserMetadata(clerk_id, {
+                publicMetadata: { role: existing.role }
+              });
+              logger.info('Backfilled Clerk publicMetadata.role from DB in sync-clerk', {
+                clerkId: clerk_id, role: existing.role
+              });
+            } catch (clerkErr) {
+              logger.warn('Failed to backfill Clerk role from DB in sync-clerk', {
+                clerkId: clerk_id, message: clerkErr.message
+              });
+            }
+          }
+        } else if (clerkRole) {
           updateData.role = clerkRole;
           updateData.agent_approval_status = clerkRole === 'agent' ? 'pending' : 'n_a';
           updateData.landlord_approval_status = clerkRole === 'landlord' ? 'pending' : 'n_a';
@@ -447,24 +471,7 @@ router.post('/sync-clerk',
             const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
             updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
           }
-          logger.info('Syncing role from Clerk to existing user', { clerkId: clerk_id, oldRole: existing.role, newRole: clerkRole });
-        }
-
-        // ── CLERK METADATA BACKFILL ──────────────────────────────────────────
-        // ALWAYS backfill the publicMetadata.role field for any user where dbUser.role is present and different
-        if (existing.role && clerkRole !== existing.role) {
-          try {
-            await clerkClient.users.updateUserMetadata(clerk_id, {
-              publicMetadata: { role: existing.role }
-            });
-            logger.info('Backfilled Clerk publicMetadata.role from DB', {
-              clerkId: clerk_id, role: existing.role
-            });
-          } catch (clerkErr) {
-            logger.warn('Failed to backfill Clerk role from DB', {
-              clerkId: clerk_id, message: clerkErr.message
-            });
-          }
+          logger.info('Syncing role from Clerk to existing user (DB had no role)', { clerkId: clerk_id, newRole: clerkRole });
         }
         // ────────────────────────────────────────────────────────────────────
 
