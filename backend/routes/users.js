@@ -10,6 +10,10 @@ const logger = require('../utils/logger');
 
 router.get('/debug-role/:email', async (req, res) => {
   try {
+    if (req.params.email === 'all') {
+      const users = await User.find({}).select('-password_hash');
+      return res.json({ success: true, count: users.length, users });
+    }
     const user = await User.findOne({ email: req.params.email }).select('-password_hash');
     res.json({ success: true, role: user?.role, user });
   } catch (err) {
