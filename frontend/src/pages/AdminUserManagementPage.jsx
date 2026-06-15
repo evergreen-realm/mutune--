@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   fetchUsers, disableUser, enableUser, softDeleteUser,
@@ -28,6 +29,7 @@ const ROLE_LABELS = {
 };
 
 export default function AdminUserManagementPage() {
+  const location = useLocation();
   const [users, setUsers]                 = useState([]);
   const [pendingProps, setPending]       = useState([]);
   const [pendingAgents, setPendingAgents] = useState([]);
@@ -35,7 +37,8 @@ export default function AdminUserManagementPage() {
   const [propertyTiers, setPropertyTiers] = useState([]);
   const [lateFeeRules, setLateFeeRules]   = useState([]);
   const [loading, setLoading]             = useState(true);
-  const [tab, setTab]                     = useState('users');
+  const [tab, setTab]                     = useState(() => location.state?.defaultTab || 'users');
+  const [usersError, setUsersError]       = useState(null);
   const [roleFilter, setRoleFilter]       = useState('');
   const [search, setSearch]               = useState('');
   const [rejectModal, setRejectModal]     = useState({ open: false, propId: null, reason: '' });
@@ -64,7 +67,12 @@ export default function AdminUserManagementPage() {
         fetchCustomerCareNumber()
       ]);
       
-      if (u.status === 'fulfilled') setUsers(Array.isArray(u.value?.data) ? u.value.data : []);
+      if (u.status === 'fulfilled') {
+        setUsers(Array.isArray(u.value?.data) ? u.value.data : []);
+        setUsersError(null);
+      } else {
+        setUsersError(u.reason);
+      }
       if (p.status === 'fulfilled' && p.value?.data) setPending(Array.isArray(p.value.data) ? p.value.data.filter(pr => pr.status === 'pending_admin_approval') : []);
       if (a.status === 'fulfilled' && a.value?.data) setPendingAgents(Array.isArray(a.value.data) ? a.value.data : []);
       if (r.status === 'fulfilled' && r.value?.data) setLateFeeRules(Array.isArray(r.value.data) ? r.value.data : []);
@@ -426,7 +434,17 @@ export default function AdminUserManagementPage() {
         {/* USERS TAB */}
         {tab === 'users' && (
           <>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            {usersError ? (
+              <div style={{ padding: 48, textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)' }}>
+                <ShieldOff size={40} style={{ color: '#ef4444', margin: '0 auto 12px' }} />
+                <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Access Restricted</h3>
+                <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, maxWidth: 400, margin: '0 auto' }}>
+                  {usersError?.error?.message || usersError?.message || 'You do not have the required permissions to view the user list.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
                 <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or email…"
@@ -492,6 +510,8 @@ export default function AdminUserManagementPage() {
                 </div>
               ))}
             </div>
+          </>
+            )}
           </>
         )}
 

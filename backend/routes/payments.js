@@ -195,13 +195,28 @@ async function handleSTKCallback(stk) {
     payment.workflow_state = 'MANUAL_REVIEW';
   }
   await payment.save();
-  await Property.updateOne({ 'units._id': payment.unit_id }, { $set: { 'units.$.lock_status': payment.workflow_state === 'PAYMENT_CONFIRMED' ? 'PAYMENT_CONFIRMED' : 'pending_viewing' } });
+
+  await Property.updateOne({ 'units._id': payment.unit_id }, { $set: { 'units.$.lock_status': payment.workflow_state === 'PAYMENT_CONFIRMED' ? 'payment_confirmed' : 'pending_viewing' } });
   const month = new Date().toISOString().slice(0, 7);
-  await Tenant.updateOne(
-    { _id: payment.tenant_id },
-    { $push: { payment_history: { month, amount_kes: payment.amount_kes, status: 'paid', payment_id: payment._id } }, $set: { updated_at: new Date() } }
-  );
+  const tenantDoc = await Tenant.findById(payment.tenant_id);
+  if (tenantDoc) {
+    let remainingPayment = payment.amount_kes;
+    if (tenantDoc.arrears_kes > 0) {
+      const deduction = Math.min(tenantDoc.arrears_kes, remainingPayment);
+      tenantDoc.arrears_kes -= deduction;
+      remainingPayment -= deduction;
+    }
+    tenantDoc.payment_history.push({
+      month,
+      amount_kes: payment.amount_kes,
+      status: 'paid',
+      payment_id: payment._id
+    });
+    tenantDoc.updated_at = new Date();
+    await tenantDoc.save();
+  }
   logger.info('Payment auto-confirmed', { paymentId: payment._id, receipt, amount });
+
   try {
     const tenant = await Tenant.findById(payment.tenant_id).lean();
     if (tenant) await smsService.send(tenant.phone, `Payment received! KES ${payment.amount_kes}. Receipt: ${receipt}. Unit reserved.`);
@@ -330,6 +345,42 @@ router.post('/:id/override', requireAuth, requireRole(['admin', 'super_admin']),
     payment.verified_by_agent_id = req.user._id;
     payment.verification_method = 'manual_override';
     await payment.save();
+
+    if (new_status === 'confirmed') {
+      await Property.updateOne(
+        { 'units._id': payment.unit_id },
+        { $set: { 'units.$.lock_status': 'payment_confirmed' } }
+      );
+      
+      const tenantDoc = await Tenant.findById(payment.tenant_id);
+      if (tenantDoc) {
+        let remainingPayment = payment.amount_kes;
+        if (tenantDoc.arrears_kes > 0) {
+          const deduction = Math.min(tenantDoc.arrears_kes, remainingPayment);
+          tenantDoc.arrears_kes -= deduction;
+          remainingPayment -= deduction;
+        }
+        const month = new Date().toISOString().slice(0, 7);
+        tenantDoc.payment_history.push({
+          month,
+          amount_kes: payment.amount_kes,
+          status: 'paid',
+          payment_id: payment._id
+        });
+        tenantDoc.updated_at = new Date();
+        await tenantDoc.save();
+      }
+
+      try {
+        const tenant = await Tenant.findById(payment.tenant_id).lean();
+        if (tenant) {
+          await smsService.send(tenant.phone, `Payment manual override confirmed! KES ${payment.amount_kes}. Receipt updated.`);
+        }
+      } catch (smsErr) {
+        logger.warn('SMS notification failed on manual override', { message: smsErr.message });
+      }
+    }
+
     logger.info('Payment manually overridden', { paymentId: id, by: req.user.email, newStatus: new_status });
     res.json({ success: true, payment });
   } catch (error) { next(error); }

@@ -68,9 +68,7 @@ function AppShell() {
   const [notifOpen,   setNotifOpen]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isRoleVerified, setIsRoleVerified] = useState(false);
-  const [role, setRole] = useState(() => {
-    return dbUser?.role || clerkUser?.publicMetadata?.role || undefined;
-  });
+  const derivedRole = dbUser?.role || clerkUser?.publicMetadata?.role || undefined;
   const location = useLocation();
 
   const handleLogout = (options = {}) => {
@@ -84,19 +82,9 @@ function AppShell() {
   };
 
   useEffect(() => {
-    if (clerkUser) {
-      if (dbUser?.role) {
-        setRole(dbUser.role);
-      } else if (clerkUser.publicMetadata?.role) {
-        setRole(clerkUser.publicMetadata.role);
-      }
-    }
-  }, [clerkUser, dbUser]);
-
-  useEffect(() => {
-    if (role) {
-      const isAgentOrLandlord = ['agent', 'landlord'].includes(role);
-      const isAdmin = ['admin', 'super_admin'].includes(role);
+    if (derivedRole) {
+      const isAgentOrLandlord = ['agent', 'landlord'].includes(derivedRole);
+      const isAdmin = ['admin', 'super_admin'].includes(derivedRole);
       if (isAgentOrLandlord && dbUser) {
         const key = `mutunerent_verified_id_${dbUser._id}`;
         setIsRoleVerified(localStorage.getItem(key) === 'true' || sessionStorage.getItem(`role_verified_${dbUser._id}`) === 'true');
@@ -105,8 +93,10 @@ function AppShell() {
       } else if (!isAgentOrLandlord && !isAdmin) {
         setIsRoleVerified(true);
       }
+    } else {
+      setIsRoleVerified(false);
     }
-  }, [role, dbUser]);
+  }, [derivedRole, dbUser]);
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
@@ -188,9 +178,7 @@ function AppShell() {
     );
   }
 
-  // Role is now managed as a state variable at the top of AppShell
-
-  if (!role) {
+  if (!derivedRole) {
     if (location.pathname !== '/onboarding') {
       return <Navigate to="/onboarding" replace />;
     }
@@ -203,8 +191,6 @@ function AppShell() {
   if (location.pathname === '/onboarding') {
     return <OnboardingPage />;
   }
-
-  const derivedRole = role || 'landlord';
   const fullName = clerkUser?.fullName || clerkUser?.username || 'Property Owner';
   const user = { role: derivedRole, full_name: fullName };
 
@@ -397,18 +383,19 @@ function AppShell() {
   }
 
   // 🔐 Role‑specific verification gate
-  if (dbUser && !isRoleVerified) {
+  if (!isRoleVerified) {
     if (derivedRole === 'agent' || derivedRole === 'landlord') {
-      return <RoleIdVerification user={dbUser} dbUser={dbUser} onVerified={() => setIsRoleVerified(true)} />;
-    }
-    if (derivedRole === 'admin' || derivedRole === 'super_admin') {
+      if (dbUser) {
+        return <RoleIdVerification user={dbUser} dbUser={dbUser} onVerified={() => setIsRoleVerified(true)} />;
+      }
+    } else if (derivedRole === 'admin' || derivedRole === 'super_admin') {
       return <AdminPasswordGuard onVerified={() => setIsRoleVerified(true)} />;
     }
   }
 
   const navItems = [
     { path: '/',               label: 'Dashboard',   icon: <LayoutDashboard size={18} />, show: true },
-    { path: '/admin',          label: 'Analytics',   icon: <BarChart3 size={18} />,        show: isAdmin },
+    { path: '/admin',          label: 'Verification Queue',   icon: <ShieldCheck size={18} />,        show: isAdmin },
     { path: '/admin/users',    label: 'Manage Users', icon: <Users2 size={18} />,           show: isAdmin },
     { path: '/admin/inventory', label: 'Auctions & Inventory', icon: <Building2 size={18} />, show: isAdmin },
     { path: '/properties',     label: 'Properties',  icon: <Building2 size={18} />,        show: !isTenant },
@@ -499,7 +486,7 @@ function AppShell() {
           {sidebarOpen && (
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold truncate text-slate-100">{fullName}</p>
-              <p className="text-[10px] text-slate-400 truncate capitalize">{role}</p>
+              <p className="text-[10px] text-slate-400 truncate capitalize">{derivedRole}</p>
             </div>
           )}
         </div>

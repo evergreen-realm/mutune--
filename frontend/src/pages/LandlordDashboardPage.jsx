@@ -63,7 +63,7 @@ export default function LandlordDashboardPage() {
   const maxRev = Math.max(...revenueByMonth.map(m => m.total), 1);
 
   const cards = [
-    { label: 'Total Properties', value: properties.length, icon: <Building2 size={22} />, color: '#6366f1', sub: `${properties.filter(p => p.status === 'pending_admin_approval').length} pending approval` },
+    { label: 'Properties Under Management', value: properties.length, icon: <Building2 size={22} />, color: '#6366f1', sub: `${properties.filter(p => p.status === 'pending_admin_approval').length} pending approval` },
     { label: 'Total Units', value: totalUnits, icon: <Home size={22} />, color: '#10b981', sub: `${vacantUnits} vacant` },
     { label: 'Occupancy Rate', value: `${occupancyRate}%`, icon: <BarChart3 size={22} />, color: '#f59e0b', sub: `${occupiedUnits} of ${totalUnits} occupied` },
     { label: 'Monthly Revenue', value: FMT_KES(monthlyRevenue), icon: <DollarSign size={22} />, color: '#ec4899', sub: 'Confirmed this month' }

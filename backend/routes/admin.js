@@ -197,13 +197,20 @@ router.get('/overdue',
  */
 router.get('/agent-performance',
   requireAuth,
-  requireRole(['admin', 'super_admin']),
+  requireRole(['admin', 'super_admin', 'agent']),
   async (req, res, next) => {
     try {
       const fromDate = req.query.from ? new Date(req.query.from) : new Date(Date.now() - 30 * 86400000);
       const toDate   = req.query.to   ? new Date(req.query.to)   : new Date();
 
-      const agents = await User.find({ role: 'agent', is_active: true }).lean();
+      let agents = [];
+      if (['admin', 'super_admin'].includes(req.user.role)) {
+        agents = await User.find({ role: 'agent', is_active: true }).lean();
+      } else if (req.user.role === 'agent') {
+        agents = await User.find({ _id: req.user._id, role: 'agent' }).lean();
+      } else {
+        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Not authorized' } });
+      }
 
       const agentIds = agents.map(a => a._id);
 

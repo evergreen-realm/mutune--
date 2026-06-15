@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { toast } from 'react-toastify';
 import {
-  fetchAgentPerformance, fetchAllTasks, fetchUsers, createTask, deleteTask, updateTaskStatus,
+  fetchAgentPerformance, fetchAllTasks, fetchMyTasks, fetchUsers, createTask, deleteTask, updateTaskStatus,
   fetchProperties, fetchPropertyTiers, submitAgentReview
 } from '../lib/api';
 import {
@@ -47,7 +47,7 @@ export default function AgentPerformancePage({ dbUser }) {
     try {
       const [perf, t, users, props, tiers] = await Promise.allSettled([
         fetchAgentPerformance({ from }),
-        fetchAllTasks({ limit: 200 }),
+        dbUser?.role === 'agent' ? fetchMyTasks() : fetchAllTasks({ limit: 200 }),
         fetchUsers({ role: 'agent', is_active: true }),
         fetchProperties({ review_status: 'pending_agent' }),
         fetchPropertyTiers()
@@ -153,14 +153,16 @@ export default function AgentPerformancePage({ dbUser }) {
               <option value="30" style={{ background: '#1a1a3e' }}>Last 30 days</option>
               <option value="90" style={{ background: '#1a1a3e' }}>Last 90 days</option>
             </select>
-            <button onClick={() => setTaskModal({ open: true })} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
-              border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 6px 20px rgba(99,102,241,0.4)'
-            }}>
-              <Plus size={14} /> Assign Task
-            </button>
+            {dbUser?.role !== 'agent' && (
+              <button onClick={() => setTaskModal({ open: true })} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
+                border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(99,102,241,0.4)'
+              }}>
+                <Plus size={14} /> Assign Task
+              </button>
+            )}
           </div>
         </div>
 
@@ -191,12 +193,20 @@ export default function AgentPerformancePage({ dbUser }) {
 
         {/* Summary stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 28 }}>
-          {[
-            { label: 'Total Agents', value: agents.length, icon: <Users2 size={18} />, color: '#6366f1' },
-            { label: 'Avg Completion', value: `${avgCompletion}%`, icon: <Target size={18} />, color: '#10b981' },
-            { label: 'Revenue Collected', value: FMT_KES(totalRevenue), icon: <Wallet size={18} />, color: '#f59e0b' },
-            { label: 'Active Tasks', value: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length, icon: <Clock size={18} />, color: '#ec4899' }
-          ].map((s, i) => (
+          {(dbUser?.role === 'agent'
+            ? [
+                { label: 'Tasks Completed', value: (agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.completed_tasks ?? 0, icon: <CheckCircle2 size={18} />, color: '#10b981' },
+                { label: 'Avg Response Time', value: (agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.avg_task_completion_time_hrs ? `${(agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0]).avg_task_completion_time_hrs.toFixed(1)} hrs` : '—', icon: <Target size={18} />, color: '#6366f1' },
+                { label: 'Collections This Month', value: FMT_KES((agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.rent_collected_kes), icon: <Wallet size={18} />, color: '#f59e0b' },
+                { label: 'Active Tasks', value: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length, icon: <Clock size={18} />, color: '#ec4899' }
+              ]
+            : [
+                { label: 'Total Agents', value: agents.length, icon: <Users2 size={18} />, color: '#6366f1' },
+                { label: 'Avg Completion', value: `${avgCompletion}%`, icon: <Target size={18} />, color: '#10b981' },
+                { label: 'Revenue Collected', value: FMT_KES(totalRevenue), icon: <Wallet size={18} />, color: '#f59e0b' },
+                { label: 'Active Tasks', value: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length, icon: <Clock size={18} />, color: '#ec4899' }
+              ]
+          ).map((s, i) => (
             <div key={i} style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 18, padding: 20 }}>
               <div style={{ width: 38, height: 38, borderRadius: 10, background: `${s.color}22`, border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <span style={{ color: s.color }}>{s.icon}</span>
@@ -292,12 +302,46 @@ export default function AgentPerformancePage({ dbUser }) {
                     Assigned to: {task.assigned_to?.full_name || '—'} · Due: {FMT_DATE(task.due_date)}
                   </p>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 100, background: taskStatusColor(task.status), color: taskStatusText(task.status), textTransform: 'capitalize', border: `1px solid ${taskStatusText(task.status)}33` }}>
-                  {task.status?.replace('_', ' ')}
-                </span>
-                <button onClick={() => handleDeleteTask(task._id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
-                  <Trash2 size={13} />
-                </button>
+                {dbUser?.role === 'agent' ? (
+                  <select
+                    value={task.status}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      try {
+                        await updateTaskStatus(task._id, newStatus);
+                        toast.success(`Task status updated to ${newStatus.replace('_', ' ')} ✓`);
+                        setTasks(prev => prev.map(t => t._id === task._id ? { ...t, status: newStatus } : t));
+                      } catch (err) {
+                        toast.error(err?.error?.message || 'Failed to update task status');
+                      }
+                    }}
+                    style={{
+                      background: taskStatusColor(task.status),
+                      color: taskStatusText(task.status),
+                      border: `1px solid ${taskStatusText(task.status)}55`,
+                      borderRadius: 100,
+                      padding: '4px 12px',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="pending" style={{ background: '#1a1a3e', color: '#fbbf24' }}>Pending</option>
+                    <option value="in_progress" style={{ background: '#1a1a3e', color: '#a78bfa' }}>In Progress</option>
+                    <option value="completed" style={{ background: '#1a1a3e', color: '#34d399' }}>Completed</option>
+                    <option value="overdue" style={{ background: '#1a1a3e', color: '#f87171' }}>Overdue</option>
+                  </select>
+                ) : (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 100, background: taskStatusColor(task.status), color: taskStatusText(task.status), textTransform: 'capitalize', border: `1px solid ${taskStatusText(task.status)}33` }}>
+                    {task.status?.replace('_', ' ')}
+                  </span>
+                )}
+                {dbUser?.role !== 'agent' && (
+                  <button onClick={() => handleDeleteTask(task._id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
             ))}
           </div>

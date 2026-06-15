@@ -18,6 +18,15 @@ import {
 const FMT_KES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 const FMT_DATE = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
+const formatPhoneHref = (number) => {
+  if (!number) return '';
+  const clean = number.trim().replace(/\s+/g, '');
+  if (clean.startsWith('+')) return clean;
+  if (clean.startsWith('254')) return `+${clean}`;
+  if (clean.startsWith('0')) return `+254${clean.slice(1)}`;
+  return `+254${clean}`; // Default fallback
+};
+
 const statusColor = (s) => ({
   confirmed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
   pending:   'bg-amber-500/15 text-amber-400 border-amber-500/20',
@@ -60,7 +69,7 @@ export default function TenantPortalPage() {
       }
       load();
     } catch (err) {
-      toast.update(toastId, { render: err?.error?.message || 'Failed to initiate payment.', type: 'error', isLoading: false, autoClose: 5000 });
+      toast.update(toastId, { render: err?.error?.message || err?.message || 'Failed to initiate payment.', type: 'error', isLoading: false, autoClose: 5000 });
     } finally {
       setPaying(false);
     }
@@ -296,7 +305,7 @@ export default function TenantPortalPage() {
               { label: 'Pay Rent', desc: paying ? 'Initiating...' : 'M-Pesa STK push', icon: <Wallet size={20} />, color: '#10b981', action: handlePayRent },
               { label: 'Maintenance', desc: 'Submit a request', icon: <Wrench size={20} />, color: '#6366f1', action: () => setTicketForm(f => ({ ...f, open: true })) },
               { label: 'View Notices', desc: `${notices.length} notices`, icon: <FileText size={20} />, color: '#f59e0b', action: () => setActiveTab('notices') },
-              { label: 'Contact Agent', desc: customerCare, icon: <Phone size={20} />, color: '#ec4899', href: `tel:${customerCare}` }
+              { label: 'Contact Agent', desc: customerCare, icon: <Phone size={20} />, color: '#ec4899', href: `tel:${formatPhoneHref(customerCare)}` }
             ].map((item, i) => {
               const cardStyle = {
                 background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)',

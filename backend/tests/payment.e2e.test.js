@@ -141,7 +141,7 @@ describe('Payment E2E Flow', () => {
     expect(updated.verification_method).toBe('auto_mpesa');
 
     const prop = await Property.findById(property._id);
-    expect(prop.units[0].lock_status).toBe('PAYMENT_CONFIRMED');
+    expect(prop.units[0].lock_status).toBe('payment_confirmed');
 
     let ten;
     for (let i = 0; i < 30; i++) {

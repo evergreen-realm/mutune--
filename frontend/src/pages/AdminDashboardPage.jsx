@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import {
   TrendingUp, Users, Home, Building2, Download, RefreshCw,
-  ArrowUpRight, AlertCircle
+  ArrowUpRight, AlertCircle, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { fetchAdminStats, downloadKRAReport } from '../lib/api';
+import { 
+  fetchAdminStats, downloadKRAReport, 
+  fetchPendingAgents, fetchPendingLandlords, fetchPendingProperties 
+} from '../lib/api';
 
 const PIE_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -56,6 +60,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function AdminDashboardPage() {
+  const navigate = useNavigate();
   const [kraMonth, setKraMonth] = useState(new Date().toISOString().slice(0, 7));
   const [downloading, setDownloading] = useState(false);
 
@@ -64,7 +69,27 @@ export default function AdminDashboardPage() {
     queryFn: fetchAdminStats
   });
 
+  const { data: pendingAgentsData } = useQuery({
+    queryKey: ['pendingAgents'],
+    queryFn: fetchPendingAgents
+  });
+
+  const { data: pendingLandlordsData } = useQuery({
+    queryKey: ['pendingLandlords'],
+    queryFn: fetchPendingLandlords
+  });
+
+  const { data: pendingPropertiesData } = useQuery({
+    queryKey: ['pendingProperties'],
+    queryFn: fetchPendingProperties
+  });
+
   const stats = data?.data;
+
+  const pendingAgentsCount = pendingAgentsData?.data?.length || 0;
+  const pendingLandlordsCount = pendingLandlordsData?.data?.length || 0;
+  const pendingPropertiesCount = pendingPropertiesData?.data?.length || 0;
+  const totalPending = pendingAgentsCount + pendingLandlordsCount + pendingPropertiesCount;
 
   const handleDownloadKRA = async () => {
     if (!kraMonth) { toast.error('Select a month'); return; }
@@ -226,75 +251,137 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Top Agents + KRA Download */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Top Agents + KRA Download + Verification Queue */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Agents */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b bg-gray-50">
-            <h3 className="font-bold text-gray-900">Top Performing Agents (6 months)</h3>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {stats?.topAgents?.length ? (
-              stats.topAgents.map((agent, i) => (
-                <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50/60 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-[10px] font-black">
-                      {i + 1}
-                    </span>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800">{agent.name}</p>
-                      {agent.email && <p className="text-[10px] text-gray-400">{agent.email}</p>}
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="px-5 py-4 border-b bg-gray-50">
+              <h3 className="font-bold text-gray-900 text-sm">Top Performing Agents (6 months)</h3>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+              {stats?.topAgents?.length ? (
+                stats.topAgents.map((agent, i) => (
+                  <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50/60 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-[10px] font-black">
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-800">{agent.name}</p>
+                        {agent.email && <p className="text-[10px] text-gray-400">{agent.email}</p>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-black text-gray-900">KES {agent.total?.toLocaleString()}</p>
+                      <p className="text-[10px] text-gray-400">{agent.count} transactions</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs font-black text-gray-900">KES {agent.total?.toLocaleString()}</p>
-                    <p className="text-[10px] text-gray-400">{agent.count} transactions</p>
-                  </div>
+                ))
+              ) : (
+                <div className="px-5 py-8 text-center text-sm text-gray-400">
+                  No agent performance data yet
                 </div>
-              ))
-            ) : (
-              <div className="px-5 py-8 text-center text-sm text-gray-400">
-                No agent performance data yet
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
         {/* KRA Download */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
-          <h3 className="font-bold text-gray-900 mb-1">KRA Reconciliation Report</h3>
-          <p className="text-xs text-gray-400 mb-5">
-            CSV export with 5% withholding tax for commercial properties. UTF-8 BOM for Excel.
-          </p>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5" htmlFor="kra-month">
-                Select Month
-              </label>
-              <input
-                id="kra-month"
-                type="month"
-                value={kraMonth}
-                onChange={(e) => setKraMonth(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
-              />
-            </div>
-            <button
-              id="btn-download-kra"
-              onClick={handleDownloadKRA}
-              disabled={downloading || !kraMonth}
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-50"
-            >
-              {downloading
-                ? <RefreshCw size={15} className="animate-spin" />
-                : <Download size={15} />
-              }
-              {downloading ? 'Generating…' : 'Download KRA Report'}
-            </button>
-            <p className="text-[10px] text-gray-400 text-center">
-              Available to Admin, Super Admin, and Accountant roles
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+          <div>
+            <h3 className="font-bold text-gray-900 mb-1 text-sm">KRA Reconciliation Report</h3>
+            <p className="text-xs text-gray-400 mb-5">
+              CSV export with 5% withholding tax for commercial properties. UTF-8 BOM for Excel.
             </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5" htmlFor="kra-month">
+                  Select Month
+                </label>
+                <input
+                  id="kra-month"
+                  type="month"
+                  value={kraMonth}
+                  onChange={(e) => setKraMonth(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
+                />
+              </div>
+              <button
+                id="btn-download-kra"
+                onClick={handleDownloadKRA}
+                disabled={downloading || !kraMonth}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-50"
+              >
+                {downloading
+                  ? <RefreshCw size={15} className="animate-spin" />
+                  : <Download size={15} />
+                }
+                {downloading ? 'Generating…' : 'Download KRA Report'}
+              </button>
+            </div>
           </div>
+          <p className="text-[10px] text-gray-400 text-center mt-3">
+            Available to Admin, Super Admin, and Accountant roles
+          </p>
+        </div>
+
+        {/* Verification Queue Widget */}
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm">
+                <ShieldCheck className="text-indigo-600" size={18} /> Verification Queue
+              </h3>
+              {totalPending > 0 && (
+                <span className="animate-pulse bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {totalPending} Pending
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mb-5">
+              Approve onboarding requests and listings.
+            </p>
+
+            <div className="space-y-2">
+              <div 
+                onClick={() => navigate('/admin/users', { state: { defaultTab: 'agents' } })}
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-gray-50 hover:border-gray-100 cursor-pointer transition"
+              >
+                <span className="text-xs text-gray-600">Pending Agents</span>
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${pendingAgentsCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
+                  {pendingAgentsCount}
+                </span>
+              </div>
+
+              <div 
+                onClick={() => navigate('/admin/users', { state: { defaultTab: 'landlords' } })}
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-gray-50 hover:border-gray-100 cursor-pointer transition"
+              >
+                <span className="text-xs text-gray-600">Pending Landlords</span>
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${pendingLandlordsCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
+                  {pendingLandlordsCount}
+                </span>
+              </div>
+
+              <div 
+                onClick={() => navigate('/admin/users', { state: { defaultTab: 'properties' } })}
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-gray-50 hover:border-gray-100 cursor-pointer transition"
+              >
+                <span className="text-xs text-gray-600">Pending Properties</span>
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${pendingPropertiesCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
+                  {pendingPropertiesCount}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/admin/users')}
+            className="w-full py-3 mt-4 border border-gray-200 hover:border-indigo-100 hover:bg-indigo-50/20 text-indigo-600 rounded-xl text-sm font-bold transition flex items-center justify-center gap-1.5"
+          >
+            Manage Approvals <ArrowUpRight size={14} />
+          </button>
         </div>
       </div>
     </div>

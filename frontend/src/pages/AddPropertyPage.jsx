@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Loader2, Building2 } from 'lucide-react';
+import { Loader2, Building2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useQueryClient } from '@tanstack/react-query';
-import { createPropertyWithGPS } from '../lib/api';
+import { createProperty } from '../lib/api';
 
 const PROPERTY_TYPES = ['apartment', 'single_family', 'commercial', 'mixed_use', 'bedsitter', 'studio'];
 const MOMBASA_AREAS = [
   'Nyali', 'Bamburi', 'Mtwapa', 'Tudor', 'Likoni', 'Changamwe', 'Kisauni',
   'Mvita', 'Mkomani', 'Shanzu', 'Kongowea', 'Mikindani', 'Port Reitz'
 ];
-
-// Default Mombasa Central coordinates — used automatically for all new properties
-const DEFAULT_COORDS = { lng: 39.6682, lat: -4.0435, accuracy: 10 };
 
 export default function AddPropertyPage() {
   const navigate = useNavigate();
@@ -38,12 +35,11 @@ export default function AddPropertyPage() {
     }
     setLoading(true);
     try {
-      const res = await createPropertyWithGPS({
+      const res = await createProperty({
         name: form.name.trim(),
         type: form.type,
         address: { street: form.street.trim(), area: form.area, city: form.city },
-        rent_kes: form.rent_kes ? Number(form.rent_kes) : 0,
-        location: { coordinates: [DEFAULT_COORDS.lng, DEFAULT_COORDS.lat], accuracy: DEFAULT_COORDS.accuracy }
+        rent_kes: form.rent_kes ? Number(form.rent_kes) : 0
       });
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       toast.success(`Property ${res.data?.property_code} created successfully ✓`);
@@ -71,13 +67,6 @@ export default function AddPropertyPage() {
       {/* Property Details Panel */}
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
         <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4">Property Details</h2>
-
-        {/* Location badge */}
-        <div className="bg-green-50 border border-green-100 rounded-xl p-3 mb-4 flex items-center gap-2 text-sm">
-          <MapPin size={15} className="text-green-600 flex-shrink-0" />
-          <span className="text-green-800 font-medium">Location auto-set to Mombasa Central</span>
-          <span className="text-green-500 font-mono text-xs ml-auto">{DEFAULT_COORDS.lat.toFixed(4)}, {DEFAULT_COORDS.lng.toFixed(4)}</span>
-        </div>
 
         <form id="add-property-form" onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -152,7 +141,7 @@ export default function AddPropertyPage() {
             disabled={loading}
             className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
           >
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <MapPin size={15} />}
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Building2 size={15} />}
             {loading ? 'Creating…' : 'Create Property'}
           </button>
         </form>

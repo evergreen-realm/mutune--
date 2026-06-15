@@ -26,12 +26,20 @@ router.get('/', requireAuth, async (req, res, next) => {
     const filter = {};
 
     if (req.user.role === 'agent') {
-      if (review_status === 'pending_agent') {
-        filter.review_status = 'pending_agent';
-      } else {
-        filter._id = { $in: req.user.assigned_property_ids || [] };
-        if (review_status) filter.review_status = review_status;
+      const orConditions = [];
+      if (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) {
+        orConditions.push({ _id: { $in: req.user.assigned_property_ids } });
       }
+      if (req.user.assigned_areas && req.user.assigned_areas.length > 0) {
+        const regexes = req.user.assigned_areas.map(area => new RegExp(`^${area}$`, 'i'));
+        orConditions.push({ 'address.area': { $in: regexes } });
+      }
+      if (orConditions.length > 0) {
+        filter.$or = orConditions;
+      } else {
+        filter._id = null;
+      }
+      if (review_status) filter.review_status = review_status;
     } else if (req.user.role === 'landlord') {
       filter.landlord_id = req.user._id;
       if (review_status) filter.review_status = review_status;
@@ -690,6 +698,15 @@ router.patch('/:id/agent-review',
       const property = await Property.findById(req.params.id);
       if (!property) {
         return res.status(404).json({ success: false, error: { message: 'Property not found' } });
+      }
+
+      if (req.user.role === 'agent') {
+        const isAssigned = req.user.assigned_property_ids?.some(id => id.toString() === property._id.toString());
+        const inAssignedArea = req.user.assigned_areas?.some(area => new RegExp(`^${area}$`, 'i').test(property.address?.area));
+        if (!isAssigned && !inAssignedArea) {
+          logger.warn('Agent review scope denied', { userId: req.user._id, propertyId: property._id });
+          return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'You are not authorized to review this property or its area' } });
+        }
       }
 
       const { proposed_tier_id } = req.body;
