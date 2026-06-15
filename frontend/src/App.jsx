@@ -68,6 +68,9 @@ function AppShell() {
   const [notifOpen,   setNotifOpen]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isRoleVerified, setIsRoleVerified] = useState(false);
+  const [role, setRole] = useState(() => {
+    return clerkUser?.publicMetadata?.role || dbUser?.role || undefined;
+  });
   const location = useLocation();
 
   const handleLogout = (options = {}) => {
@@ -81,19 +84,29 @@ function AppShell() {
   };
 
   useEffect(() => {
-    if (dbUser) {
-      const isAgentOrLandlord = ['agent', 'landlord'].includes(dbUser.role);
-      const isAdmin = ['admin', 'super_admin'].includes(dbUser.role);
-      if (isAgentOrLandlord) {
+    if (clerkUser) {
+      if (clerkUser.publicMetadata?.role) {
+        setRole(clerkUser.publicMetadata.role);
+      } else if (dbUser?.role) {
+        setRole(dbUser.role);
+      }
+    }
+  }, [clerkUser, dbUser]);
+
+  useEffect(() => {
+    if (role) {
+      const isAgentOrLandlord = ['agent', 'landlord'].includes(role);
+      const isAdmin = ['admin', 'super_admin'].includes(role);
+      if (isAgentOrLandlord && dbUser) {
         const key = `mutunerent_verified_id_${dbUser._id}`;
         setIsRoleVerified(localStorage.getItem(key) === 'true' || sessionStorage.getItem(`role_verified_${dbUser._id}`) === 'true');
       } else if (isAdmin) {
         setIsRoleVerified(sessionStorage.getItem('mutunet_admin_verified') === 'true');
-      } else {
+      } else if (!isAgentOrLandlord && !isAdmin) {
         setIsRoleVerified(true);
       }
     }
-  }, [dbUser]);
+  }, [role, dbUser]);
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
@@ -175,27 +188,7 @@ function AppShell() {
     );
   }
 
-  // ── ROLE DERIVATION ────────────────────────────────────────────────────────
-  // Primary: Clerk publicMetadata.role (set during onboarding/backfill).
-  // Fallback: DB role — but ONLY for users who demonstrably completed
-  // registration (approved or uploaded docs). This prevents a brand-new
-  // auto-created user (no docs, no approval) from skipping /onboarding.
-  const hasCompletedRegistration = dbUser && (
-    ['admin', 'super_admin', 'accountant'].includes(dbUser.role) ||
-    dbUser.role === 'tenant' ||
-    (dbUser.role === 'agent' && (
-      dbUser.earb_license ||
-      dbUser.agent_approval_status === 'approved'
-    )) ||
-    (dbUser.role === 'landlord' && (
-      (dbUser.landlord_verification_doc_url &&
-        !dbUser.landlord_verification_doc_url.includes('placeholder')) ||
-      dbUser.landlord_approval_status === 'approved'
-    ))
-  );
-  const role = clerkUser?.publicMetadata?.role ||
-    (hasCompletedRegistration ? dbUser.role : undefined);
-  // ──────────────────────────────────────────────────────────────────────────
+  // Role is now managed as a state variable at the top of AppShell
 
   if (!role) {
     if (location.pathname !== '/onboarding') {

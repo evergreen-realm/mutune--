@@ -430,37 +430,19 @@ router.post('/sync-clerk',
         }
 
         // ── CLERK METADATA BACKFILL ──────────────────────────────────────────
-        // If DB has a confirmed role but Clerk publicMetadata is missing it,
-        // push the role back to Clerk so the frontend can read it correctly.
-        // This fixes users whose Clerk metadata was lost after partial onboarding
-        // or a Clerk session reset (they would otherwise be wrongly sent to /onboarding).
-        if (!clerkRole && existing.role) {
-          const hasCompletedRegistration =
-            ['admin', 'super_admin', 'accountant'].includes(existing.role) ||
-            existing.role === 'tenant' ||
-            (existing.role === 'agent' && (
-              existing.earb_license ||
-              existing.agent_approval_status === 'approved'
-            )) ||
-            (existing.role === 'landlord' && (
-              (existing.landlord_verification_doc_url &&
-                !existing.landlord_verification_doc_url.includes('placeholder')) ||
-              existing.landlord_approval_status === 'approved'
-            ));
-
-          if (hasCompletedRegistration) {
-            try {
-              await clerkClient.users.updateUserMetadata(clerk_id, {
-                publicMetadata: { role: existing.role }
-              });
-              logger.info('Backfilled missing Clerk publicMetadata.role from DB', {
-                clerkId: clerk_id, role: existing.role
-              });
-            } catch (clerkErr) {
-              logger.warn('Failed to backfill Clerk role from DB', {
-                clerkId: clerk_id, message: clerkErr.message
-              });
-            }
+        // ALWAYS backfill the publicMetadata.role field for any user where dbUser.role is present and different
+        if (existing.role && clerkRole !== existing.role) {
+          try {
+            await clerkClient.users.updateUserMetadata(clerk_id, {
+              publicMetadata: { role: existing.role }
+            });
+            logger.info('Backfilled Clerk publicMetadata.role from DB', {
+              clerkId: clerk_id, role: existing.role
+            });
+          } catch (clerkErr) {
+            logger.warn('Failed to backfill Clerk role from DB', {
+              clerkId: clerk_id, message: clerkErr.message
+            });
           }
         }
         // ────────────────────────────────────────────────────────────────────
