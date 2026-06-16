@@ -493,6 +493,61 @@ export default function AdminUserManagementPage() {
                   </span>
 
                   <div style={{ display: 'flex', gap: 8 }}>
+                    {u.role === 'tenant' && (
+                      <button
+                        title="Generate Rent Invoice"
+                        onClick={() => {
+                          const now = new Date();
+                          const month = now.toLocaleDateString('en-KE', { month: 'long', year: 'numeric' });
+                          const content = [
+                            '╔══════════════════════════════════════════╗',
+                            '║       MUTUNE ESTATE AGENCY               ║',
+                            '║       RENT INVOICE                       ║',
+                            '╚══════════════════════════════════════════╝',
+                            '',
+                            `Invoice Date:   ${now.toLocaleDateString('en-KE', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+                            `Invoice Period: ${month}`,
+                            `Tenant Name:    ${u.full_name || 'N/A'}`,
+                            `Email:          ${u.email || 'N/A'}`,
+                            `Phone:          ${u.phone || 'N/A'}`,
+                            `User ID:        ${u.user_code || u._id?.slice(-8) || 'N/A'}`,
+                            '',
+                            '─'.repeat(44),
+                            'CHARGES',
+                            '─'.repeat(44),
+                            `Monthly Rent:              KES (see profile)`,
+                            `Arrears:                   KES (see profile)`,
+                            '',
+                            '─'.repeat(44),
+                            'NOTE: For exact figures, please check the tenant',
+                            'profile in the Tenants management section.',
+                            '─'.repeat(44),
+                            '',
+                            'Payment Method: M-Pesa (Lipa Na M-Pesa)',
+                            'Paybill:        As communicated by agent',
+                            '',
+                            'For queries: mutunerentz@gmail.com',
+                            'Mutune Estate Agency — Mombasa, Kenya',
+                          ].join('\n');
+                          const blob = new Blob([content], { type: 'text/plain' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `Invoice_${u.full_name?.replace(/\s+/g, '_') || 'tenant'}_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}.txt`;
+                          document.body.appendChild(a); a.click(); a.remove();
+                          URL.revokeObjectURL(url);
+                          toast.success(`Invoice generated for ${u.full_name}`);
+                        }}
+                        style={{
+                          background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
+                          color: '#a78bfa', borderRadius: 8, padding: '7px 10px',
+                          cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                          display: 'flex', alignItems: 'center', gap: 4
+                        }}
+                      >
+                        <FileText size={13} /> Invoice
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDisable(u._id, u.is_active)}
                       disabled={!!working[u._id]}
