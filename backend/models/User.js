@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   user_code:   { type: String, unique: true, required: true },
-  role:        { type: String, enum: ['super_admin', 'admin', 'agent', 'landlord', 'accountant', 'tenant'], required: true, index: true },
+  role:        { type: String, enum: ['super_admin', 'admin', 'agent', 'landlord', 'accountant', 'tenant'], required: false, index: true },
   full_name:   { type: String, required: true },
   email:       { type: String, unique: true, required: true },
   phone:       String,
@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema({
   earb_verification_doc_url: String,
   agent_approval_status: { type: String, enum: ['pending', 'approved', 'rejected', 'n_a'], default: 'n_a' },
   agent_rejection_reason: String,
+  agent_allow_all_areas: { type: Boolean, default: false },
   landlord_id:   { type: String, unique: true, sparse: true },
   landlord_approval_status: { type: String, enum: ['pending', 'approved', 'rejected', 'n_a'], default: 'pending', index: true },
   landlord_verification_doc_url: String,

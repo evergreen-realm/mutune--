@@ -40,14 +40,17 @@ export default function PropertiesPage({ dbUser }) {
   const [statusFilter, setStatus] = useState('');
   const [viewMode, setViewMode]   = useState('cards'); // 'cards' | 'table'
   const [working, setWorking]     = useState({});
+  const [showAllAreas, setShowAllAreas] = useState(false);
 
   const role = dbUser?.role || 'admin';
+  const isAgent = role === 'agent';
+  const canShowAllAreasToggle = isAgent && dbUser?.agent_allow_all_areas;
   const canAdd  = ['admin', 'super_admin', 'agent', 'landlord'].includes(role);
   const canApprove = ['admin', 'super_admin'].includes(role);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['properties'],
-    queryFn: fetchProperties
+    queryKey: ['properties', showAllAreas],
+    queryFn: () => fetchProperties(canShowAllAreasToggle && showAllAreas ? { all_areas: 'true' } : {})
   });
 
   const allProperties = data?.data || [];
@@ -206,6 +209,18 @@ export default function PropertiesPage({ dbUser }) {
             className="text-xs text-gray-500 hover:text-gray-700 font-semibold underline"
           >
             Clear filters
+          </button>
+        )}
+        {canShowAllAreasToggle && (
+          <button
+            onClick={() => setShowAllAreas(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition ${
+              showAllAreas
+                ? 'bg-amber-50 border-amber-300 text-amber-700'
+                : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'
+            }`}
+          >
+            🌐 {showAllAreas ? 'All Areas (Active)' : 'Show All Areas'}
           </button>
         )}
         <span className="ml-auto text-xs text-gray-400 font-medium">{properties.length} result{properties.length !== 1 ? 's' : ''}</span>

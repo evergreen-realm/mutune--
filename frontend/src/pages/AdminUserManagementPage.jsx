@@ -9,7 +9,8 @@ import {
   fetchPendingLandlords, approveLandlord, rejectLandlord,
   createLandlordManually, fetchPropertyTiers, createPropertyTier,
   updatePropertyTier, fetchPendingProperties,
-  verifyPropertyTier, fetchCustomerCareNumber, updateCustomerCareNumber
+  verifyPropertyTier, fetchCustomerCareNumber, updateCustomerCareNumber,
+  updateUser
 } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 import {
@@ -492,7 +493,34 @@ export default function AdminUserManagementPage() {
                     {u.is_active ? '● Active' : '● Inactive'}
                   </span>
 
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {u.role === 'agent' && (
+                      <button
+                        title={u.agent_allow_all_areas ? 'Revoke all-areas access' : 'Grant all-areas access'}
+                        disabled={!!working[u._id + '_areas']}
+                        onClick={async () => {
+                          setWorking_(u._id + '_areas', true);
+                          try {
+                            const updated = await updateUser(u._id, { agent_allow_all_areas: !u.agent_allow_all_areas });
+                            setUsers(prev => prev.map(usr => usr._id === u._id ? { ...usr, agent_allow_all_areas: updated.data?.agent_allow_all_areas ?? !u.agent_allow_all_areas } : usr));
+                            toast.success(`Agent can now ${!u.agent_allow_all_areas ? 'see all areas' : 'only see assigned areas'}`);
+                          } catch (err) {
+                            toast.error(err?.error?.message || 'Failed to update area access');
+                          } finally {
+                            setWorking_(u._id + '_areas', false);
+                          }
+                        }}
+                        style={{
+                          background: u.agent_allow_all_areas ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.06)',
+                          border: `1px solid ${u.agent_allow_all_areas ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.12)'}`,
+                          color: u.agent_allow_all_areas ? '#fbbf24' : 'rgba(255,255,255,0.45)',
+                          borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+                          display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'
+                        }}
+                      >
+                        🌐 {working[u._id + '_areas'] ? '…' : u.agent_allow_all_areas ? 'All Areas ✓' : 'All Areas'}
+                      </button>
+                    )}
                     {u.role === 'tenant' && (
                       <button
                         title="Generate Rent Invoice"

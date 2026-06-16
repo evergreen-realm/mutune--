@@ -323,7 +323,8 @@ describe('Phase 4 Features', () => {
         role: 'agent',
         phone: '254700000004',
         earb_license: 'EARB-12345',
-        earb_verification_doc_url: 'https://mutune.test/doc.pdf'
+        earb_verification_doc_url: 'https://mutune.test/doc.pdf',
+        assigned_areas: ['Nyali']
       });
     
     expect(onboardingRes.status).toBe(200);

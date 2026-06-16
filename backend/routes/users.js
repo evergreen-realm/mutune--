@@ -105,13 +105,18 @@ router.patch('/me/role',
   ],
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
-      }
-
+      if (!validate(req, res)) return;
       const { role, phone, earb_license, earb_verification_doc_url, landlord_verification_doc_url, assigned_areas, property_id, unit_id } = req.body;
       const userId = req.user._id;
+
+      if (role === 'agent') {
+        if (!assigned_areas || !Array.isArray(assigned_areas) || assigned_areas.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'At least one operational area must be selected.' }
+          });
+        }
+      }
 
       const updateData = { role };
       if (phone !== undefined) updateData.phone = phone;
@@ -139,61 +144,99 @@ router.patch('/me/role',
         updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
       }
 
-      // —— Tenant-specific: auto-create Tenant document and link to unit ——
+      // —— Tenant-specific: link tenant profile or auto-create ——
       if (role === 'tenant') {
-        if (!property_id || !unit_id) {
-          return res.status(400).json({
-            success: false,
-            error: { code: 'VALIDATION_ERROR', message: 'Property and unit selection are required for tenants' }
-          });
-        }
-
-        const existingTenant = await Tenant.findOne({ user_id: userId }).lean();
-        if (!existingTenant) {
-          let assignedPropertyId = property_id;
-          let assignedUnitId = unit_id;
-
-          // Verify the selected unit is actually vacant (prevent race condition)
-          const prop = await Property.findById(assignedPropertyId).lean();
-          const unit = prop?.units?.find(u => u._id.toString() === assignedUnitId.toString());
-          if (!unit || unit.status !== 'vacant') {
-            return res.status(409).json({
+        const { tenant_code } = req.body;
+        if (tenant_code) {
+          const tenant = await Tenant.findOne({ tenant_code: tenant_code.trim().toUpperCase() });
+          if (!tenant) {
+            return res.status(404).json({
               success: false,
-              error: { code: 'UNIT_OCCUPIED', message: 'Selected unit is no longer vacant. Please choose another.' }
+              error: { code: 'NOT_FOUND', message: 'Invalid Tenant Code. Please obtain a valid code from your property agent.' }
             });
           }
 
-          const tenantCount = await Tenant.countDocuments();
-          const tenantCode = `TNT-MOM-${String(tenantCount + 1).padStart(4, '0')}`;
+          if (tenant.user_id && tenant.user_id.toString() !== userId.toString()) {
+            return res.status(409).json({
+              success: false,
+              error: { code: 'ALREADY_CLAIMED', message: 'This Tenant Code has already been registered by another user.' }
+            });
+          }
 
-          await Tenant.create({
-            tenant_code: tenantCode,
-            user_id: userId,
-            full_name: req.user.full_name,
-            phone: phone || req.user.phone || '254700000000',
-            email: req.user.email,
-            id_number: req.body.id_number || '00000000',
-            current_property_id: assignedPropertyId,
-            current_unit_id: assignedUnitId,
-            lease_start: req.body.lease_start ? new Date(req.body.lease_start) : new Date(),
-            lease_end: req.body.lease_end
-              ? new Date(req.body.lease_end)
-              : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-            rent_amount_kes: req.body.rent_amount_kes || unit.rent_kes || 0,
-            tenancy_status: 'pending'
-          });
+          // Link the tenant record to this user
+          tenant.user_id = userId;
+          tenant.tenancy_status = 'active'; // Activate the tenancy
+          if (phone) tenant.phone = phone; // sync phone if provided
+          await tenant.save();
 
           // Mark unit as occupied and link tenant
-          await Property.updateOne(
-            { _id: assignedPropertyId, 'units._id': assignedUnitId },
-            { $set: { 'units.$.status': 'occupied' } }
-          );
+          if (tenant.current_property_id && tenant.current_unit_id) {
+            await Property.updateOne(
+              { _id: tenant.current_property_id, 'units._id': tenant.current_unit_id },
+              { $set: { 'units.$.status': 'occupied', 'units.$.current_tenant_id': tenant._id } }
+            );
+          }
 
-          // Update User with property/unit links
-          updateData.current_property_id = assignedPropertyId;
-          updateData.current_unit_id = assignedUnitId;
+          updateData.current_property_id = tenant.current_property_id;
+          updateData.current_unit_id = tenant.current_unit_id;
 
-          logger.info('Tenant auto-created during onboarding', { userId, tenantCode, assignedPropertyId, assignedUnitId });
+          logger.info('Tenant profile linked during onboarding', { userId, tenantCode: tenant.tenant_code });
+        } else {
+          // Fallback to choosing from vacant unit list
+          if (!property_id || !unit_id) {
+            return res.status(400).json({
+              success: false,
+              error: { code: 'VALIDATION_ERROR', message: 'Please enter a Tenant Code or select a Property and Unit.' }
+            });
+          }
+
+          const existingTenant = await Tenant.findOne({ user_id: userId }).lean();
+          if (!existingTenant) {
+            let assignedPropertyId = property_id;
+            let assignedUnitId = unit_id;
+
+            // Verify the selected unit is actually vacant (prevent race condition)
+            const prop = await Property.findById(assignedPropertyId).lean();
+            const unit = prop?.units?.find(u => u._id.toString() === assignedUnitId.toString());
+            if (!unit || unit.status !== 'vacant') {
+              return res.status(409).json({
+                success: false,
+                error: { code: 'UNIT_OCCUPIED', message: 'Selected unit is no longer vacant. Please choose another.' }
+              });
+            }
+
+            const tenantCount = await Tenant.countDocuments();
+            const newTenantCode = `TNT-MOM-${String(tenantCount + 1).padStart(4, '0')}`;
+
+            const newTenant = await Tenant.create({
+              tenant_code: newTenantCode,
+              user_id: userId,
+              full_name: req.user.full_name,
+              phone: phone || req.user.phone || '254700000000',
+              email: req.user.email,
+              id_number: req.body.id_number || '00000000',
+              current_property_id: assignedPropertyId,
+              current_unit_id: assignedUnitId,
+              lease_start: req.body.lease_start ? new Date(req.body.lease_start) : new Date(),
+              lease_end: req.body.lease_end
+                ? new Date(req.body.lease_end)
+                : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+              rent_amount_kes: req.body.rent_amount_kes || unit.rent_kes || 0,
+              tenancy_status: 'active'
+            });
+
+            // Mark unit as occupied and link tenant
+            await Property.updateOne(
+              { _id: assignedPropertyId, 'units._id': assignedUnitId },
+              { $set: { 'units.$.status': 'occupied', 'units.$.current_tenant_id': newTenant._id } }
+            );
+
+            // Update User with property/unit links
+            updateData.current_property_id = assignedPropertyId;
+            updateData.current_unit_id = assignedUnitId;
+
+            logger.info('Tenant auto-created during onboarding', { userId, tenantCode: newTenantCode, assignedPropertyId, assignedUnitId });
+          }
         }
       }
 
@@ -349,7 +392,7 @@ router.patch('/:id',
       }
 
       const selfAllowed = ['full_name', 'phone'];
-      const adminAllowed = ['full_name', 'phone', 'role', 'is_active', 'assigned_property_ids', 'assigned_areas'];
+      const adminAllowed = ['full_name', 'phone', 'role', 'is_active', 'assigned_property_ids', 'assigned_areas', 'agent_allow_all_areas'];
       const allowedFields = isAdmin ? adminAllowed : selfAllowed;
 
       const update = {};
@@ -484,7 +527,7 @@ router.post('/sync-clerk',
       }
 
       const count = await User.countDocuments();
-      const initialRole = clerkRole || 'agent'; // fallback to agent if no metadata role is set yet
+      const initialRole = clerkRole || undefined;
       
       const createPayload = {
         clerk_id,
@@ -549,7 +592,7 @@ router.post('/webhook', async (req, res, next) => {
       }
       if (!existing) {
         const count = await User.countDocuments();
-        const role = data.public_metadata?.role || 'tenant';
+        const role = data.public_metadata?.role || undefined;
         
         const createPayload = {
           clerk_id,

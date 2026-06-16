@@ -26,18 +26,23 @@ router.get('/', requireAuth, async (req, res, next) => {
     const filter = {};
 
     if (req.user.role === 'agent') {
-      const orConditions = [];
-      if (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) {
-        orConditions.push({ _id: { $in: req.user.assigned_property_ids } });
-      }
-      if (req.user.assigned_areas && req.user.assigned_areas.length > 0) {
-        const regexes = req.user.assigned_areas.map(area => new RegExp(`^${area}$`, 'i'));
-        orConditions.push({ 'address.area': { $in: regexes } });
-      }
-      if (orConditions.length > 0) {
-        filter.$or = orConditions;
-      } else {
-        filter._id = null;
+      const showAll = req.query.all_areas === 'true' && req.user.agent_allow_all_areas;
+      const hasAssignments = (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) ||
+                             (req.user.assigned_areas && req.user.assigned_areas.length > 0);
+      if (!showAll && hasAssignments) {
+        const orConditions = [];
+        if (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) {
+          orConditions.push({ _id: { $in: req.user.assigned_property_ids } });
+        }
+        if (req.user.assigned_areas && req.user.assigned_areas.length > 0) {
+          const regexes = req.user.assigned_areas.map(area => new RegExp(`^${area}$`, 'i'));
+          orConditions.push({ 'address.area': { $in: regexes } });
+        }
+        if (orConditions.length > 0) {
+          filter.$or = orConditions;
+        } else {
+          filter._id = null;
+        }
       }
       if (review_status) filter.review_status = review_status;
     } else if (req.user.role === 'landlord') {
@@ -114,7 +119,29 @@ router.get('/units/vacant',
   requireRole(['admin', 'super_admin', 'agent', 'tenant', 'landlord']),
   async (req, res, next) => {
     try {
-      const properties = await Property.find({ 'units.status': 'vacant' })
+      const vacantFilter = { 'units.status': 'vacant' };
+      if (req.user.role === 'agent') {
+        const showAll = req.query.all_areas === 'true' && req.user.agent_allow_all_areas;
+        const hasAssignments = (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) ||
+                               (req.user.assigned_areas && req.user.assigned_areas.length > 0);
+        if (!showAll && hasAssignments) {
+          const orConditions = [];
+          if (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) {
+            orConditions.push({ _id: { $in: req.user.assigned_property_ids } });
+          }
+          if (req.user.assigned_areas && req.user.assigned_areas.length > 0) {
+            const regexes = req.user.assigned_areas.map(area => new RegExp(`^${area}$`, 'i'));
+            orConditions.push({ 'address.area': { $in: regexes } });
+          }
+          if (orConditions.length > 0) {
+            vacantFilter.$or = orConditions;
+          } else {
+            vacantFilter._id = null;
+          }
+        }
+      }
+
+      const properties = await Property.find(vacantFilter)
         .select('name property_code address units')
         .lean();
 

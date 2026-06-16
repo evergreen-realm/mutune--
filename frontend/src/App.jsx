@@ -184,7 +184,10 @@ function AppShell() {
     );
   }
 
-  if (!derivedRole) {
+  const needsOnboarding = !derivedRole || 
+    (derivedRole === 'tenant' && dbUser && (!dbUser.current_property_id || !dbUser.current_unit_id));
+
+  if (needsOnboarding) {
     if (location.pathname !== '/onboarding') {
       return <Navigate to="/onboarding" replace />;
     }

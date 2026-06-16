@@ -29,11 +29,23 @@ const enforcePropertyScope = async (req, res, next) => {
   if (['super_admin', 'admin'].includes(req.user.role)) return next();
   const propertyId = req.params.propertyId || req.params.id || req.body.property_id;
   if (req.user.role === 'agent' && propertyId) {
-    const isAssigned = req.user.assigned_property_ids?.some(id => id.toString() === propertyId);
-    if (!isAssigned) {
-      logger.warn('Agent scope denied', { userId: req.user._id, propertyId });
-      return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not assigned to agent' } });
+    if (req.user.agent_allow_all_areas) return next();
+
+    const hasAssignments = (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) ||
+                           (req.user.assigned_areas && req.user.assigned_areas.length > 0);
+    if (!hasAssignments) return next();
+
+    const isAssigned = req.user.assigned_property_ids?.some(id => id.toString() === propertyId.toString());
+    if (isAssigned) return next();
+
+    const property = await Property.findById(propertyId).lean();
+    if (property && property.address?.area) {
+      const inAssignedArea = req.user.assigned_areas?.some(area => new RegExp(`^${area}$`, 'i').test(property.address.area));
+      if (inAssignedArea) return next();
     }
+
+    logger.warn('Agent scope denied', { userId: req.user._id, propertyId });
+    return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not assigned to agent and not in assigned areas' } });
   }
   if (req.user.role === 'tenant' && propertyId) {
     if (req.user.current_property_id?.toString() !== propertyId) {
