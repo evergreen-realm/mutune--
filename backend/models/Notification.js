@@ -7,6 +7,10 @@ const notificationSchema = new mongoose.Schema({
   title: { type: String, required: true },
   message: { type: String, required: true },
   related_entity_id: { type: mongoose.Schema.Types.ObjectId },
+  property_name: String,
+  property_area: String,
+  property_tier_name: String,
+  property_rent: Number,
   read_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   created_at: { type: Date, default: Date.now }
 });

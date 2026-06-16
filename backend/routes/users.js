@@ -8,7 +8,7 @@ const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
 
-router.get('/debug-role/:email', async (req, res) => {
+router.get('/debug-role/:email', requireAuth, requireRole(['super_admin']), async (req, res) => {
   try {
     const { clerkClient } = require('@clerk/clerk-sdk-node');
     if (req.params.email === 'all') {

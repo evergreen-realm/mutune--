@@ -72,12 +72,18 @@ function AppShell() {
   const location = useLocation();
 
   const handleLogout = (options = {}) => {
-    sessionStorage.removeItem('mutunet_admin_verified');
-    sessionStorage.removeItem('mutune_admin_verified');
-    if (dbUser?._id) {
-      sessionStorage.removeItem(`role_verified_${dbUser._id}`);
-      localStorage.removeItem(`mutunerent_verified_id_${dbUser._id}`);
-    }
+    // Clear all verification keys from both storages (OWASP A01 - clean logout)
+    ['sessionStorage', 'localStorage'].forEach(storeName => {
+      const store = window[storeName];
+      const keysToRemove = [];
+      for (let i = 0; i < store.length; i++) {
+        const key = store.key(i);
+        if (key && (key.startsWith('mutunerent_verified_id_') || key.startsWith('role_verified_') || key.startsWith('mutunet_') || key.startsWith('mutune_admin'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => store.removeItem(k));
+    });
     signOut(options);
   };
 
@@ -542,8 +548,12 @@ function AppShell() {
               <MapPin size={14} className="text-red-500" /> Mombasa, KE
             </span>
             <span className="hidden sm:inline text-xs text-gray-200">|</span>
-            <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2 py-0.5 rounded">
-              Lipa Na M-Pesa Sandbox Active
+            <span className={`hidden sm:inline text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+              import.meta.env.VITE_MPESA_ENV === 'production' 
+                ? 'text-emerald-700 bg-emerald-50' 
+                : 'text-amber-700 bg-amber-50'
+            }`}>
+              {import.meta.env.VITE_MPESA_ENV === 'production' ? 'M-Pesa Live ✓' : 'M-Pesa Sandbox'}
             </span>
           </div>
 
@@ -715,17 +725,18 @@ function AppShell() {
           <Routes>
             <Route path="/" element={
               derivedRole === 'tenant' ? <TenantPortalPage /> :
-              derivedRole === 'landlord' ? <LandlordDashboardPage /> :
+              derivedRole === 'landlord' ? <LandlordDashboardPage dbUser={dbUser} /> :
               derivedRole === 'agent' ? <AgentPerformancePage dbUser={dbUser} /> :
+              (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage /> :
               <DashboardPage />
             } />
-            <Route path="/properties"     element={<PropertiesPage />} />
+            <Route path="/properties"     element={<PropertiesPage dbUser={dbUser} />} />
             <Route path="/properties/add" element={
-              derivedRole === 'landlord' ? <LandlordAddPropertyPage /> :
-              <AddPropertyPage />
+              derivedRole === 'landlord' ? <LandlordAddPropertyPage dbUser={dbUser} /> :
+              <AddPropertyPage dbUser={dbUser} />
             } />
-            <Route path="/properties/add-landlord" element={<LandlordAddPropertyPage />} />
-            <Route path="/properties/:id" element={<PropertyDetailPage />} />
+            <Route path="/properties/add-landlord" element={<LandlordAddPropertyPage dbUser={dbUser} />} />
+            <Route path="/properties/:id" element={<PropertyDetailPage dbUser={dbUser} />} />
             <Route path="/tenants"        element={<TenantsPage />} />
             <Route path="/payments"       element={<PaymentsPage />} />
             <Route path="/maintenance"    element={<MaintenancePage />} />

@@ -416,7 +416,11 @@ router.get('/my/notices', requireAuth, requirePermission('view:notices'), async 
 router.get('/my/profile', requireAuth, requirePermission('view:own_unit'), async (req, res, next) => {
   try {
     const tenant = await Tenant.findOne({ user_id: req.user._id })
-      .populate('current_property_id', 'name property_code address')
+      .populate({
+        path: 'current_property_id',
+        select: 'name property_code address tier_id',
+        populate: { path: 'tier_id', select: 'name' }
+      })
       .lean();
     if (!tenant) {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Tenant profile not found' } });

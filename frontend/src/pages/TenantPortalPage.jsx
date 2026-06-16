@@ -110,17 +110,33 @@ export default function TenantPortalPage() {
   const lastPayment = payments.find(p => p.status === 'confirmed') || payments[0] || null;
   const arrears     = Number(profile?.arrears_kes || 0);
   const rent        = Number(profile?.rent_amount_kes || 0);
-  const unread      = notifs.filter(n => !n.read_by?.includes(clerkUser?.id)).length;
+  const myDbUserId  = profile?.user_id;
+  const unread      = notifs.filter(n => !n.read_by?.includes(myDbUserId)).length;
+
+  const approvedPropertyNotifs = notifs.filter(n => {
+    if (n.type !== 'property_approval') return false;
+    if (n.recipient_role !== 'tenant') return false;
+
+    const tenantArea = profile?.current_property_id?.address?.area;
+    const tenantTierName = profile?.current_property_id?.tier_id?.name;
+    
+    const matchArea = tenantArea && n.property_area && tenantArea.toLowerCase() === n.property_area.toLowerCase();
+    const matchTier = tenantTierName && n.property_tier_name && tenantTierName.toLowerCase() === n.property_tier_name.toLowerCase();
+    
+    return matchArea || matchTier;
+  });
 
   const handleMarkAllRead = async () => {
     await markAllNotifsRead().catch(() => {});
-    setNotifs(prev => prev.map(n => ({ ...n, read_by: [...(n.read_by || []), clerkUser?.id] })));
+    if (myDbUserId) {
+      setNotifs(prev => prev.map(n => ({ ...n, read_by: [...(n.read_by || []), myDbUserId] })));
+    }
   };
 
   const handleNotifClick = async (notif) => {
-    if (!notif.read_by?.includes(clerkUser?.id)) {
+    if (myDbUserId && !notif.read_by?.includes(myDbUserId)) {
       await markNotifRead(notif._id).catch(() => {});
-      setNotifs(prev => prev.map(n => n._id === notif._id ? { ...n, read_by: [...(n.read_by || []), clerkUser?.id] } : n));
+      setNotifs(prev => prev.map(n => n._id === notif._id ? { ...n, read_by: [...(n.read_by || []), myDbUserId] } : n));
     }
   };
 
@@ -186,7 +202,77 @@ export default function TenantPortalPage() {
 
       <div style={{ position: 'relative', zIndex: 1, padding: '24px', maxWidth: 1100, margin: '0 auto' }}>
 
-        {/* ── HERO HERO CARD ── */}
+        {/* ── NEW PROPERTY ALERTS ── */}
+        {myDbUserId && approvedPropertyNotifs.filter(n => !n.read_by?.includes(myDbUserId)).map(n => (
+          <div key={n._id} style={{
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(99,102,241,0.15) 100%)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(16,185,129,0.3)',
+            borderRadius: 16,
+            padding: '16px 24px',
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 8px 32px rgba(16,185,129,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: 10,
+                background: 'rgba(16,185,129,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <Star size={18} style={{ color: '#34d399' }} />
+              </div>
+              <p style={{ color: '#fff', fontSize: 13, fontWeight: 500, margin: 0 }}>
+                New property listed: <strong style={{ color: '#34d399' }}>{n.property_name}</strong> in <strong>{n.property_area}</strong> – Tier: <strong>{n.property_tier_name}</strong> – Rent: <strong>{FMT_KES(n.property_rent)}</strong>
+              </p>
+            </div>
+            <button onClick={() => handleNotifClick(n)} style={{
+              background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(255,255,255,0.6)',
+              borderRadius: 8, padding: 6, cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', flexShrink: 0
+            }} title="Dismiss">
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+
+        {/* ── ARREARS / LATE FEE WARNING BANNER ── */}
+        {arrears > 0 && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(239,68,68,0.2) 0%, rgba(245,158,11,0.15) 100%)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(239,68,68,0.4)',
+            borderRadius: 16, padding: '16px 24px',
+            marginBottom: 20,
+            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+            boxShadow: '0 8px 32px rgba(239,68,68,0.15)'
+          }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <AlertTriangle size={20} style={{ color: '#f87171' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ color: '#fca5a5', fontSize: 13, fontWeight: 800, marginBottom: 2 }}>⚠ Rent Arrears Outstanding</p>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
+                You have <strong style={{ color: '#fbbf24' }}>{FMT_KES(arrears)}</strong> in outstanding arrears. Late fees may apply. Please settle your balance promptly to avoid service interruption.
+              </p>
+            </div>
+            <button
+              onClick={handlePayRent}
+              disabled={paying}
+              style={{
+                padding: '8px 18px', background: paying ? 'rgba(239,68,68,0.3)' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff', border: 'none', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                cursor: paying ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                boxShadow: '0 4px 14px rgba(239,68,68,0.4)'
+              }}
+            >
+              {paying ? 'Initiating…' : 'Pay Now (M-Pesa)'}
+            </button>
+          </div>
+        )}
+
+        {/* ── HERO CARD ── */}
         <div style={{
           borderRadius: 24, overflow: 'hidden', marginBottom: 28,
           background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.2) 50%, rgba(16,185,129,0.15) 100%)',
@@ -407,7 +493,7 @@ export default function TenantPortalPage() {
             ) : (
               <div>
                 {payments.map(p => (
-                  <div key={p._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div key={p._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                       <div style={{
                         width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -418,13 +504,53 @@ export default function TenantPortalPage() {
                       <div>
                         <p style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{FMT_KES(p.amount_kes)}</p>
                         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                          {p.mpesa_code ? `M-Pesa: ${p.mpesa_code}` : 'Manual entry'} · {FMT_DATE(p.created_at)}
+                          {p.mpesa_code ? `M-Pesa Ref: ${p.mpesa_code}` : p.transaction_id ? `Ref: ${p.transaction_id}` : 'Manual entry'} · {FMT_DATE(p.created_at)}
                         </p>
                       </div>
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 100, textTransform: 'capitalize', background: p.status === 'confirmed' ? 'rgba(16,185,129,0.2)' : 'rgba(251,191,36,0.2)', color: p.status === 'confirmed' ? '#34d399' : '#fbbf24', border: `1px solid ${p.status === 'confirmed' ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.3)'}` }}>
-                      {p.status}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 100, textTransform: 'capitalize', background: p.status === 'confirmed' ? 'rgba(16,185,129,0.2)' : 'rgba(251,191,36,0.2)', color: p.status === 'confirmed' ? '#34d399' : '#fbbf24', border: `1px solid ${p.status === 'confirmed' ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.3)'}` }}>
+                        {p.status}
+                      </span>
+                      {p.status === 'confirmed' && (
+                        <button
+                          title="Download Receipt"
+                          onClick={() => {
+                            const content = [
+                              'MutuneRent Pro — Payment Receipt',
+                              '='.repeat(40),
+                              `Date:        ${FMT_DATE(p.created_at)}`,
+                              `Amount:      ${FMT_KES(p.amount_kes)}`,
+                              `M-Pesa Ref:  ${p.mpesa_code || p.transaction_id || 'N/A'}`,
+                              `Type:        ${p.payment_type || 'Rent'}`,
+                              `Status:      CONFIRMED ✓`,
+                              `Unit:        ${propertyName} — Unit ${unitNumber}`,
+                              `Tenant:      ${tenantName}`,
+                              '',
+                              'This is an official payment receipt from Mutune Estate Agency.',
+                              'For queries: mutunerentz@gmail.com'
+                            ].join('\n');
+                            const blob = new Blob([content], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `MutuneRent_Receipt_${p.mpesa_code || p._id?.slice(-6) || 'pay'}.txt`;
+                            document.body.appendChild(a); a.click(); a.remove();
+                            URL.revokeObjectURL(url);
+                            toast.success('Receipt downloaded!');
+                          }}
+                          style={{
+                            background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)',
+                            color: '#34d399', borderRadius: 8, padding: '5px 10px',
+                            fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          ↓ Receipt
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -521,7 +647,7 @@ export default function TenantPortalPage() {
                   <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>No notifications yet</p>
                 </div>
               ) : notifs.map(n => {
-                const isRead = n.read_by?.includes(clerkUser?.id);
+                const isRead = myDbUserId && n.read_by?.includes(myDbUserId);
                 return (
                   <div key={n._id} onClick={() => handleNotifClick(n)} style={{
                     padding: '14px 24px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)',

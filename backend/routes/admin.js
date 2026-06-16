@@ -331,6 +331,7 @@ router.get('/agent-performance',
 const Notification = require('../models/Notification');
 const LateFeeRule = require('../models/LateFeeRule');
 const { sendEmail } = require('../services/email');
+const smsService = require('../services/sms');
 
 /**
  * GET /api/v1/admin/agents/pending
@@ -999,6 +1000,31 @@ router.patch('/properties/:id/verify-tier',
               logger.warn('SMS notification failed for property approval', { message: smsErr.message });
             }
           }
+        }
+
+        // Notify tenants about new property
+        try {
+          const PropertyTier = require('../models/PropertyTier');
+          const tierObj = await PropertyTier.findById(approvedTierId).lean();
+          const tierName = tierObj ? tierObj.name : 'Unknown';
+          const startingRent = property.units && property.units.length > 0
+            ? Math.min(...property.units.map(u => u.rent_kes || 0))
+            : 0;
+
+          await Notification.create({
+            type: 'property_approval',
+            recipient_role: 'tenant',
+            recipient_ids: [],
+            title: 'New Property Available',
+            message: `New property listed: ${property.name} in ${property.address?.area || ''} – Tier: ${tierName} – Rent: KES ${startingRent}`,
+            related_entity_id: property._id,
+            property_name: property.name,
+            property_area: property.address?.area || '',
+            property_tier_name: tierName,
+            property_rent: startingRent
+          });
+        } catch (notifErr) {
+          logger.warn('Failed to create tenant notification for property approval', { message: notifErr.message });
         }
 
         logger.info('Property tier approved by admin', { propertyId: property._id, tierId: approvedTierId, by: req.user._id });
