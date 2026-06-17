@@ -633,8 +633,9 @@ router.post('/verify-password',
       }
       
       const bcrypt = require('bcryptjs');
+      const { getAdminPassword } = require('../utils/security');
       if (!user.admin_hardcoded_hash) {
-        const defaultPassword = process.env.ADMIN_HARDCODED_PASSWORD || process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+        const defaultPassword = getAdminPassword();
         user.admin_hardcoded_hash = await bcrypt.hash(defaultPassword, 10);
         await user.save();
       }

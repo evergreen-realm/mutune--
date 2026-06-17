@@ -40,7 +40,9 @@ const enforcePropertyScope = async (req, res, next) => {
 
     const property = await Property.findById(propertyId).lean();
     if (property && property.address?.area) {
-      const inAssignedArea = req.user.assigned_areas?.some(area => new RegExp(`^${area}$`, 'i').test(property.address.area));
+      const inAssignedArea = req.user.assigned_areas?.some(
+        area => area.toLowerCase() === property.address.area.toLowerCase()
+      );
       if (inAssignedArea) return next();
     }
 

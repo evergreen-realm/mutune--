@@ -1,36 +1,49 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 export function Skeleton({ className, ...props }) {
   return (
-    <div
-      className={`animate-pulse rounded bg-gray-200/80 ${className}`}
+    <motion.div
+      className={`rounded bg-gray-200/80 ${className}`}
+      animate={{ opacity: [0.5, 1, 0.5] }}
+      transition={{
+        duration: 1.5,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
       {...props}
     />
   );
 }
 
+export function SkeletonText({ className, width = 'w-full', height = 'h-4', ...props }) {
+  return (
+    <Skeleton className={`${height} ${width} ${className}`} {...props} />
+  );
+}
+
 export function SkeletonCard() {
   return (
-    <div className="bg-white rounded-lg border p-4 animate-pulse">
-      <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
-      <div className="h-8 bg-gray-200 rounded w-2/3 mb-2" />
-      <div className="h-3 bg-gray-200 rounded w-full" />
+    <div className="bg-white rounded-lg border p-4">
+      <SkeletonText width="w-1/3" className="mb-3" />
+      <SkeletonText width="w-2/3" height="h-8" className="mb-2" />
+      <SkeletonText className="w-full" height="h-3" />
     </div>
   );
 }
 
 export function SkeletonTable({ rows = 5 }) {
   return (
-    <div className="bg-white rounded-lg border overflow-hidden animate-pulse">
+    <div className="bg-white rounded-lg border overflow-hidden">
       <div className="bg-gray-50 p-4 border-b">
-        <div className="h-4 bg-gray-200 rounded w-1/4" />
+        <SkeletonText width="w-1/4" />
       </div>
       {[...Array(rows)].map((_, i) => (
         <div key={i} className="p-4 border-b last:border-0 flex gap-4">
-          <div className="h-4 bg-gray-200 rounded w-24" />
-          <div className="h-4 bg-gray-200 rounded w-48" />
-          <div className="h-4 bg-gray-200 rounded w-32" />
-          <div className="h-4 bg-gray-200 rounded w-16 ml-auto" />
+          <SkeletonText width="w-24" />
+          <SkeletonText width="w-48" />
+          <SkeletonText width="w-32" />
+          <SkeletonText width="w-16" className="ml-auto" />
         </div>
       ))}
     </div>
@@ -38,7 +51,7 @@ export function SkeletonTable({ rows = 5 }) {
 }
 
 export function SkeletonMap() {
-  return <div className="h-96 bg-gray-100 rounded-lg animate-pulse" />;
+  return <Skeleton className="h-96 w-full rounded-lg" />;
 }
 
 export function StatCardSkeleton() {
@@ -46,9 +59,9 @@ export function StatCardSkeleton() {
     <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <Skeleton className="h-5 w-5 rounded-full" />
-        <Skeleton className="h-4 w-24" />
+        <SkeletonText width="w-24" />
       </div>
-      <Skeleton className="h-8 w-16 mt-1" />
+      <SkeletonText width="w-16" height="h-8" className="mt-1" />
     </div>
   );
 }
@@ -66,7 +79,7 @@ export function TableSkeleton({ rows = 5, cols = 5 }) {
           <tr className="bg-gray-50/50">
             {Array.from({ length: cols }).map((_, i) => (
               <th key={i} className="p-4">
-                <Skeleton className="h-4 w-16" />
+                <SkeletonText width="w-16" />
               </th>
             ))}
           </tr>
@@ -90,7 +103,7 @@ export function TableSkeleton({ rows = 5, cols = 5 }) {
 export function MapSkeleton() {
   return (
     <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm overflow-hidden h-[400px] flex flex-col gap-3">
-      <Skeleton className="h-5 w-48" />
+      <SkeletonText width="w-48" />
       <Skeleton className="h-[330px] rounded-lg w-full" />
     </div>
   );
@@ -101,3 +114,4 @@ export default function SkeletonLoader({ type = 'card', ...props }) {
   if (type === 'map') return <SkeletonMap {...props} />;
   return <SkeletonCard {...props} />;
 }
+

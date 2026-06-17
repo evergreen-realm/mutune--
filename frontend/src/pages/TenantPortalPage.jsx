@@ -178,6 +178,78 @@ export default function TenantPortalPage() {
       </div>
     );
   }
+  
+  // Pending verification check
+  if (profile?.tenancy_status === 'pending') {
+    const matchedUnit = profile?.current_property_id?.units?.find(
+      u => u._id?.toString() === profile?.current_unit_id?.toString()
+    );
+    const unitNo = matchedUnit ? matchedUnit.unit_number : 'N/A';
+    const propertyName = profile?.current_property_id?.name || 'Your Property';
+    const propertyCode = profile?.current_property_id?.property_code || 'N/A';
+    const tierName = profile?.current_property_id?.tier_id?.name || 'Standard';
+    
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 text-white"
+        style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)' }}>
+        <div className="w-full max-w-xl bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl text-center space-y-6 relative overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="mx-auto w-16 h-16 bg-amber-500/15 rounded-2xl flex items-center justify-center border border-amber-500/30">
+            <Clock className="w-8 h-8 text-amber-400 animate-pulse" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">Registration Awaiting Approval</h1>
+            <p className="text-sm text-slate-400">
+              Your tenant profile has been submitted and is currently pending verification.
+            </p>
+          </div>
+
+          <div className="border border-slate-800 rounded-2xl bg-slate-950/40 p-5 text-left space-y-3.5">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lease Details Summary</h2>
+            <div className="grid grid-cols-2 gap-y-3.5 gap-x-4 text-xs">
+              <div>
+                <span className="text-slate-500 block">Tenant Code</span>
+                <span className="text-white font-mono font-bold">{profile.tenant_code}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block">Assigned Rent</span>
+                <span className="text-white font-bold">{FMT_KES(profile.rent_amount_kes)} / month</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block">Property & Unit</span>
+                <span className="text-white font-bold">{propertyName} — Unit {unitNo}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block">Property Code & Tier</span>
+                <span className="text-white font-bold">{propertyCode} ({tierName})</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 text-left flex gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-amber-300">Next Steps</p>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Once Mutune Estate Agency approves your tenancy, you will receive a registration email at <strong className="text-white">{profile.email || clerkUser?.emailAddresses?.[0]?.emailAddress}</strong> instructing you to make your rent payment of <strong className="text-white">{FMT_KES(profile.rent_amount_kes)}</strong> via the portal.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => { clerkUser && window.Clerk.signOut(); }}
+              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
+            >
+              Sign Out / Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const unitNumber = profile?.unit_number || profile?.unit_id || 'N/A';
   const propertyName = profile?.current_property_id?.name || 'Your Property';

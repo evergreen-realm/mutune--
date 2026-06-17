@@ -35,8 +35,24 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
     }
   }, [value, onChange, multiple]);
 
+  const onDropRejected = useCallback((fileRejections) => {
+    fileRejections.forEach((rejection) => {
+      const { file, errors } = rejection;
+      errors.forEach((err) => {
+        if (err.code === 'file-invalid-type') {
+          toast.error(`File "${file.name}" has an invalid type. Only JPEG, PNG, WEBP, or PDF are allowed.`);
+        } else if (err.code === 'file-too-large') {
+          toast.error(`File "${file.name}" is too large. Max size is 5MB.`);
+        } else {
+          toast.error(`Failed to upload "${file.name}": ${err.message}`);
+        }
+      });
+    });
+  }, []);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp'],
       'application/pdf': ['.pdf']
@@ -185,7 +201,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
       {value && value.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
           {value.map((url, idx) => {
-            const isPdf = url.toLowerCase().endsWith('.pdf');
+            const isPdf = url && typeof url === 'string' && url.toLowerCase().endsWith('.pdf');
             return (
               <div key={url + idx} className="relative group border border-slate-200 rounded-xl overflow-hidden aspect-video bg-slate-100 flex items-center justify-center shadow-sm">
                 {isPdf ? (

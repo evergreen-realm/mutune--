@@ -63,6 +63,9 @@ export default function OnboardingPage() {
   const [landlordDocUrl,   setLandlordDocUrl]   = useState('');
   const [assignedAreas,    setAssignedAreas]    = useState([]);
   const [tenantCode,       setTenantCode]       = useState('');
+  const [selectedUnitId,   setSelectedUnitId]   = useState('');
+  const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [tenantRegMethod,  setTenantRegMethod]  = useState('code'); // 'code' or 'select'
   const [submitting,       setSubmitting]       = useState(false);
 
   // Fetch vacant units only when tenant role is selected
@@ -131,9 +134,20 @@ export default function OnboardingPage() {
       }
     }
     if (role === 'tenant') {
-      if (!tenantCode.trim()) {
-        toast.error('Tenant Code is required.');
-        return;
+      if (tenantRegMethod === 'code') {
+        if (!tenantCode.trim()) {
+          toast.error('Tenant Code is required.');
+          return;
+        }
+      } else {
+        if (!selectedPropertyId) {
+          toast.error('Please select a property.');
+          return;
+        }
+        if (!selectedUnitId) {
+          toast.error('Please select a unit.');
+          return;
+        }
       }
     }
 
@@ -152,7 +166,12 @@ export default function OnboardingPage() {
       }
 
       if (role === 'tenant') {
-        payload.tenant_code = tenantCode.trim();
+        if (tenantRegMethod === 'code') {
+          payload.tenant_code = tenantCode.trim();
+        } else {
+          payload.property_id = selectedPropertyId;
+          payload.unit_id = selectedUnitId;
+        }
       }
 
       await updateUserRole(payload);
@@ -333,28 +352,119 @@ export default function OnboardingPage() {
                   </div>
                 )}
 
-                {/* Tenant: pre-created Tenant Code input */}
+                {/* Tenant: toggle between code link or vacant units list selection */}
                 {role === 'tenant' && (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Home className="w-4 h-4 text-green-400" />
-                      <label className="block text-slate-300 text-xs font-semibold">
-                        Enter Tenant Code <span className="text-red-400">*</span>
-                      </label>
+                    <div className="flex rounded-xl bg-slate-950/40 p-1 border border-slate-800/85 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => { setTenantRegMethod('code'); setSelectedPropertyId(''); setSelectedUnitId(''); }}
+                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                          tenantRegMethod === 'code'
+                            ? 'bg-green-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Use Tenant Code
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setTenantRegMethod('select'); setTenantCode(''); }}
+                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                          tenantRegMethod === 'select'
+                            ? 'bg-green-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        Select Property & Unit
+                      </button>
                     </div>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Please enter the Tenant Code (e.g. TNT-MOM-0001) provided by your property agent to link your account to your property and unit.
-                    </p>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={tenantCode}
-                        onChange={e => setTenantCode(e.target.value.toUpperCase())}
-                        placeholder="TNT-MOM-XXXX"
-                        className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white placeholder:text-slate-600 rounded-xl px-4 py-3 text-sm outline-none transition uppercase font-mono"
-                        required
-                      />
-                    </div>
+
+                    {tenantRegMethod === 'code' ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Home className="w-4 h-4 text-green-400" />
+                          <label className="block text-slate-300 text-xs font-semibold">
+                            Enter Tenant Code <span className="text-red-400">*</span>
+                          </label>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Please enter the Tenant Code (e.g. TNT-MOM-0001) provided by your property agent to link your account.
+                        </p>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={tenantCode}
+                            onChange={e => setTenantCode(e.target.value.toUpperCase())}
+                            placeholder="TNT-MOM-XXXX"
+                            className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white placeholder:text-slate-600 rounded-xl px-4 py-3 text-sm outline-none transition uppercase font-mono"
+                            required
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Home className="w-4 h-4 text-green-400" />
+                          <label className="block text-slate-300 text-xs font-semibold">
+                            Choose Property and Unit
+                          </label>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Select from the list of currently registered properties and vacant units.
+                        </p>
+
+                        <div>
+                          <label className="block text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">Select Property</label>
+                          <select
+                            value={selectedPropertyId}
+                            onChange={(e) => {
+                              setSelectedPropertyId(e.target.value);
+                              setSelectedUnitId('');
+                            }}
+                            className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
+                          >
+                            <option value="" className="bg-slate-900 text-white">Choose property...</option>
+                            {(() => {
+                              const seen = new Set();
+                              const propsList = [];
+                              vacantUnits.forEach(u => {
+                                if (!seen.has(u.propertyId)) {
+                                  seen.add(u.propertyId);
+                                  propsList.push({ id: u.propertyId, name: u.propertyName, code: u.propertyCode, area: u.area });
+                                }
+                              });
+                              return propsList.map(p => (
+                                <option key={p.id} value={p.id} className="bg-slate-900 text-white">
+                                  {p.name} ({p.code}) — {p.area}
+                                </option>
+                              ));
+                            })()}
+                          </select>
+                        </div>
+
+                        {selectedPropertyId && (
+                          <div>
+                            <label className="block text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">Select Unit</label>
+                            <select
+                              value={selectedUnitId}
+                              onChange={(e) => setSelectedUnitId(e.target.value)}
+                              className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
+                            >
+                              <option value="" className="bg-slate-900 text-white">Choose unit...</option>
+                              {vacantUnits
+                                .filter(u => u.propertyId === selectedPropertyId)
+                                .map(u => (
+                                  <option key={u.unitId} value={u.unitId} className="bg-slate-900 text-white">
+                                    Unit {u.unitNumber} — {u.type} (KES {u.rentAmount.toLocaleString()})
+                                  </option>
+                                ))
+                              }
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

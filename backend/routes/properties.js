@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { requirePermission, requireRole, enforcePropertyScope } = require('../middleware/rbac');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
+const { escapeRegExp } = require('../utils/security');
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 const validate = (req, res) => {
@@ -35,7 +36,7 @@ router.get('/', requireAuth, async (req, res, next) => {
           orConditions.push({ _id: { $in: req.user.assigned_property_ids } });
         }
         if (req.user.assigned_areas && req.user.assigned_areas.length > 0) {
-          const regexes = req.user.assigned_areas.map(area => new RegExp(`^${area}$`, 'i'));
+          const regexes = req.user.assigned_areas.map(area => new RegExp(`^${escapeRegExp(area)}$`, 'i'));
           orConditions.push({ 'address.area': { $in: regexes } });
         }
         if (orConditions.length > 0) {
@@ -116,7 +117,6 @@ router.get('/nearby',
 // ─── GET /properties/units/vacant ───────────────────────────────────────────────────
 router.get('/units/vacant',
   requireAuth,
-  requireRole(['admin', 'super_admin', 'agent', 'tenant', 'landlord']),
   async (req, res, next) => {
     try {
       const vacantFilter = { 'units.status': 'vacant' };
@@ -130,7 +130,7 @@ router.get('/units/vacant',
             orConditions.push({ _id: { $in: req.user.assigned_property_ids } });
           }
           if (req.user.assigned_areas && req.user.assigned_areas.length > 0) {
-            const regexes = req.user.assigned_areas.map(area => new RegExp(`^${area}$`, 'i'));
+            const regexes = req.user.assigned_areas.map(area => new RegExp(`^${escapeRegExp(area)}$`, 'i'));
             orConditions.push({ 'address.area': { $in: regexes } });
           }
           if (orConditions.length > 0) {
@@ -139,27 +139,27 @@ router.get('/units/vacant',
             vacantFilter._id = null;
           }
         }
+      } else if (req.user.role === 'landlord') {
+        vacantFilter.landlord_id = req.user._id;
       }
 
-      const properties = await Property.find(vacantFilter)
-        .select('name property_code address units')
-        .lean();
-
-      const vacantUnits = properties.flatMap(p =>
-        p.units
-          .filter(u => u.status === 'vacant')
-          .map(u => ({
-            propertyId:   p._id,
-            propertyName: p.name,
-            propertyCode: p.property_code,
-            area:         p.address?.area || '',
-            unitId:       u._id,
-            unitNumber:   u.unit_number,
-            rentAmount:   u.rent_kes,
-            bedrooms:     u.bedrooms,
-            type:         u.type || 'unit'
-          }))
-      );
+      const vacantUnits = await Property.aggregate([
+        { $match: vacantFilter },
+        { $unwind: '$units' },
+        { $match: { 'units.status': 'vacant' } },
+        { $project: {
+            _id: 0,
+            propertyId: '$_id',
+            propertyName: '$name',
+            propertyCode: '$property_code',
+            area: '$address.area',
+            unitId: '$units._id',
+            unitNumber: '$units.unit_number',
+            rentAmount: '$units.rent_kes',
+            bedrooms: '$units.bedrooms',
+            type: { $ifNull: ['$units.type', 'unit'] }
+        }}
+      ]);
 
       res.json({ success: true, data: vacantUnits, total: vacantUnits.length });
     } catch (error) {
@@ -729,7 +729,7 @@ router.patch('/:id/agent-review',
 
       if (req.user.role === 'agent') {
         const isAssigned = req.user.assigned_property_ids?.some(id => id.toString() === property._id.toString());
-        const inAssignedArea = req.user.assigned_areas?.some(area => new RegExp(`^${area}$`, 'i').test(property.address?.area));
+        const inAssignedArea = req.user.assigned_areas?.some(area => property.address?.area && area.toLowerCase() === property.address.area.toLowerCase());
         if (!isAssigned && !inAssignedArea) {
           logger.warn('Agent review scope denied', { userId: req.user._id, propertyId: property._id });
           return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'You are not authorized to review this property or its area' } });

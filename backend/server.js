@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const logger = require('./utils/logger');
 const { initSentry } = require('./utils/sentry');
+const mongoSanitize = require('./middleware/sanitize');
 
 initSentry();
 
@@ -39,7 +40,7 @@ app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (mobile apps, curl, Render health checks)
     if (!origin) return callback(null, true);
-    const isVercelSubdomain = /^https:\/\/(mutunerent-web|mutune).*\.vercel\.app$/.test(origin);
+    const isVercelSubdomain = /^https:\/\/(mutunerent-web|mutune-alpha)(-.+)?\.vercel\.app$/.test(origin);
     if (ALLOWED_ORIGINS.includes(origin) || isVercelSubdomain) return callback(null, true);
     logger.warn('CORS blocked origin', { origin });
     callback(new Error('Not allowed by CORS: ' + origin));
@@ -56,7 +57,7 @@ app.options('*', cors());
 
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => res.status(429).json({ success: false, error: { code: 'RATE_LIMIT', message: 'Too many requests' } })
@@ -64,6 +65,7 @@ app.use(rateLimit({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(mongoSanitize);
 
 app.get('/api/v1/health', (req, res) => {
   res.status(200).json({ success: true, status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' });
@@ -99,9 +101,13 @@ app.use((err, req, res, _next) => {
     });
   }
 
-  res.status(err.status || 500).json({
+  const status = err.status || 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const message = (status >= 500 && isProduction) ? 'Internal server error' : (err.message || 'Internal server error');
+
+  res.status(status).json({
     success: false,
-    error: { code: err.code || 'INTERNAL_ERROR', message: err.message || 'Internal server error' }
+    error: { code: err.code || 'INTERNAL_ERROR', message }
   });
 });
 

@@ -73,7 +73,27 @@ function AddTenantModal({ onClose, onCreated }) {
       toast.error('Please fill all required fields');
       return;
     }
-    const payload = { ...form, rent_amount_kes: parseInt(form.rent_amount_kes, 10) };
+
+    // Sanitize phone number to format 254XXXXXXXXX
+    let sanitizedPhone = form.phone.trim().replace(/\D/g, ''); // keep only digits
+    if (sanitizedPhone.startsWith('0')) {
+      sanitizedPhone = '254' + sanitizedPhone.slice(1);
+    } else if (sanitizedPhone.startsWith('7')) {
+      sanitizedPhone = '254' + sanitizedPhone;
+    } else if (sanitizedPhone.startsWith('2540')) {
+      sanitizedPhone = '254' + sanitizedPhone.slice(4);
+    }
+
+    if (!/^254\d{9}$/.test(sanitizedPhone)) {
+      toast.error('Phone number must be valid Kenyan format (e.g. 2547XXXXXXXX or 07XXXXXXXX)');
+      return;
+    }
+
+    const payload = { 
+      ...form, 
+      phone: sanitizedPhone,
+      rent_amount_kes: parseInt(form.rent_amount_kes, 10) 
+    };
     if (form.deposit_paid_kes) payload.deposit_paid_kes = parseInt(form.deposit_paid_kes, 10);
     if (!form.user_id) delete payload.user_id;
     if (!form.email) delete payload.email;

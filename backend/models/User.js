@@ -39,11 +39,16 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ 'last_location.coordinates': '2dsphere' }, { sparse: true });
 
 const bcrypt = require('bcryptjs');
+const { getAdminPassword } = require('../utils/security');
 
 userSchema.pre('save', async function (next) {
   if (['admin', 'super_admin'].includes(this.role) && !this.admin_hardcoded_hash) {
-    const adminPass = process.env.ADMIN_HARDCODED_PASSWORD || process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
-    this.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+    try {
+      const adminPass = getAdminPassword();
+      this.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+    } catch (err) {
+      return next(err);
+    }
   }
   next();
 });

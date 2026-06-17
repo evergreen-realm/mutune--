@@ -3,6 +3,7 @@ const router   = express.Router();
 const multer   = require('multer');
 const path     = require('path');
 const crypto   = require('crypto');
+const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { uploadImage } = require('../utils/r2');
 const logger   = require('../utils/logger');
@@ -30,6 +31,21 @@ const upload = multer({
   }
 });
 
+const dailyUploadLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 20,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => res.status(429).json({
+    success: false,
+    error: {
+      code: 'UPLOAD_LIMIT_EXCEEDED',
+      message: 'Daily document upload limit reached. You can upload up to 20 documents per day.'
+    }
+  })
+});
+
 /**
  * POST /api/v1/upload/doc
  * Upload a verification document (PDF / image) to Cloudflare R2.
@@ -41,6 +57,7 @@ const upload = multer({
 router.post(
   '/doc',
   requireAuth,
+  dailyUploadLimiter,
   (req, res, next) => {
     upload.single('file')(req, res, (err) => {
       if (err instanceof multer.MulterError) {

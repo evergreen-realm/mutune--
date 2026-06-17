@@ -56,6 +56,8 @@ router.get('/', requireAuth, requirePermission('view:assigned'), async (req, res
 
     const [tenants, total] = await Promise.all([
       Tenant.find(filter)
+        .select('-kyc_documents -guarantor -notes')
+        .slice('payment_history', -1)
         .populate('current_property_id', 'name property_code address')
         .sort({ created_at: -1 })
         .skip(skip)

@@ -7,6 +7,7 @@ const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
+const { getAdminPassword } = require('../utils/security');
 
 router.get('/debug-role/:email', requireAuth, requireRole(['super_admin']), async (req, res) => {
   try {
@@ -77,10 +78,14 @@ router.get('/me', requireAuth, async (req, res, next) => {
 
     if (user && ['admin', 'super_admin'].includes(user.role) && !user.admin_hardcoded_hash) {
       const bcrypt = require('bcryptjs');
-      const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+      const adminPass = getAdminPassword();
       const hash = await bcrypt.hash(adminPass, 10);
       await User.findByIdAndUpdate(user._id, { $set: { admin_hardcoded_hash: hash } });
       user.admin_hardcoded_hash = hash;
+    }
+
+    if (user) {
+      delete user.admin_hardcoded_hash;
     }
 
     res.json({ success: true, data: user });
@@ -140,7 +145,7 @@ router.patch('/me/role',
 
       if (['admin', 'super_admin'].includes(role)) {
         const bcrypt = require('bcryptjs');
-        const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+        const adminPass = getAdminPassword();
         updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
       }
 
@@ -222,7 +227,7 @@ router.patch('/me/role',
                 ? new Date(req.body.lease_end)
                 : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
               rent_amount_kes: req.body.rent_amount_kes || unit.rent_kes || 0,
-              tenancy_status: 'active'
+              tenancy_status: 'pending'
             });
 
             // Mark unit as occupied and link tenant
@@ -511,7 +516,7 @@ router.post('/sync-clerk',
           updateData.landlord_approval_status = clerkRole === 'landlord' ? 'pending' : 'n_a';
           if (['admin', 'super_admin'].includes(clerkRole) && !existing.admin_hardcoded_hash) {
             const bcrypt = require('bcryptjs');
-            const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+            const adminPass = getAdminPassword();
             updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
           }
           logger.info('Syncing role from Clerk to existing user (DB had no role)', { clerkId: clerk_id, newRole: clerkRole });
@@ -543,7 +548,7 @@ router.post('/sync-clerk',
 
       if (['admin', 'super_admin'].includes(initialRole)) {
         const bcrypt = require('bcryptjs');
-        const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+        const adminPass = getAdminPassword();
         createPayload.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
       }
 
@@ -608,7 +613,7 @@ router.post('/webhook', async (req, res, next) => {
 
         if (['admin', 'super_admin'].includes(role)) {
           const bcrypt = require('bcryptjs');
-          const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+          const adminPass = getAdminPassword();
           createPayload.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
         }
 
@@ -626,7 +631,7 @@ router.post('/webhook', async (req, res, next) => {
         const existing = await User.findOne({ clerk_id });
         if (existing && ['admin', 'super_admin'].includes(role) && !existing.admin_hardcoded_hash) {
           const bcrypt = require('bcryptjs');
-          const adminPass = process.env.ADMIN_PASSWORD || 'MutuneAdmin2026!';
+          const adminPass = getAdminPassword();
           updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
         }
       }

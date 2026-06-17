@@ -4,8 +4,9 @@ import { fetchProperties, fetchAdminStats } from '../lib/api';
 import PropertyList from '../components/PropertyList';
 import MapWidget from '../components/MapWidget';
 import { StatCardSkeleton, TableSkeleton, MapSkeleton } from '../components/SkeletonLoader';
-import { Home, Users, DollarSign, ArrowUpRight, TrendingUp, Landmark } from 'lucide-react';
+import { Home, Users, DollarSign, TrendingUp, Landmark, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
+import { Card, EmptyState } from '../components/ui';
 
 const MONTH_LABELS = {
   '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
@@ -110,12 +111,11 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="flex h-96 items-center justify-center border border-dashed border-red-200 rounded-xl bg-red-50 p-8 text-center">
-        <div>
-          <div className="text-red-600 font-semibold mb-2">Failed to retrieve portfolio analytics</div>
-          <p className="text-sm text-red-500 font-mono">{error.error?.message || error.message || 'Connection refused.'}</p>
-        </div>
-      </div>
+      <EmptyState
+        icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+        title="Failed to retrieve portfolio analytics"
+        description={error.error?.message || error.message || 'Connection refused.'}
+      />
     );
   }
 
@@ -123,28 +123,28 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-6">
       {/* Upper stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard
+        <Card.Stat
           icon={<Landmark size={22} className="text-blue-600" />}
           label="Total Properties"
           value={stats?.summary?.totalProperties ?? properties.length}
           subtext="Managed estate portfolio"
           color="blue"
         />
-        <StatCard
+        <Card.Stat
           icon={<Users size={22} className="text-green-600" />}
           label="Active Tenants"
           value={stats?.summary?.totalTenants ?? occupied}
           subtext={`${totalUnits} total units registered`}
           color="green"
         />
-        <StatCard
+        <Card.Stat
           icon={<Home size={22} className="text-amber-600" />}
           label="Vacant Units"
           value={vacant}
           subtext={`${stats?.summary?.occupancyRate ?? 0}% occupancy rate`}
           color="yellow"
         />
-        <StatCard
+        <Card.Stat
           icon={<DollarSign size={22} className="text-emerald-600" />}
           label="Revenue This Month"
           value={`KES ${currentMonthRevenue.toLocaleString('en-KE')}`}
@@ -155,17 +155,17 @@ export default function DashboardPage() {
 
       {/* Visual Analytics graphs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between h-[360px]">
-          <div>
-            <div className="flex justify-between items-center">
-              <h3 className="text-base font-semibold text-gray-800">Rent Collection Trend</h3>
+        <Card className="lg:col-span-2 flex flex-col justify-between h-[360px]" variant="default">
+          <Card.Header
+            title="Rent Collection Trend"
+            subtitle="Confirmed M-Pesa rent collections — last 6 months"
+            badge={
               <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
                 <TrendingUp size={10} /> Live Data
               </span>
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">Confirmed M-Pesa rent collections — last 6 months</p>
-          </div>
-          <div className="h-[260px] w-full mt-4">
+            }
+          />
+          <Card.Body className="h-[260px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
@@ -181,15 +181,15 @@ export default function DashboardPage() {
                 <Area type="monotone" dataKey="revenue" stroke="#16a34a" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" name="Collection (KES)" />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
-        </div>
+          </Card.Body>
+        </Card>
 
-        <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between h-[360px]">
-          <div>
-            <h3 className="text-base font-semibold text-gray-800">Unit Occupancy</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Active vs. vacant units per property</p>
-          </div>
-          <div className="h-[260px] w-full mt-4">
+        <Card className="flex flex-col justify-between h-[360px]" variant="default">
+          <Card.Header
+            title="Unit Occupancy"
+            subtitle="Active vs. vacant units per property"
+          />
+          <Card.Body className="h-[260px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
@@ -201,8 +201,8 @@ export default function DashboardPage() {
                 <Bar dataKey="total" fill="#e5e7eb" name="Capacity" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
+          </Card.Body>
+        </Card>
       </div>
 
       {/* Map widget & details layout */}
@@ -218,34 +218,3 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({ icon, label, value, subtext, color }) {
-  const bgColors = {
-    blue:  'bg-gradient-to-tr from-blue-50 to-indigo-50/20 border-blue-100/60',
-    green: 'bg-gradient-to-tr from-green-50 to-emerald-50/20 border-green-100/60',
-    yellow:'bg-gradient-to-tr from-amber-50 to-orange-50/20 border-amber-100/60',
-    brand: 'bg-gradient-to-tr from-emerald-50 to-green-50/20 border-green-100/60'
-  };
-
-  const textColors = {
-    blue:  'text-indigo-800',
-    green: 'text-emerald-800',
-    yellow:'text-amber-800',
-    brand: 'text-green-800'
-  };
-
-  return (
-    <div className={`p-5 rounded-2xl border shadow-sm backdrop-blur-[2px] transition-all hover:shadow-md hover:scale-[1.01] duration-300 ${bgColors[color]}`}>
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">{label}</span>
-          <div className={`text-2xl font-black ${textColors[color]}`}>{value}</div>
-        </div>
-        <div className="p-2 bg-white/80 rounded-xl shadow-xs border border-gray-100/20">{icon}</div>
-      </div>
-      <div className="text-[11px] text-gray-400 font-medium mt-3 border-t border-gray-100/50 pt-2 flex items-center gap-1">
-        <ArrowUpRight size={12} className="text-green-500" />
-        {subtext}
-      </div>
-    </div>
-  );
-}
