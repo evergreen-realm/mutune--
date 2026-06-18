@@ -198,7 +198,12 @@ function AppShell() {
   }
 
   if (location.pathname === '/onboarding') {
-    return <OnboardingPage />;
+    return (
+      <>
+        <OnboardingPage />
+        <ChatAssistant key={dbUser?._id || 'onboarding'} user={dbUser || user} />
+      </>
+    );
   }
   const fullName = clerkUser?.fullName || clerkUser?.username || 'Property Owner';
   const user = { role: derivedRole, full_name: fullName };
@@ -210,91 +215,97 @@ function AppShell() {
   if (derivedRole === 'agent' && dbUser) {
     if (dbUser.agent_approval_status === 'pending') {
       return (
-        <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
-          <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
-          <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
-          
-          <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
-            <div className="h-16 w-16 mx-auto bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-6">
-              <ShieldCheck size={32} className="animate-pulse" />
-            </div>
+        <>
+          <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
+            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
+            <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
             
-            <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
-              Verification Pending
-            </h1>
-            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              Your Estate Agent registration is undergoing review. The admin team at Mutune Estate Agency is verifying your uploaded verification document.
-            </p>
+            <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
+              <div className="h-16 w-16 mx-auto bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-6">
+                <ShieldCheck size={32} className="animate-pulse" />
+              </div>
+              
+              <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
+                Verification Pending
+              </h1>
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                Your Estate Agent registration is undergoing review. The admin team at Mutune Estate Agency is verifying your uploaded verification document.
+              </p>
 
-            <div className="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl mb-8 text-left font-mono">
-              <div className="flex justify-between items-center text-xs mb-1.5">
-                <span className="text-slate-500 font-medium">Full Name:</span>
-                <span className="text-slate-300 font-semibold">{dbUser.full_name}</span>
+              <div className="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl mb-8 text-left font-mono">
+                <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="text-slate-500 font-medium">Full Name:</span>
+                  <span className="text-slate-300 font-semibold">{dbUser.full_name}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="text-slate-500 font-medium">Email Address:</span>
+                  <span className="text-slate-300 font-semibold">{dbUser.email}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Verification Doc:</span>
+                  <span className={`font-semibold text-xs ${dbUser.earb_verification_doc_url ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {dbUser.earb_verification_doc_url ? '✓ Submitted' : '⚠ Not uploaded'}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-xs mb-1.5">
-                <span className="text-slate-500 font-medium">Email Address:</span>
-                <span className="text-slate-300 font-semibold">{dbUser.email}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-medium">Verification Doc:</span>
-                <span className={`font-semibold text-xs ${dbUser.earb_verification_doc_url ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {dbUser.earb_verification_doc_url ? '✓ Submitted' : '⚠ Not uploaded'}
-                </span>
-              </div>
+
+              <p className="text-[10px] text-slate-500 mb-8 font-medium">
+                We'll send an email to <span className="text-slate-400">{dbUser.email}</span> as soon as your account is approved.
+              </p>
+
+              <button
+                onClick={() => handleLogout()}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
+              >
+                <LogOut size={14} /> Log Out of Account
+              </button>
             </div>
-
-            <p className="text-[10px] text-slate-500 mb-8 font-medium">
-              We'll send an email to <span className="text-slate-400">{dbUser.email}</span> as soon as your account is approved.
-            </p>
-
-            <button
-              onClick={() => handleLogout()}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
-            >
-              <LogOut size={14} /> Log Out of Account
-            </button>
           </div>
-        </div>
+          <ChatAssistant key={dbUser._id + '-agent-pending'} user={dbUser} />
+        </>
       );
     }
 
     if (dbUser.agent_approval_status === 'rejected') {
       return (
-        <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
-          <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-red-500/10 blur-[120px]" />
-          <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-orange-500/10 blur-[120px]" />
-          
-          <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
-            <div className="h-16 w-16 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 text-red-400 mb-6">
-              <X size={32} />
-            </div>
+        <>
+          <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
+            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-red-500/10 blur-[120px]" />
+            <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-orange-500/10 blur-[120px]" />
             
-            <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
-              Application Rejected
-            </h1>
-            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              Unfortunately, your Estate Agent application could not be approved by the admin team.
-            </p>
-
-            <div className="bg-red-500/5 border border-red-500/10 p-5 rounded-2xl mb-8 text-left">
-              <p className="text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1">Reason for Rejection:</p>
-              <p className="text-xs text-slate-300 italic">
-                "{dbUser.agent_rejection_reason || 'No specific reason was provided. Please contact support.'}"
+            <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
+              <div className="h-16 w-16 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 text-red-400 mb-6">
+                <X size={32} />
+              </div>
+              
+              <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
+                Application Rejected
+              </h1>
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                Unfortunately, your Estate Agent application could not be approved by the admin team.
               </p>
+
+              <div className="bg-red-500/5 border border-red-500/10 p-5 rounded-2xl mb-8 text-left">
+                <p className="text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1">Reason for Rejection:</p>
+                <p className="text-xs text-slate-300 italic">
+                  "{dbUser.agent_rejection_reason || 'No specific reason was provided. Please contact support.'}"
+                </p>
+              </div>
+
+              <p className="text-[10px] text-slate-500 mb-8 font-medium">
+                You can contact management or sign out to register using a different role.
+              </p>
+
+              <button
+                onClick={() => handleLogout({ redirectUrl: '/sign-up' })}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
+              >
+                <LogOut size={14} /> Sign Out & Register New Account
+              </button>
             </div>
-
-            <p className="text-[10px] text-slate-500 mb-8 font-medium">
-              You can contact management or sign out to register using a different role.
-            </p>
-
-            <button
-              onClick={() => handleLogout({ redirectUrl: '/sign-up' })}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
-            >
-              <LogOut size={14} /> Sign Out & Register New Account
-            </button>
           </div>
-        </div>
+          <ChatAssistant key={dbUser._id + '-agent-rejected'} user={dbUser} />
+        </>
       );
     }
   }
@@ -302,91 +313,97 @@ function AppShell() {
   if (derivedRole === 'landlord' && dbUser) {
     if (dbUser.landlord_approval_status === 'pending') {
       return (
-        <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
-          <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
-          <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
-          
-          <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
-            <div className="h-16 w-16 mx-auto bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-6">
-              <ShieldCheck size={32} className="animate-pulse" />
-            </div>
+        <>
+          <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
+            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
+            <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
             
-            <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
-              Landlord Verification Pending
-            </h1>
-            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              Your Landlord registration is undergoing review. The admin team at Mutune Estate Agency is verifying your uploaded verification documents.
-            </p>
+            <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
+              <div className="h-16 w-16 mx-auto bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-6">
+                <ShieldCheck size={32} className="animate-pulse" />
+              </div>
+              
+              <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
+                Landlord Verification Pending
+              </h1>
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                Your Landlord registration is undergoing review. The admin team at Mutune Estate Agency is verifying your uploaded verification documents.
+              </p>
 
-            <div className="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl mb-8 text-left font-mono">
-              <div className="flex justify-between items-center text-xs mb-1.5">
-                <span className="text-slate-500 font-medium">Full Name:</span>
-                <span className="text-slate-300 font-semibold">{dbUser.full_name}</span>
+              <div className="bg-slate-950/40 border border-slate-800/50 p-4 rounded-2xl mb-8 text-left font-mono">
+                <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="text-slate-500 font-medium">Full Name:</span>
+                  <span className="text-slate-300 font-semibold">{dbUser.full_name}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs mb-1.5">
+                  <span className="text-slate-500 font-medium">Email Address:</span>
+                  <span className="text-slate-300 font-semibold">{dbUser.email}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Verification Doc:</span>
+                  <span className={`font-semibold text-xs ${dbUser.landlord_verification_doc_url ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {dbUser.landlord_verification_doc_url ? '✓ Submitted' : '⚠ Not uploaded'}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-xs mb-1.5">
-                <span className="text-slate-500 font-medium">Email Address:</span>
-                <span className="text-slate-300 font-semibold">{dbUser.email}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-500 font-medium">Verification Doc:</span>
-                <span className={`font-semibold text-xs ${dbUser.landlord_verification_doc_url ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {dbUser.landlord_verification_doc_url ? '✓ Submitted' : '⚠ Not uploaded'}
-                </span>
-              </div>
+
+              <p className="text-[10px] text-slate-500 mb-8 font-medium">
+                We'll send an email to <span className="text-slate-400">{dbUser.email}</span> as soon as your account is approved.
+              </p>
+
+              <button
+                onClick={() => handleLogout()}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
+              >
+                <LogOut size={14} /> Log Out of Account
+              </button>
             </div>
-
-            <p className="text-[10px] text-slate-500 mb-8 font-medium">
-              We'll send an email to <span className="text-slate-400">{dbUser.email}</span> as soon as your account is approved.
-            </p>
-
-            <button
-              onClick={() => handleLogout()}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
-            >
-              <LogOut size={14} /> Log Out of Account
-            </button>
           </div>
-        </div>
+          <ChatAssistant key={dbUser._id + '-landlord-pending'} user={dbUser} />
+        </>
       );
     }
 
     if (dbUser.landlord_approval_status === 'rejected') {
       return (
-        <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
-          <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-red-500/10 blur-[120px]" />
-          <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-orange-500/10 blur-[120px]" />
-          
-          <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
-            <div className="h-16 w-16 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 text-red-400 mb-6">
-              <X size={32} />
-            </div>
+        <>
+          <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
+            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-red-500/10 blur-[120px]" />
+            <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-orange-500/10 blur-[120px]" />
             
-            <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
-              Landlord Registration Rejected
-            </h1>
-            <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              Unfortunately, your Landlord registration could not be approved by the admin team.
-            </p>
-
-            <div className="bg-red-500/5 border border-red-500/10 p-5 rounded-2xl mb-8 text-left">
-              <p className="text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1">Status details:</p>
-              <p className="text-xs text-slate-300 italic">
-                Please contact support for more details regarding your registration.
+            <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
+              <div className="h-16 w-16 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 text-red-400 mb-6">
+                <X size={32} />
+              </div>
+              
+              <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-100 font-sans">
+                Landlord Registration Rejected
+              </h1>
+              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                Unfortunately, your Landlord registration could not be approved by the admin team.
               </p>
+
+              <div className="bg-red-500/5 border border-red-500/10 p-5 rounded-2xl mb-8 text-left">
+                <p className="text-[10px] uppercase font-bold text-red-400 tracking-wider mb-1">Status details:</p>
+                <p className="text-xs text-slate-300 italic">
+                  Please contact support for more details regarding your registration.
+                </p>
+              </div>
+
+              <p className="text-[10px] text-slate-500 mb-8 font-medium">
+                You can contact management or sign out to register using a different role.
+              </p>
+
+              <button
+                onClick={() => handleLogout({ redirectUrl: '/sign-up' })}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
+              >
+                <LogOut size={14} /> Sign Out & Register New Account
+              </button>
             </div>
-
-            <p className="text-[10px] text-slate-500 mb-8 font-medium">
-              You can contact management or sign out to register using a different role.
-            </p>
-
-            <button
-              onClick={() => handleLogout({ redirectUrl: '/sign-up' })}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700/50 hover:border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
-            >
-              <LogOut size={14} /> Sign Out & Register New Account
-            </button>
           </div>
-        </div>
+          <ChatAssistant key={dbUser._id + '-landlord-rejected'} user={dbUser} />
+        </>
       );
     }
   }
@@ -395,25 +412,34 @@ function AppShell() {
   if (!isRoleVerified) {
     if (derivedRole === 'agent' || derivedRole === 'landlord') {
       if (dbUser) {
-        return <RoleIdVerification user={dbUser} dbUser={dbUser} onVerified={() => setIsRoleVerified(true)} />;
+        return (
+          <>
+            <RoleIdVerification user={dbUser} dbUser={dbUser} onVerified={() => setIsRoleVerified(true)} />
+            <ChatAssistant key={dbUser._id + '-role-verify'} user={dbUser} />
+          </>
+        );
       }
     } else if (derivedRole === 'admin' || derivedRole === 'super_admin') {
-      return <AdminPasswordGuard onVerified={() => setIsRoleVerified(true)} />;
+      return (
+        <>
+          <AdminPasswordGuard onVerified={() => setIsRoleVerified(true)} />
+          <ChatAssistant key="admin-pw-guard" user={dbUser || user} />
+        </>
+      );
     }
   }
 
   const navItems = [
-    { path: '/',               label: 'Dashboard',   icon: <LayoutDashboard size={18} />, show: true },
-    { path: '/admin',          label: 'Verification Queue',   icon: <ShieldCheck size={18} />,        show: isAdmin },
-    { path: '/admin/users',    label: 'Manage Users', icon: <Users2 size={18} />,           show: isAdmin },
-    { path: '/admin/inventory', label: 'Auctions & Inventory', icon: <Building2 size={18} />, show: isAdmin },
-    { path: '/properties',     label: 'Properties',  icon: <Building2 size={18} />,        show: !isTenant },
-    { path: '/properties/add', label: 'Add Property',icon: <PlusCircle size={18} />,       show: isAdmin || isAgent || derivedRole === 'landlord' },
-    { path: '/tenants',        label: 'Tenants',     icon: <Users2 size={18} />,           show: !isTenant },
-    { path: '/payments',       label: 'Rent Payments',icon: <WalletCards size={18} />,     show: !isTenant },
-    { path: '/tenant',         label: 'My Portal',   icon: <Home size={18} />,             show: false },
-    { path: '/maintenance',    label: 'Maintenance', icon: <Wrench size={18} />,           show: true },
-    { path: '/notices',        label: 'Notices',     icon: <FileText size={18} />,         show: isAdmin || isAgent || isTenant }
+    { path: '/',                label: 'Dashboard',            icon: <LayoutDashboard size={18} />, show: true },
+    { path: '/admin/users',     label: 'Verification Queue',   icon: <ShieldCheck size={18} />,     show: isAdmin },
+    { path: '/admin/inventory', label: 'Auctions & Inventory', icon: <Building2 size={18} />,      show: isAdmin },
+    { path: '/properties',      label: 'Properties',           icon: <Building2 size={18} />,      show: !isTenant },
+    { path: '/properties/add',  label: 'Add Property',         icon: <PlusCircle size={18} />,     show: isAdmin || isAgent || derivedRole === 'landlord' },
+    { path: '/tenants',         label: 'Tenants',              icon: <Users2 size={18} />,         show: !isTenant },
+    { path: '/payments',        label: 'Rent Payments',        icon: <WalletCards size={18} />,    show: !isTenant },
+    { path: '/tenant',          label: 'My Portal',            icon: <Home size={18} />,           show: false },
+    { path: '/maintenance',     label: 'Maintenance',          icon: <Wrench size={18} />,         show: true },
+    { path: '/notices',         label: 'Notices',              icon: <FileText size={18} />,       show: isAdmin || isAgent || isTenant }
   ].filter(item => item.show);
 
   const Sidebar = () => (
@@ -563,8 +589,8 @@ function AppShell() {
           <div className="flex items-center gap-3">
             {isAdmin && (
               <Link
-                to="/admin"
-                title="Admin Analytics"
+                to="/admin/users"
+                title="Verification Queue"
                 className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
               >
                 <ShieldCheck size={18} />
@@ -752,8 +778,8 @@ function AppShell() {
           </Routes>
         </main>
 
-        {/* AI Chat Assistant */}
-        <ChatAssistant user={user} />
+        {/* AI Chat Assistant — pass dbUser so session keys are user-specific */}
+        <ChatAssistant user={dbUser || user} />
       </div>
     </div>
   );

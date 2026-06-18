@@ -150,6 +150,7 @@ export const acknowledgeNotice = (id)      => api.post(`/notices/${id}/acknowled
 
 // ── Onboarding / User (Phase 4) ───────────────────────────────────────────────
 export const updateUserRole    = (data)    => api.patch('/users/me/role', data);
+export const checkTenantEmail  = (email)   => api.get(`/users/check-tenant-email/${encodeURIComponent(email)}`);
 
 // ── Units Lock & Geo-checkin (Phase 4) ────────────────────────────────────────
 export const deletePropertyUnit    = (id, unitId) => api.delete(`/properties/${id}/units/${unitId}`);

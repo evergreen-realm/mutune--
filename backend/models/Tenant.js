@@ -53,6 +53,7 @@ const tenantSchema = new mongoose.Schema({
 
 // Single index declarations — no duplicates
 tenantSchema.index({ phone: 1 });
+tenantSchema.index({ email: 1 }, { sparse: true });
 tenantSchema.index({ id_number: 1 });
 tenantSchema.index({ user_id: 1 }, { sparse: true });
 tenantSchema.index({ current_unit_id: 1 });

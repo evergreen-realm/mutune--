@@ -106,3 +106,8 @@
 .Toastify__toast--warning { border-left: 3px solid #f59e0b; }
 .Toastify__toast--info    { border-left: 3px solid #3b82f6; }
 
+/* Select option styling for dark-themed/native select elements */
+select option {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}

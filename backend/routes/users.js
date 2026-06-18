@@ -7,7 +7,7 @@ const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
-const { getAdminPassword } = require('../utils/security');
+const { getAdminPassword, escapeRegExp } = require('../utils/security');
 
 router.get('/debug-role/:email', requireAuth, requireRole(['super_admin']), async (req, res) => {
   try {
@@ -94,6 +94,37 @@ router.get('/me', requireAuth, async (req, res, next) => {
   }
 });
 
+
+// ─── GET /users/check-tenant-email/:email ─────────────────────────────────────
+// Check if a tenant record exists for this email (used during onboarding to
+// prompt existing tenants to use their tenant code instead of re-registering).
+router.get('/check-tenant-email/:email', requireAuth, async (req, res, next) => {
+  try {
+    const email = req.params.email?.trim();
+    if (!email) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Email is required' } });
+    }
+
+    const tenant = await Tenant.findOne({
+      email: { $regex: new RegExp('^' + escapeRegExp(email) + '$', 'i') }
+    }).select('tenant_code user_id full_name').lean();
+    if (!tenant) {
+      return res.json({ success: true, data: { exists: false } });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        exists: true,
+        has_account: !!tenant.user_id,
+        tenant_code: tenant.tenant_code,
+        tenant_name: tenant.full_name
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ─── PATCH /users/me/role ─────────────────────────────────────────────────────
 router.patch('/me/role',

@@ -1,3 +1,4 @@
+'use strict';
 const axios = require('axios');
 const logger = require('../utils/logger');
 
@@ -9,7 +10,7 @@ const getModels = () => ({
   MaintenanceTicket: require('../models/MaintenanceTicket')
 });
 
-// ── Tool definitions for Kimi AI ─────────────────────────────────────────────
+// ── Tool definitions ─────────────────────────────────────────────────────────
 const TOOLS = [
   {
     type: 'function',
@@ -101,12 +102,12 @@ async function executeTool(toolName, args, callerUser) {
         };
       }
 
-        case 'create_maintenance_ticket': {
+      case 'create_maintenance_ticket': {
         if (!callerUser) return { error: 'Authentication required' };
 
         let propertyId = callerUser.current_property_id;
         let unitId = callerUser.current_unit_id;
-        let tenantId = undefined;
+        let tenantId;
 
         const tenant = await Tenant.findOne({ user_id: callerUser._id }).lean();
         if (tenant) {
@@ -131,7 +132,7 @@ async function executeTool(toolName, args, callerUser) {
         return {
           success: true,
           ticket_code: ticket.ticket_code,
-          message: `Maintenance ticket ${ticket.ticket_code} created successfully. Our team will respond within ${args.priority === 'emergency' ? '2 hours' : '72 hours'}.`
+          message: `Maintenance ticket ${ticket.ticket_code} created. Our team will respond within ${args.priority === 'emergency' ? '2 hours' : '72 hours'}.`
         };
       }
 
@@ -216,7 +217,7 @@ Current user: ${user.full_name || 'User'} — Role: ${user.role}`;
 ROLE-SPECIFIC CAPABILITIES:
 ${user.role === 'agent' ? `- View assigned properties and tenants\n- Create maintenance tickets\n- Check payment status\n- Record check‑in visits` : ''}
 ${user.role === 'landlord' ? `- View property performance metrics\n- Request property addition (pending admin approval)\n- View rental income reports` : ''}
-${user.role === 'admin' ? `- Full system management\n- Approve landlord property additions\n- Monitor agent performance\n- Manage inventory and auctions` : ''}
+${user.role === 'admin' || user.role === 'super_admin' ? `- Full system management\n- Approve landlord property additions\n- Monitor agent performance\n- Manage inventory and auctions` : ''}
 ${user.role === 'tenant' ? `- View lease details\n- Pay rent (guide through M-Pesa STK)\n- Submit maintenance requests\n- View notices` : ''}
 
 RULES:
@@ -236,10 +237,72 @@ Paybill: 400200 | Reference: [TENANT CODE or UNIT NUMBER] | Amount: KES [RENT AM
   return prompt;
 }
 
-class KimiAIService {
+// ── Groq provider ─────────────────────────────────────────────────────────────
+async function callGroq(messages, withTools = false) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error('GROQ_API_KEY not configured');
+
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  const maxTokens = parseInt(process.env.GROQ_MAX_TOKENS || '1024', 10);
+  const temperature = parseFloat(process.env.GROQ_TEMPERATURE || '0.3');
+
+  const payload = {
+    model,
+    messages,
+    temperature,
+    max_tokens: maxTokens
+  };
+
+  // Groq supports function calling — add tools if requested
+  if (withTools) {
+    payload.tools = TOOLS;
+    payload.tool_choice = 'auto';
+  }
+
+  const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', payload, {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    timeout: 30000
+  });
+
+  return response.data;
+}
+
+// ── Kimi provider ─────────────────────────────────────────────────────────────
+async function callKimi(messages, withTools = false) {
+  const apiKey = process.env.KIMI_API_KEY;
+  if (!apiKey) throw new Error('KIMI_API_KEY not configured');
+
+  const baseURL = process.env.KIMI_API_URL || 'https://api.moonshot.ai/v1/chat/completions';
+
+  const payload = {
+    model: 'kimi-k2.5',
+    messages,
+    temperature: 0.3,
+    max_tokens: 4096
+  };
+
+  if (withTools) {
+    payload.tools = TOOLS;
+    payload.tool_choice = 'auto';
+  }
+
+  const response = await axios.post(baseURL, payload, {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    timeout: 30000
+  });
+
+  return response.data;
+}
+
+// ── Main AI service class ─────────────────────────────────────────────────────
+class AIService {
   constructor() {
-    this.apiKey = process.env.KIMI_API_KEY;
-    this.baseURL = process.env.KIMI_API_URL || 'https://api.moonshot.ai/v1/chat/completions';
     this.sessions = new Map();
 
     // Clean stale sessions every 30 minutes
@@ -276,6 +339,37 @@ class KimiAIService {
     session.rateWindow.push(now);
   }
 
+  async _callWithFallback(messages, withTools = false) {
+    // Try Kimi first (preferred for property management context)
+    if (process.env.KIMI_API_KEY) {
+      try {
+        const data = await callKimi(messages, withTools);
+        logger.info('AI provider: Kimi (primary)');
+        return { data, provider: 'kimi' };
+      } catch (kimiErr) {
+        const status = kimiErr.response?.status;
+        logger.warn('Kimi AI failed, falling back to Groq', {
+          status,
+          message: kimiErr.response?.data?.error?.message || kimiErr.message
+        });
+      }
+    }
+
+    // Fallback to Groq
+    if (process.env.GROQ_API_KEY) {
+      try {
+        const data = await callGroq(messages, withTools);
+        logger.info('AI provider: Groq (fallback)');
+        return { data, provider: 'groq' };
+      } catch (groqErr) {
+        logger.error('Groq AI also failed', { message: groqErr.message });
+        throw groqErr;
+      }
+    }
+
+    throw new Error('No AI provider configured (set KIMI_API_KEY or GROQ_API_KEY)');
+  }
+
   async chat({ message, sessionId, userId, role: _role, context = {}, user }) {
     this._checkRateLimit(userId);
 
@@ -293,27 +387,12 @@ class KimiAIService {
     ];
 
     try {
-      const payload = {
-        model: 'kimi-k2.5',
-        messages,
-        tools: TOOLS,
-        tool_choice: 'auto',
-        temperature: 0.3,
-        max_tokens: 4096,
-        thinking: { type: 'enabled' }
-      };
-
-      const response = await axios.post(this.baseURL, payload, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      let assistantMessage = response.data.choices[0].message;
+      // First call — with tools enabled
+      const { data: firstData, provider } = await this._callWithFallback(messages, true);
+      let assistantMessage = firstData.choices[0].message;
       let finalResponse = assistantMessage.content || '';
 
-      // Tool Call Loop
+      // Tool Call Loop (only if tools were returned)
       if (assistantMessage.tool_calls?.length) {
         const toolMessages = [assistantMessage];
 
@@ -326,7 +405,7 @@ class KimiAIService {
           }
 
           const result = await executeTool(toolCall.function.name, args, callerUser);
-          logger.info('Kimi AI tool executed', { tool: toolCall.function.name, userId, result: JSON.stringify(result).slice(0, 200) });
+          logger.info('AI tool executed', { tool: toolCall.function.name, userId, result: JSON.stringify(result).slice(0, 200) });
 
           toolMessages.push({
             role: 'tool',
@@ -335,54 +414,32 @@ class KimiAIService {
           });
         }
 
-        // Second API Call with tool outputs
-        const secondPayload = {
-          model: 'kimi-k2.5',
-          messages: [...messages, ...toolMessages],
-          temperature: 0.3,
-          max_tokens: 4096
-        };
-
-        const secondResponse = await axios.post(this.baseURL, secondPayload, {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        assistantMessage = secondResponse.data.choices[0].message;
+        // Second call with tool outputs — same provider, no tools needed
+        const messagesWithTools = [...messages, ...toolMessages];
+        const { data: secondData } = await this._callWithFallback(messagesWithTools, false);
+        assistantMessage = secondData.choices[0].message;
         finalResponse = assistantMessage.content || finalResponse;
       }
 
-      // Store in session
+      // Store in session history
       session.messages.push({ role: 'user', content: message });
-      const storeMessage = { role: 'assistant', content: finalResponse };
-      if (assistantMessage.reasoning_content) {
-        storeMessage.reasoning_content = assistantMessage.reasoning_content;
-      }
-      session.messages.push(storeMessage);
+      session.messages.push({ role: 'assistant', content: finalResponse });
 
       if (session.messages.length > 40) {
         session.messages = session.messages.slice(-40);
       }
 
       const toolIntent = this._detectToolIntent(message);
-      const tokensUsed = response.data.usage?.total_tokens || 0;
+      const tokensUsed = firstData.usage?.total_tokens || 0;
 
-      logger.info('Kimi AI chat completed', { userId, sessionId, tokensUsed });
+      logger.info('AI chat completed', { userId, sessionId, tokensUsed, provider });
 
-      return {
-        response: finalResponse,
-        sessionId,
-        toolIntent,
-        tokensUsed
-      };
+      return { response: finalResponse, sessionId, toolIntent, tokensUsed };
+
     } catch (err) {
-      logger.error('Kimi AI request failed', { message: err.message, stack: err.stack });
-      // Fallback response on failure
-      const fallbackMsg = "Pole sana, I'm having trouble connecting to my brain right now. Can you please repeat that or contact admin if the issue persists?";
+      logger.error('All AI providers failed', { message: err.message });
       return {
-        response: fallbackMsg,
+        response: "Pole sana! I'm having trouble connecting right now. Please try again in a moment, or contact the admin team for urgent matters.",
         sessionId,
         toolIntent: null,
         tokensUsed: 0
@@ -419,4 +476,4 @@ class KimiAIService {
   }
 }
 
-module.exports = new KimiAIService();
+module.exports = new AIService();

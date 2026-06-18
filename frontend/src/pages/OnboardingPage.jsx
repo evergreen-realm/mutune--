@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -6,17 +6,15 @@ import { toast } from 'react-toastify';
 import {
   Building2, Shield, Users, UserCheck, Briefcase,
   Phone, Award, MapPin, Home, RefreshCw, AlertCircle,
-  UploadCloud, CheckCircle2, FileText, X
+  UploadCloud, CheckCircle2, FileText, X, Info
 } from 'lucide-react';
-import { updateUserRole, fetchVacantUnits, uploadDoc, fetchMe } from '../lib/api';
+import { updateUserRole, fetchVacantUnits, uploadDoc, fetchMe, checkTenantEmail } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 
 const AVAILABLE_AREAS = [
   'Nyali', 'Bamburi', 'Tudor', 'Kisauni',
   'Ganjoni', 'Mombasa Island', 'Shanzu', 'Likoni'
 ];
-
-// Verification document uploader replaced with unified ImageUpload component
 
 export default function OnboardingPage() {
   const { user: clerkUser, isLoaded } = useUser();
@@ -65,8 +63,22 @@ export default function OnboardingPage() {
   const [tenantCode,       setTenantCode]       = useState('');
   const [selectedUnitId,   setSelectedUnitId]   = useState('');
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
-  const [tenantRegMethod,  setTenantRegMethod]  = useState('code'); // 'code' or 'select'
+  const [tenantRegMethod,  setTenantRegMethod]  = useState('code');
   const [submitting,       setSubmitting]       = useState(false);
+
+  // Pre-populate phone number from Clerk user profile on load
+  useEffect(() => {
+    if (isLoaded && clerkUser && !phone) {
+      const primaryPhone = clerkUser.primaryPhoneNumber?.phoneNumber;
+      if (primaryPhone) {
+        setPhone(primaryPhone.replace('+', ''));
+      }
+    }
+  }, [isLoaded, clerkUser, phone]);
+
+  // Tenant email pre-registration check state
+  const [tenantEmailStatus, setTenantEmailStatus] = useState(null); // { exists, tenant_code, has_account, tenant_name }
+  const [emailCheckDone,    setEmailCheckDone]    = useState(false);
 
   // Fetch vacant units only when tenant role is selected
   const { data: vacantData, isLoading: unitsLoading } = useQuery({
@@ -77,6 +89,38 @@ export default function OnboardingPage() {
   });
 
   const vacantUnits = vacantData?.data || [];
+
+  // Check if tenant email is pre-registered when user selects tenant role
+  useEffect(() => {
+    if (role === 'tenant' && clerkUser && !emailCheckDone) {
+      const email = clerkUser.primaryEmailAddress?.emailAddress;
+      if (email) {
+        checkTenantEmail(email)
+          .then(res => {
+            if (res?.data?.exists) {
+              setTenantEmailStatus(res.data);
+              if (res.data.has_account) {
+                toast.warning(`This email is already linked to active tenant code ${res.data.tenant_code}. If you need to re-register, contact your property agent.`);
+              } else if (res.data.tenant_code) {
+                setTenantCode(res.data.tenant_code);
+                setTenantRegMethod('code');
+                toast.success(`Pre-registered tenant record found for ${email}! Your Tenant Code has been auto-filled. Please verify and complete registration.`);
+              } else {
+                toast.info(`Pre-registered tenant record found for ${email}. Please enter your Tenant Code to claim your account.`);
+              }
+            } else {
+              toast.info(`No pre-registered tenant record found for ${email}. You can choose a property & unit manually, or enter a tenant code if you have one.`);
+            }
+            setEmailCheckDone(true);
+          })
+          .catch(() => {
+            setEmailCheckDone(true);
+          });
+      } else {
+        setEmailCheckDone(true);
+      }
+    }
+  }, [role, clerkUser, emailCheckDone]);
 
   if (!isLoaded) {
     return (
@@ -90,6 +134,17 @@ export default function OnboardingPage() {
       </div>
     );
   }
+
+  const handleRoleSelect = (newRole) => {
+    setRole(newRole);
+    setSelectedUnitId('');
+    setSelectedPropertyId('');
+    // Reset email check when switching roles
+    if (newRole !== 'tenant') {
+      setTenantEmailStatus(null);
+      setEmailCheckDone(false);
+    }
+  };
 
   const handleAreaToggle = (area) => {
     setAssignedAreas(prev =>
@@ -219,7 +274,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-2xl bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative">
         {/* Glow Effects */}
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -244,14 +299,14 @@ export default function OnboardingPage() {
                   <button
                     key={id}
                     type="button"
-                    onClick={() => { setRole(id); setSelectedUnitId(''); setSelectedPropertyId(''); }}
-                    className={`flex items-start gap-4 p-4 rounded-2xl text-left transition-all border ${
+                    onClick={() => handleRoleSelect(id)}
+                    className={`flex items-start gap-4 p-4 rounded-2xl text-left transition-all duration-200 border ${
                       role === id
-                        ? 'bg-green-600/10 border-green-500 shadow-md shadow-green-950/20'
+                        ? 'bg-green-600/10 border-green-500 shadow-md shadow-green-950/20 scale-[1.01]'
                         : 'bg-slate-800/40 border-slate-700/60 hover:bg-slate-800/60 hover:border-slate-600'
                     }`}
                   >
-                    <div className={`p-2.5 rounded-xl flex-shrink-0 ${role === id ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                    <div className={`p-2.5 rounded-xl flex-shrink-0 transition-colors duration-200 ${role === id ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
@@ -355,6 +410,38 @@ export default function OnboardingPage() {
                 {/* Tenant: toggle between code link or vacant units list selection */}
                 {role === 'tenant' && (
                   <div className="space-y-4">
+                    {/* Pre-registration alert */}
+                    {tenantEmailStatus?.exists && (
+                      <div className={`p-4 rounded-2xl border ${
+                        tenantEmailStatus.has_account
+                          ? 'bg-amber-500/10 border-amber-500/30'
+                          : 'bg-emerald-500/10 border-emerald-500/30'
+                      }`}>
+                        <div className="flex items-start gap-3">
+                          <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${tenantEmailStatus.has_account ? 'text-amber-400' : 'text-emerald-400'}`} />
+                          <div>
+                            {tenantEmailStatus.has_account ? (
+                              <>
+                                <p className="text-amber-300 text-xs font-bold">Account Already Registered</p>
+                                <p className="text-amber-200/70 text-xs mt-1">
+                                  Your email is already linked to tenant <span className="font-mono font-bold text-amber-300">{tenantEmailStatus.tenant_code}</span>
+                                  {tenantEmailStatus.tenant_name && <> ({tenantEmailStatus.tenant_name})</>}.
+                                  This code belongs to another account. Contact your property agent if you believe this is an error.
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-emerald-300 text-xs font-bold">Pre-registered Tenant Found!</p>
+                                <p className="text-emerald-200/70 text-xs mt-1">
+                                  Your email matches a pre-registered tenant record. Your code <span className="font-mono font-bold text-emerald-300">{tenantEmailStatus.tenant_code}</span> has been auto-filled below.
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex rounded-xl bg-slate-950/40 p-1 border border-slate-800/85 mb-2">
                       <button
                         type="button"
@@ -422,7 +509,7 @@ export default function OnboardingPage() {
                               setSelectedPropertyId(e.target.value);
                               setSelectedUnitId('');
                             }}
-                            className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
+                            className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition appearance-none"
                           >
                             <option value="" className="bg-slate-900 text-white">Choose property...</option>
                             {(() => {
@@ -449,14 +536,14 @@ export default function OnboardingPage() {
                             <select
                               value={selectedUnitId}
                               onChange={(e) => setSelectedUnitId(e.target.value)}
-                              className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
+                              className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500/50 focus:ring-1 focus:ring-green-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition appearance-none"
                             >
                               <option value="" className="bg-slate-900 text-white">Choose unit...</option>
                               {vacantUnits
                                 .filter(u => u.propertyId === selectedPropertyId)
                                 .map(u => (
                                   <option key={u.unitId} value={u.unitId} className="bg-slate-900 text-white">
-                                    Unit {u.unitNumber} — {u.type} (KES {u.rentAmount.toLocaleString()})
+                                    Unit {u.unitNumber} — {u.type} (KES {u.rentAmount ? Number(u.rentAmount).toLocaleString() : 'N/A'})
                                   </option>
                                 ))
                               }
