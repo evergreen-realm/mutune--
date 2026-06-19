@@ -173,4 +173,103 @@ router.get('/summary',
   }
 );
 
+/**
+ * GET /api/v1/reports/income-statement?month=YYYY-MM
+ * Returns a structured income statement for the given month.
+ * Revenue is aggregated from confirmed payments.
+ * Expenses are not yet tracked — returns empty array with a note.
+ */
+router.get('/income-statement',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'accountant']),
+  [query('month').matches(/^\d{4}-\d{2}$/).withMessage('Month must be YYYY-MM')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+      }
+
+      const { month } = req.query;
+      const [year, mon] = month.split('-').map(Number);
+      const start = new Date(Date.UTC(year, mon - 1, 1));
+      const end   = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
+
+      const COMMERCIAL_WHT_RATE   = 0.10;
+      const RESIDENTIAL_MRI_RATE  = 0.075;
+
+      // Aggregate confirmed payments broken down by property type
+      const revenueAgg = await Payment.aggregate([
+        { $match: { status: 'confirmed', created_at: { $gte: start, $lte: end } } },
+        {
+          $lookup: {
+            from: 'properties',
+            localField: 'property_id',
+            foreignField: '_id',
+            as: 'prop'
+          }
+        },
+        { $unwind: { path: '$prop', preserveNullAndEmpty: true } },
+        {
+          $group: {
+            _id: { type: { $ifNull: ['$prop.type', 'unknown'] } },
+            total: { $sum: '$amount_kes' },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { total: -1 } }
+      ]);
+
+      // Compute tax per type
+      let totalMRI = 0;
+      let totalWHT = 0;
+      const revenueBreakdown = revenueAgg.map(row => {
+        const type  = row._id.type;
+        const isCommercial = type === 'commercial';
+        const taxRate = isCommercial ? COMMERCIAL_WHT_RATE : RESIDENTIAL_MRI_RATE;
+        const taxAmount = Math.round(row.total * taxRate);
+        if (isCommercial) totalWHT += taxAmount;
+        else totalMRI += taxAmount;
+        return {
+          property_type: type,
+          gross_kes: row.total,
+          count: row.count,
+          tax_rate: taxRate,
+          tax_kes: taxAmount,
+          net_kes: row.total - taxAmount
+        };
+      });
+
+      const totalRevenue = revenueBreakdown.reduce((s, r) => s + r.gross_kes, 0);
+
+      logger.info('Income statement generated', { month, totalRevenue, generatedBy: req.user._id });
+
+      res.json({
+        success: true,
+        data: {
+          month,
+          revenue: {
+            total: totalRevenue,
+            breakdown: revenueBreakdown
+          },
+          expenses: {
+            total: 0,
+            breakdown: [],
+            note: 'Expense tracking not yet implemented. Use manual journal entries.'
+          },
+          netIncome: totalRevenue,
+          taxLiability: {
+            mri: totalMRI,
+            wht: totalWHT,
+            total: totalMRI + totalWHT
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
+

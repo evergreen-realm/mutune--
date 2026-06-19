@@ -820,10 +820,11 @@ router.post('/landlords',
         phone,
         landlord_id: landlordIdCode,
         landlord_approval_status: 'approved',
-        landlord_verification_doc_url: landlord_verification_doc_url || 'https://mutunerent.s3.amazonaws.com/placeholder-landlord.pdf',
+        ...(landlord_verification_doc_url ? { landlord_verification_doc_url } : {}),
         assigned_property_ids,
         is_active: true
       });
+
 
       // Send email
       await sendEmail(
