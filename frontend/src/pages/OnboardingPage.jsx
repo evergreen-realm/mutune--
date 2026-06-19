@@ -216,8 +216,10 @@ export default function OnboardingPage() {
       await updateUserRole(payload);
       await clerkUser.reload();
       toast.success('Welcome to MutuneRent Pro! Your account is ready.');
-      navigate('/');
-    } catch (err) {
+      // Role-aware redirect
+      if (role === 'tenant')  navigate('/tenant');
+      else if (role === 'admin' || role === 'super_admin') navigate('/admin');
+      else navigate('/dashboard');  // agent / landlord → properties dashboard    } catch (err) {
       toast.error(err?.error?.message || err.message || 'Onboarding failed. Please try again.');
     } finally {
       setSubmitting(false);
