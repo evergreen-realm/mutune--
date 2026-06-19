@@ -129,6 +129,10 @@ router.post('/:propertyId/auction-sold',
         return res.status(409).json({ success: false, error: { code: 'ALREADY_SOLD', message: 'This item has already been sold' } });
       }
 
+      if (item.auction_status === 'reclaimed') {
+        return res.status(409).json({ success: false, error: { code: 'ALREADY_RECLAIMED', message: 'Cannot sell an item that has already been reclaimed' } });
+      }
+
       item.auction_status = 'sold';
       item.auction_sold_at = new Date();
       item.auction_buyer = buyer.trim();
@@ -237,6 +241,26 @@ router.post('/:propertyId/reclaim',
 
       if (item.auction_status === 'sold') {
         return res.status(409).json({ success: false, error: { code: 'ALREADY_SOLD', message: 'This item has already been sold' } });
+      }
+
+      // Receipt validation
+      const Payment = require('../models/Payment');
+      const payment = await Payment.findById(reclaim_receipt_id).lean();
+      if (!payment) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_RECEIPT', message: 'Payment receipt not found' } });
+      }
+
+      if (payment.status !== 'confirmed') {
+        return res.status(400).json({ success: false, error: { code: 'UNCONFIRMED_RECEIPT', message: 'Payment receipt is not confirmed' } });
+      }
+
+      if (item.unit_id) {
+        const unit = property.units.id(item.unit_id);
+        if (unit && unit.current_tenant_id) {
+          if (payment.tenant_id?.toString() !== unit.current_tenant_id.toString()) {
+            return res.status(400).json({ success: false, error: { code: 'WRONG_TENANT', message: 'Payment receipt belongs to a different tenant' } });
+          }
+        }
       }
 
       item.auction_status = 'reclaimed';

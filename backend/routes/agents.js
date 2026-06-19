@@ -39,7 +39,7 @@ router.post('/checkin',
     body('location.accuracy')
       .isFloat({ min: 0, max: 1000 })
       .withMessage('GPS accuracy required'),
-    body('photo_url').optional().isURL().withMessage('Invalid photo URL')
+    body('photo_url').trim().notEmpty().withMessage('Photo is required').isURL().withMessage('Invalid photo URL')
   ],
   async (req, res, next) => {
     try {

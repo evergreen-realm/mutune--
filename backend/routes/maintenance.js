@@ -162,17 +162,35 @@ router.patch('/:id',
       const update = {};
       allowedFields.forEach((f) => { if (req.body[f] !== undefined) update[f] = req.body[f]; });
 
-      if (update.status === 'resolved') update.resolved_at = new Date();
-
-      const ticket = await MaintenanceTicket.findByIdAndUpdate(
-        req.params.id,
-        { $set: { ...update, updated_at: new Date() } },
-        { new: true, runValidators: true }
-      );
-
+      const ticket = await MaintenanceTicket.findById(req.params.id);
       if (!ticket) {
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Ticket not found' } });
       }
+
+      if (update.status === 'resolved') {
+        update.resolved_at = new Date();
+      }
+
+      if (update.assigned_agent_id) {
+        const agent = await User.findById(update.assigned_agent_id);
+        if (!agent || agent.role !== 'agent') {
+          return res.status(400).json({ success: false, error: { code: 'INVALID_AGENT', message: 'Assigned user is not an agent' } });
+        }
+        if (ticket.property_id) {
+          const prop = await Property.findById(ticket.property_id).lean();
+          if (prop) {
+            const isAssignedProp = agent.assigned_property_ids?.some(id => id.toString() === prop._id.toString());
+            const inAssignedArea = agent.assigned_areas?.some(area => prop.address?.area && area.toLowerCase() === prop.address.area.toLowerCase());
+            if (!isAssignedProp && !inAssignedArea) {
+              return res.status(400).json({ success: false, error: { code: 'AGENT_OUT_OF_REGION', message: 'Agent does not cover the property region' } });
+            }
+          }
+        }
+      }
+
+      Object.assign(ticket, update);
+      ticket.updated_at = new Date();
+      await ticket.save();
 
       logger.info('Maintenance ticket updated', { ticketId: ticket._id, status: ticket.status, by: req.user._id });
       res.json({ success: true, data: ticket });

@@ -53,3 +53,4 @@ bundle_new.js
 frontend_job_log*.txt
 
 .vercel
+.env*

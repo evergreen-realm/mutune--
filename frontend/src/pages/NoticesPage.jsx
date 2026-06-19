@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchNotices, generateNotice, acknowledgeNotice } from '../lib/api';
-import { FileText, Send, Download, CheckCircle, AlertCircle, Loader2, Clock, Eye } from 'lucide-react';
+import { fetchNotices, generateNotice, acknowledgeNotice, sendBulkNotice, fetchProperties } from '../lib/api';
+import { FileText, Send, Download, CheckCircle, AlertCircle, Loader2, Clock, Eye, Megaphone, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const NOTICE_TYPES = [
@@ -34,8 +34,49 @@ export default function NoticesPage({ user }) {
     queryFn: fetchNotices
   });
 
+  const { data: propertiesData } = useQuery({
+    queryKey: ['properties'],
+    queryFn: () => fetchProperties({ limit: 200 }),
+    staleTime: 60_000
+  });
+
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+
+  // ── Bulk Notice Modal state ────────────────────────────────────────────────
+  const EMPTY_BULK = {
+    notice_type: 'general',
+    property_id: '',
+    title: '',
+    body: '',
+    effective_date: new Date().toISOString().split('T')[0]
+  };
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkForm, setBulkForm] = useState(EMPTY_BULK);
+
+  const bulkMutation = useMutation({
+    mutationFn: sendBulkNotice,
+    onSuccess: (data) => {
+      const count = data?.count ?? data?.data?.length ?? 0;
+      toast.success(`Bulk notice sent to ${count} tenant${count !== 1 ? 's' : ''} via portal`);
+      setShowBulkModal(false);
+      setBulkForm(EMPTY_BULK);
+      queryClient.invalidateQueries({ queryKey: ['notices'] });
+    },
+    onError: (err) => {
+      const msg = err?.error?.message || err?.error?.details?.[0]?.msg || 'Failed to send bulk notice';
+      toast.error(msg);
+    }
+  });
+
+  const handleBulkSubmit = (e) => {
+    e.preventDefault();
+    if (!bulkForm.property_id) {
+      toast.error('Please select a property');
+      return;
+    }
+    bulkMutation.mutate(bulkForm);
+  };
 
   const generateMutation = useMutation({
     mutationFn: generateNotice,
@@ -137,13 +178,22 @@ export default function NoticesPage({ user }) {
           <p className="text-xs text-gray-500 mt-0.5">Official notices with PDF generation and multi-channel delivery</p>
         </div>
         {canIssue && (
-          <button
-            id="issue-notice-btn"
-            onClick={() => setShowForm(!showForm)}
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors flex items-center gap-2"
-          >
-            {showForm ? 'Cancel' : <><Send size={14} /> Issue Notice</>}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              id="send-bulk-notice-btn"
+              onClick={() => setShowBulkModal(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
+              <Megaphone size={14} /> Send Bulk Notice
+            </button>
+            <button
+              id="issue-notice-btn"
+              onClick={() => setShowForm(!showForm)}
+              className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors flex items-center gap-2"
+            >
+              {showForm ? 'Cancel' : <><Send size={14} /> Issue Notice</>}
+            </button>
+          </div>
         )}
       </div>
 
@@ -373,6 +423,145 @@ export default function NoticesPage({ user }) {
           </table>
         )}
       </div>
+
+      {/* ── Bulk Notice Modal ───────────────────────────────────────────────── */}
+      {showBulkModal && canIssue && (
+        <div
+          id="bulk-notice-modal-overlay"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowBulkModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Megaphone size={18} className="text-green-600" />
+                <h3 className="text-base font-bold text-gray-900">Send Bulk Notice</h3>
+              </div>
+              <button
+                id="bulk-modal-close-btn"
+                onClick={() => setShowBulkModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form id="bulk-notice-form" onSubmit={handleBulkSubmit} className="px-6 py-5 space-y-4">
+              <p className="text-xs text-gray-500 -mt-1">
+                Delivers a portal notice to <strong>all active tenants</strong> in the selected property.
+              </p>
+
+              {/* Property Selector */}
+              <div>
+                <label htmlFor="bulk-property-select" className="block text-xs font-medium text-gray-600 mb-1">
+                  Property <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="bulk-property-select"
+                  value={bulkForm.property_id}
+                  onChange={e => setBulkForm({ ...bulkForm, property_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  required
+                >
+                  <option value="">— Select a property —</option>
+                  {(propertiesData?.data || []).map(p => (
+                    <option key={p._id} value={p._id}>
+                      {p.name} {p.property_code ? `(${p.property_code})` : ''} — {p.address?.area || ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Notice Type */}
+              <div>
+                <label htmlFor="bulk-notice-type" className="block text-xs font-medium text-gray-600 mb-1">Notice Type</label>
+                <select
+                  id="bulk-notice-type"
+                  value={bulkForm.notice_type}
+                  onChange={e => setBulkForm({ ...bulkForm, notice_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {NOTICE_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subject / Title */}
+              <div>
+                <label htmlFor="bulk-notice-title" className="block text-xs font-medium text-gray-600 mb-1">
+                  Subject <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="bulk-notice-title"
+                  type="text"
+                  value={bulkForm.title}
+                  onChange={e => setBulkForm({ ...bulkForm, title: e.target.value })}
+                  placeholder="e.g. Water Interruption – Saturday 21 June"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  required
+                  maxLength={200}
+                />
+              </div>
+
+              {/* Message / Body */}
+              <div>
+                <label htmlFor="bulk-notice-body" className="block text-xs font-medium text-gray-600 mb-1">
+                  Message <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="bulk-notice-body"
+                  value={bulkForm.body}
+                  onChange={e => setBulkForm({ ...bulkForm, body: e.target.value })}
+                  placeholder="Write your message to all tenants in the selected property..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 h-28 resize-none"
+                  required
+                  maxLength={5000}
+                />
+                <p className="text-[10px] text-gray-400 mt-0.5 text-right">{bulkForm.body.length}/5000</p>
+              </div>
+
+              {/* Effective Date */}
+              <div>
+                <label htmlFor="bulk-effective-date" className="block text-xs font-medium text-gray-600 mb-1">
+                  Effective Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="bulk-effective-date"
+                  type="date"
+                  value={bulkForm.effective_date}
+                  onChange={e => setBulkForm({ ...bulkForm, effective_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  required
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  id="bulk-notice-submit-btn"
+                  type="submit"
+                  disabled={bulkMutation.isPending}
+                  className="flex-1 py-2.5 bg-green-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
+                >
+                  {bulkMutation.isPending
+                    ? <><Loader2 size={14} className="animate-spin" /> Sending...</>
+                    : <><Megaphone size={14} /> Send to All Tenants</>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBulkModal(false)}
+                  className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

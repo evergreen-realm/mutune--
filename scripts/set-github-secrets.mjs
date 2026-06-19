@@ -12,7 +12,7 @@ const REPO_NAME  = 'mutune--';
 const secrets = {
   RENDER_API_KEY:    'rnd_zEeYAd8T7eO95Azr49l1Z3GrJN3F',
   RENDER_SERVICE_ID: 'PENDING_MANUAL_SETUP',           // update after Render service created
-  VERCEL_TOKEN:      'vcp_73R6R6QnOCrGpS8wkhiwXRCfGjRDCFRO3S1tc6dxfLvLsPKngX0AGvJq',
+  VERCEL_TOKEN:      process.env.VERCEL_TOKEN || '',
   VERCEL_ORG_ID:     'team_R6Kqhq8YeE61SwWGEdZ9vUJI',
   VERCEL_PROJECT_ID: 'prj_2evu8fKOr2Kk7sxDreMuYVCLwVvt',
 };
@@ -80,6 +80,10 @@ async function main() {
   console.log('\nSetting secrets:');
   const results = [];
   for (const [name, value] of Object.entries(secrets)) {
+    if (!value) {
+      console.log(`  ⚠️ Skipping ${name} (not set in environment)`);
+      continue;
+    }
     const ok = await setSecret(name, value, key_id, key);
     results.push({ name, ok });
     await new Promise(r => setTimeout(r, 300)); // rate limit

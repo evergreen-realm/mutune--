@@ -255,6 +255,69 @@ router.get('/', requireAuth, async (req, res, next) => {
   }
 });
 
+// ── POST /api/v1/notices/bulk — Issue notice to all tenants in a property ───
+router.post(
+  '/bulk',
+  requireAuth,
+  requirePermission('issue:notice'),
+  requireRole(['admin', 'super_admin', 'agent']),
+  [
+    body('notice_type')
+      .isIn(['rent_increase', 'maintenance', 'eviction', 'lease_renewal', 'entry_inspection', 'general'])
+      .withMessage('Invalid notice type'),
+    body('property_id').isMongoId().withMessage('Valid property ID required'),
+    body('title').trim().notEmpty().withMessage('Title required'),
+    body('body').trim().notEmpty().withMessage('Body required'),
+    body('effective_date').isISO8601().withMessage('Valid effective date required'),
+    body('tenant_ids').optional().isArray().withMessage('tenant_ids must be an array')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+      }
+
+      const { notice_type, property_id, title, body, effective_date, tenant_ids } = req.body;
+
+      if (tenant_ids && tenant_ids.length === 0) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Tenant IDs array cannot be empty' } });
+      }
+
+      let targetTenantIds = tenant_ids;
+      if (!targetTenantIds) {
+        const tenants = await Tenant.find({ current_property_id: property_id, tenancy_status: 'active' }).select('_id').lean();
+        targetTenantIds = tenants.map(t => t._id);
+      }
+
+      if (!targetTenantIds || targetTenantIds.length === 0) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'No active tenants found for this property' } });
+      }
+
+      const notices = [];
+      for (const tId of targetTenantIds) {
+        const notice = await Notice.create({
+          notice_type,
+          property_id,
+          unit_id: 'bulk',
+          tenant_id: tId,
+          issued_by: req.user._id,
+          title,
+          body,
+          delivery_method: ['portal'],
+          delivery_status: [{ method: 'portal', status: 'delivered', timestamp: new Date() }],
+          effective_date: new Date(effective_date)
+        });
+        notices.push(notice);
+      }
+
+      res.status(201).json({ success: true, count: notices.length, data: notices });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // ── POST/PATCH /api/v1/notices/:id/acknowledge — Tenant acknowledges receipt ────────
 const acknowledgeHandler = async (req, res, next) => {
   try {

@@ -40,7 +40,7 @@ app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (mobile apps, curl, Render health checks)
     if (!origin) return callback(null, true);
-    const isVercelSubdomain = /^https:\/\/(mutunerent-web|mutune-alpha)(-.+)?\.vercel\.app$/.test(origin);
+    const isVercelSubdomain = /^https:\/\/(mutunerent|mutune)(-.+)?\.vercel\.app$/.test(origin);
     if (ALLOWED_ORIGINS.includes(origin) || isVercelSubdomain) return callback(null, true);
     logger.warn('CORS blocked origin', { origin });
     callback(new Error('Not allowed by CORS: ' + origin));

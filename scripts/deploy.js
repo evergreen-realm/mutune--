@@ -55,7 +55,7 @@ function deployBackend() {
 function deployFrontend() {
   console.log('\n🚀 Deploying frontend to Vercel...');
   try {
-    execSync('npx vercel --prod --yes', { cwd: path.join(__dirname, '../frontend') });
+    execSync('npx vercel --prod --yes', { cwd: path.join(__dirname, '..') });
     console.log('✅ Frontend deployed');
   } catch (e) {
     console.error('❌ Frontend deploy failed:', e.message);

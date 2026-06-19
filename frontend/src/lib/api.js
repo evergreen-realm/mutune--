@@ -147,6 +147,7 @@ export const clearChatHistory = (sessionId) => api.delete(`/ai/history/${session
 export const fetchNotices      = ()        => api.get('/notices');
 export const generateNotice    = (data)    => api.post('/notices/generate', data);
 export const acknowledgeNotice = (id)      => api.post(`/notices/${id}/acknowledge`);
+export const sendBulkNotice    = (data)    => api.post('/notices/bulk', data);
 
 // ── Onboarding / User (Phase 4) ───────────────────────────────────────────────
 export const updateUserRole    = (data)    => api.patch('/users/me/role', data);
