@@ -14,7 +14,7 @@ const logger = require('../utils/logger');
  * 3. Flags any inventory items in units vacated by departed tenants as auctionable.
  * 4. Creates admin notifications for any new expirations or departures.
  */
-const tenantLeaseCleanup = cron.schedule('5 21 * * *', async () => {
+const runTenantLeaseCleanup = async () => {
   // 21:05 UTC = 00:05 EAT
   logger.info('Tenant lease cleanup cron started');
   const now = new Date();
@@ -112,9 +112,13 @@ const tenantLeaseCleanup = cron.schedule('5 21 * * *', async () => {
   } catch (error) {
     logger.error('Tenant lease cleanup cron failed', { message: error.message, stack: error.stack });
   }
-}, {
+};
+
+const tenantLeaseCleanup = cron.schedule('5 21 * * *', runTenantLeaseCleanup, {
   scheduled: false, // Started manually in server.js after DB connection
   timezone: 'Africa/Nairobi'
 });
+
+tenantLeaseCleanup.run = runTenantLeaseCleanup;
 
 module.exports = tenantLeaseCleanup;

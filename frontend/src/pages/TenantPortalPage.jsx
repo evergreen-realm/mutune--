@@ -6,7 +6,7 @@ import {
   fetchMyProfile, fetchMyPayments, fetchMyNotices,
   createMaintenanceTicket, updateMaintenanceTicket, fetchMyTickets,
   fetchNotifications, markNotifRead, markAllNotifsRead,
-  fetchCustomerCareNumber, autoInitiatePayment
+  fetchCustomerCareNumber, autoInitiatePayment, updateUserRole
 } from '../lib/api';
 import {
   Home, Wallet, Wrench, FileText, Bell, ChevronRight,
@@ -86,6 +86,9 @@ export default function TenantPortalPage() {
   const [ticketForm, setTicketForm] = useState({ open: false, editId: null, title: '', description: '', priority: 'medium' });
   const [submitting, setSubmitting] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
+
+  const [tenantCode, setTenantCode] = useState('');
+  const [submittingCode, setSubmittingCode] = useState(false);
 
   const [customerCare, setCustomerCare] = useState('254700000000');
   const [paying, setPaying] = useState(false);
@@ -226,35 +229,107 @@ export default function TenantPortalPage() {
   if (loading) return <PortalSkeleton />;
 
   // No profile found — friendly state instead of error
+  const handleLinkTenantCode = async (e) => {
+    e.preventDefault();
+    if (!tenantCode.trim()) {
+      toast.error('Please enter a valid Tenant Code');
+      return;
+    }
+    setSubmittingCode(true);
+    try {
+      const res = await updateUserRole({ role: 'tenant', tenant_code: tenantCode.trim() });
+      if (res?.success) {
+        toast.success('Tenant profile linked successfully!');
+        setTenantCode('');
+        load();
+      } else {
+        toast.error(res?.error?.message || 'Failed to link tenant profile');
+      }
+    } catch (err) {
+      toast.error(err?.error?.message || err?.message || 'An error occurred while linking your profile');
+    } finally {
+      setSubmittingCode(false);
+    }
+  };
+
+  // No profile found — display input form for Tenant Code
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-white"
-        style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)' }}>
-        <div className="w-full max-w-xl bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl text-center space-y-6">
-          <div className="mx-auto w-16 h-16 bg-indigo-500/15 rounded-2xl flex items-center justify-center border border-indigo-500/30">
-            <Home className="w-8 h-8 text-indigo-400" />
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950 text-white relative overflow-hidden">
+        {/* Modern glowing background accents */}
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-green-600/10 blur-[120px]" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-600/10 blur-[120px]" />
+
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
+          <div className="mx-auto w-16 h-16 bg-green-600/10 rounded-2xl flex items-center justify-center border border-green-600/20 text-green-500">
+            <Home className="w-8 h-8" />
           </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">No Tenant Profile Found</h1>
+          
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">Link Your Tenancy</h1>
             <p className="text-sm text-slate-400">
-              Your account is not yet linked to a tenancy. Please contact our office or your property agent to have your profile set up.
+              Please enter your unique Tenant Code below to link your account to your lease.
             </p>
           </div>
-          <div className="bg-indigo-500/10 border border-indigo-500/25 rounded-2xl p-4 text-left flex gap-3">
-            <Phone className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+
+          <form onSubmit={handleLinkTenantCode} className="space-y-4">
+            <div>
+              <label htmlFor="tenantCode" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Tenant Code
+              </label>
+              <input
+                id="tenantCode"
+                type="text"
+                value={tenantCode}
+                onChange={(e) => setTenantCode(e.target.value)}
+                placeholder="e.g., TEN-XXXX-XXXX"
+                disabled={submittingCode}
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:border-green-600 focus:ring-2 focus:ring-green-600/20 transition-all font-mono"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submittingCode}
+              className="w-full py-3 bg-green-600 hover:bg-green-500 active:bg-green-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+            >
+              {submittingCode ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Linking Tenancy...
+                </>
+              ) : (
+                'Link Tenancy'
+              )}
+            </button>
+          </form>
+
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex gap-3">
+            <Phone className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-bold text-indigo-300">Need Help?</p>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Call or WhatsApp Mutune Estate Agency at <a href={`tel:+${customerCare}`} className="text-white font-bold underline">{customerCare}</a> with your ID number and unit reference.
+              <p className="text-xs font-bold text-slate-300">Need Help or Don't Have a Code?</p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Contact Mutune Estate Agency customer care via Call or WhatsApp at{' '}
+                <a href={`tel:+${customerCare}`} className="text-green-500 hover:text-green-400 font-bold underline transition-colors">
+                  {customerCare}
+                </a>{' '}
+                to get your unique code.
               </p>
             </div>
           </div>
-          <button
-            onClick={() => { clerkUser && window.Clerk.signOut(); }}
-            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
-          >
-            Sign Out
-          </button>
+
+          <div className="text-center pt-2">
+            <button
+              type="button"
+              onClick={() => { clerkUser && window.Clerk.signOut(); }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-wider"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
   agent_rejection_reason: String,
   agent_allow_all_areas: { type: Boolean, default: false },
   landlord_id:   { type: String, unique: true, sparse: true },
-  landlord_approval_status: { type: String, enum: ['pending', 'approved', 'rejected', 'n_a'], default: 'pending', index: true },
+  landlord_approval_status: { type: String, enum: ['pending', 'approved', 'rejected', 'n_a'], default: 'n_a', index: true },
   landlord_verification_doc_url: String,
   admin_hardcoded_hash: String,
   assigned_areas:       [String],
