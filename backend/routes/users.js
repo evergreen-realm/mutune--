@@ -9,26 +9,7 @@ const Property = require('../models/Property');
 const logger = require('../utils/logger');
 const { getAdminPassword, escapeRegExp } = require('../utils/security');
 
-router.get('/debug-role/:email', requireAuth, requireRole(['super_admin']), async (req, res) => {
-  try {
-    const { clerkClient } = require('@clerk/clerk-sdk-node');
-    if (req.params.email === 'all') {
-      const users = await User.find({}).select('-password_hash');
-      return res.json({ success: true, count: users.length, users });
-    }
-    const user = await User.findOne({ email: req.params.email }).select('-password_hash');
-    let clerkUsers = [];
-    try {
-      const clerkRes = await clerkClient.users.getUserList({ emailAddress: [req.params.email] });
-      clerkUsers = clerkRes.data || clerkRes;
-    } catch (clerkErr) {
-      logger.warn('Failed to fetch user from Clerk in debug', { email: req.params.email, message: clerkErr.message });
-    }
-    res.json({ success: true, role: user?.role, user, clerkUsers });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+// Debug endpoints removed for production security (R5 A05)
 
 const validate = (req, res) => {
   const errors = validationResult(req);
@@ -162,12 +143,18 @@ router.patch('/me/role',
       if (role === 'agent') {
         updateData.is_active = false;
         updateData.agent_approval_status = 'pending';
-        updateData.earb_verification_doc_url = earb_verification_doc_url || 'https://mutunerent.s3.amazonaws.com/placeholder-earb.pdf';
+        if (!earb_verification_doc_url) {
+          return res.status(400).json({ success: false, error: { code: 'MISSING_DOCUMENT', message: 'EARB verification document is required for agent registration.' } });
+        }
+        updateData.earb_verification_doc_url = earb_verification_doc_url;
         updateData.landlord_approval_status = 'n_a';
       } else if (role === 'landlord') {
         updateData.is_active = false;
         updateData.landlord_approval_status = 'pending';
-        updateData.landlord_verification_doc_url = landlord_verification_doc_url || 'https://mutunerent.s3.amazonaws.com/placeholder-landlord.pdf';
+        if (!landlord_verification_doc_url) {
+          return res.status(400).json({ success: false, error: { code: 'MISSING_DOCUMENT', message: 'Property ownership verification document is required for landlord registration.' } });
+        }
+        updateData.landlord_verification_doc_url = landlord_verification_doc_url;
         updateData.agent_approval_status = 'n_a';
       } else {
         updateData.agent_approval_status = 'n_a';

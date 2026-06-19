@@ -68,6 +68,9 @@ function AppShell() {
   const [notifOpen,   setNotifOpen]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isRoleVerified, setIsRoleVerified] = useState(false);
+  // stabilising: true for 1.5s after sync completes to prevent flash-redirect
+  // during the onboarding→dashboard transition
+  const [stabilising, setStabilising] = useState(false);
   const derivedRole = dbUser?.role || clerkUser?.publicMetadata?.role || undefined;
   const location = useLocation();
 
@@ -114,6 +117,8 @@ function AppShell() {
           const phone = clerkUser.primaryPhoneNumber?.phoneNumber || '254700000000';
           let cleanPhone = phone.replace('+', '');
           if (!cleanPhone.startsWith('254')) cleanPhone = '254700000000';
+
+          const prevRole = dbUser?.role;
           
           const res = await syncClerk({
             clerk_id: clerkUser.id,
@@ -124,12 +129,9 @@ function AppShell() {
           if (res?.success && res.data) {
             setDbUser(res.data);
 
-            // ── CLERK METADATA RELOAD ─────────────────────────────────────────
             // If Clerk publicMetadata doesn't have a role yet but the DB does,
             // the backend just backfilled it. Reload the Clerk user so that
             // publicMetadata.role is fresh BEFORE we set isSynced = true.
-            // This prevents approved agents/landlords from being wrongly
-            // redirected to /onboarding on login.
             if (!clerkUser.publicMetadata?.role && res.data?.role) {
               try {
                 await clerkUser.reload();
@@ -137,7 +139,15 @@ function AppShell() {
                 console.warn('[MutuneRent] Clerk user reload failed:', reloadErr?.message);
               }
             }
-            // ─────────────────────────────────────────────────────────────────
+
+            // ── Anti-glitch stabiliser ────────────────────────────────────────
+            // If the user just gained a role (fresh registration transition),
+            // hold the loading screen for 1.5s so React Router doesn't
+            // evaluate needsOnboarding mid-state and flash-redirect back to /onboarding.
+            if (!prevRole && res.data?.role) {
+              setStabilising(true);
+              setTimeout(() => setStabilising(false), 1500);
+            }
           }
           if (import.meta.env.VITE_SENTRY_DSN) {
             Sentry.setUser({
@@ -150,7 +160,7 @@ function AppShell() {
           setIsSynced(true);
         } catch (err) {
           console.error('Failed to sync user with backend:', err);
-          setIsSynced(true); // Fallback to avoid completely blocking the user in case of issues
+          setIsSynced(true);
         }
       };
       syncUser();
@@ -171,29 +181,40 @@ function AppShell() {
   const notifications = notifData?.data || [];
   const unreadCount = notifData?.unreadCount || 0;
 
-  if (!isLoaded || !isSynced) {
+  if (!isLoaded || !isSynced || stabilising) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center animate-pulse">
             <Building2 size={20} className="text-white" />
           </div>
-          <p className="text-sm text-gray-400 font-medium">Verifying account synchronization...</p>
+          <p className="text-sm text-slate-400 font-medium">
+            {stabilising ? 'Setting up your workspace…' : 'Verifying account…'}
+          </p>
         </div>
       </div>
     );
   }
 
-  const needsOnboarding = !derivedRole || 
-    (derivedRole === 'tenant' && dbUser && (!dbUser.current_property_id || !dbUser.current_unit_id));
+  // needsOnboarding: user has no role at all.
+  // NOTE: Do NOT check current_property_id/current_unit_id here — those fields
+  // live on the Tenant model, not on the User model, so they are always
+  // undefined on dbUser and would cause an infinite onboarding redirect loop.
+  const needsOnboarding = !derivedRole;
 
   if (needsOnboarding) {
     if (location.pathname !== '/onboarding') {
       return <Navigate to="/onboarding" replace />;
     }
   } else {
+    // User has a role — if they land on /onboarding, send them home
     if (location.pathname === '/onboarding') {
-      return <Navigate to="/" replace />;
+      const homeRoute =
+        ['admin','super_admin'].includes(derivedRole) ? '/admin' :
+        derivedRole === 'tenant'   ? '/tenant' :
+        derivedRole === 'landlord' ? '/dashboard' :
+        '/dashboard';
+      return <Navigate to={homeRoute} replace />;
     }
   }
 
@@ -772,7 +793,14 @@ function AppShell() {
             <Route path="/admin"          element={<AdminDashboardPage />} />
             <Route path="/admin/users"    element={<AdminUserManagementPage />} />
             <Route path="/admin/inventory" element={<AdminInventoryPage />} />
-            <Route path="/tenant"         element={isTenant ? <Navigate to="/" replace /> : <TenantPortalPage />} />
+            <Route path="/tenant"         element={<TenantPortalPage />} />
+            <Route path="/dashboard"      element={
+              derivedRole === 'tenant'   ? <TenantPortalPage /> :
+              derivedRole === 'landlord' ? <LandlordDashboardPage dbUser={dbUser} /> :
+              derivedRole === 'agent'    ? <AgentPerformancePage dbUser={dbUser} /> :
+              (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage /> :
+              <DashboardPage />
+            } />
             <Route path="/notices"        element={<NoticesPage user={user} />} />
             <Route path="*"              element={<Navigate to="/" replace />} />
           </Routes>
