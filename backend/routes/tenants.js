@@ -134,7 +134,14 @@ router.post('/',
     body('current_unit_id').notEmpty().withMessage('Unit ID required'),
     body('rent_amount_kes').isInt({ min: 1 }).withMessage('Rent must be a positive integer'),
     body('lease_start').isISO8601().withMessage('Valid lease start date required'),
-    body('lease_end').isISO8601().withMessage('Valid lease end date required'),
+    body('lease_end')
+      .isISO8601().withMessage('Valid lease end date required')
+      .custom((value, { req }) => {
+        if (new Date(value) < new Date(req.body.lease_start)) {
+          throw new Error('Lease end date must be after lease start date');
+        }
+        return true;
+      }),
     body('user_id').optional().isMongoId().withMessage('user_id must be a valid Mongo ID')
   ],
   async (req, res, next) => {
@@ -339,6 +346,10 @@ router.post('/:id/terminate',
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Tenant not found' } });
       }
 
+      if (tenant.tenancy_status === 'terminated' || tenant.tenancy_status === 'departed') {
+        return res.status(400).json({ success: false, error: { code: 'ALREADY_TERMINATED', message: 'Tenancy is already terminated or departed' } });
+      }
+
       const previousPropertyId = tenant.current_property_id;
       const previousUnitId = tenant.current_unit_id;
 
@@ -417,17 +428,61 @@ router.get('/my/notices', requireAuth, requirePermission('view:notices'), async 
 // ─── GET /tenants/my/profile — Tenant's own lease details ────────────────────
 router.get('/my/profile', requireAuth, requirePermission('view:own_unit'), async (req, res, next) => {
   try {
-    const tenant = await Tenant.findOne({ user_id: req.user._id })
-      .populate({
-        path: 'current_property_id',
-        select: 'name property_code address tier_id',
-        populate: { path: 'tier_id', select: 'name' }
-      })
+    const populateOpts = {
+      path: 'current_property_id',
+      select: 'name property_code address tier_id photos units agent_ids',
+      populate: { path: 'tier_id', select: 'name' }
+    };
+
+    // Strategy 1: match by user_id (MongoDB ObjectId)
+    let tenant = await Tenant.findOne({ user_id: req.user._id })
+      .populate(populateOpts)
       .lean();
-    if (!tenant) {
-      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Tenant profile not found' } });
+
+    // Strategy 2: match by email if user_id lookup failed
+    if (!tenant && req.user.email) {
+      tenant = await Tenant.findOne({ email: req.user.email })
+        .populate(populateOpts)
+        .lean();
+      // If found via email but user_id not set, back-link for future requests
+      if (tenant && !tenant.user_id) {
+        await Tenant.findByIdAndUpdate(tenant._id, { $set: { user_id: req.user._id } });
+        tenant.user_id = req.user._id;
+      }
     }
-    res.json({ success: true, data: tenant });
+
+    // Strategy 3: match by clerk_id stored directly on tenant (legacy records)
+    if (!tenant && req.user.clerk_id) {
+      // Find by full_name + phone is too fuzzy; instead look for any tenant whose
+      // linked User has this clerk_id (we already have req.user so just trust strategies 1/2).
+      // As last resort, check if a User with this clerk_id exists and its _id matches any tenant.
+      const linkedUser = await User.findOne({ clerk_id: req.user.clerk_id }).lean();
+      if (linkedUser && linkedUser._id.toString() !== req.user._id.toString()) {
+        tenant = await Tenant.findOne({ user_id: linkedUser._id })
+          .populate(populateOpts)
+          .lean();
+      }
+    }
+
+    if (!tenant) {
+      return res.status(404).json({ success: false, error: { code: 'NO_TENANT_PROFILE', message: 'No tenant profile found for this user' } });
+    }
+
+    // Resolve the matched unit from property units array
+    let matchedUnit = null;
+    if (tenant.current_property_id?.units && tenant.current_unit_id) {
+      matchedUnit = tenant.current_property_id.units.find(
+        u => u._id?.toString() === tenant.current_unit_id?.toString()
+      ) || null;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...tenant,
+        _matched_unit: matchedUnit  // convenience field for frontend
+      }
+    });
   } catch (error) {
     next(error);
   }
