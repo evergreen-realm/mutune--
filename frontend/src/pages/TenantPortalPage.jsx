@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -74,6 +74,7 @@ function PortalSkeleton() {
 
 export default function TenantPortalPage() {
   const { user: clerkUser } = useUser();
+  const { signOut } = useClerk();
 
   const [profile,    setProfile]    = useState(null);
   const [payments,   setPayments]   = useState([]);
@@ -324,7 +325,7 @@ export default function TenantPortalPage() {
           <div className="text-center pt-2">
             <button
               type="button"
-              onClick={() => { clerkUser && window.Clerk.signOut(); }}
+              onClick={() => { if (clerkUser) { signOut(); } }}
               className="text-xs font-bold text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-wider"
             >
               Sign Out
@@ -396,7 +397,7 @@ export default function TenantPortalPage() {
 
           <div className="pt-2">
             <button
-              onClick={() => { clerkUser && window.Clerk.signOut(); }}
+              onClick={() => { if (clerkUser) { signOut(); } }}
               className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
             >
               Sign Out / Back

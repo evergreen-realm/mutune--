@@ -146,7 +146,7 @@ function AppShell() {
             // evaluate needsOnboarding mid-state and flash-redirect back to /onboarding.
             if (!prevRole && res.data?.role) {
               setStabilising(true);
-              setTimeout(() => setStabilising(false), 1500);
+              setTimeout(() => setStabilising(false), 2500);
             }
           }
           if (import.meta.env.VITE_SENTRY_DSN) {
@@ -167,7 +167,7 @@ function AppShell() {
     } else if (isLoaded && !clerkUser) {
       setIsSynced(true);
     }
-  }, [isLoaded, clerkUser]);
+  }, [isLoaded, clerkUser?.id, clerkUser?.publicMetadata?.role]);
 
   // Fetch notifications scoped to the user
   const { data: notifData, refetch: refetchNotifs } = useQuery({
@@ -200,7 +200,7 @@ function AppShell() {
   // NOTE: Do NOT check current_property_id/current_unit_id here — those fields
   // live on the Tenant model, not on the User model, so they are always
   // undefined on dbUser and would cause an infinite onboarding redirect loop.
-  const needsOnboarding = !derivedRole;
+  const needsOnboarding = !derivedRole && !stabilising;
 
   if (needsOnboarding) {
     if (location.pathname !== '/onboarding') {

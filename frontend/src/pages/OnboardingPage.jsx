@@ -177,9 +177,13 @@ export default function OnboardingPage() {
       await clerkUser.reload();
       toast.success('Welcome to MutuneRent Pro! Your account is ready.');
 
-      if (role === 'tenant')                                navigate('/tenant');
-      else if (['admin','super_admin'].includes(role))      navigate('/admin');
-      else                                                  navigate('/dashboard');
+      // Force a full re-sync by reloading the page after a short delay.
+      // This guarantees AppShell runs syncUser fresh with the new Clerk metadata
+      // instead of racing against the old isSynced=false state.
+      const dest = role === 'tenant' ? '/tenant'
+        : ['admin', 'super_admin'].includes(role) ? '/admin'
+        : '/dashboard';
+      setTimeout(() => { window.location.href = dest; }, 300);
     } catch (err) {
       toast.error(err?.error?.message || err?.message || 'Onboarding failed. Please try again.');
     } finally {
