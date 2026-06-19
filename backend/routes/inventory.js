@@ -257,4 +257,103 @@ router.post('/:propertyId/reclaim',
   }
 );
 
+/**
+ * POST /api/v1/inventory/:propertyId/add-item
+ * Add a new inventory item to a specific property.
+ * Body: { name, description, condition, estimated_value_kes }
+ * Admin/agent/landlord.
+ */
+router.post('/:propertyId/add-item',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent', 'landlord']),
+  [
+    param('propertyId').isMongoId().withMessage('Invalid property ID'),
+    body('name').trim().notEmpty().withMessage('Item name is required'),
+    body('description').optional().trim(),
+    body('condition')
+      .optional()
+      .isIn(['good', 'fair', 'poor', 'damaged'])
+      .withMessage('Condition must be one of: good, fair, poor, damaged'),
+    body('estimated_value_kes')
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage('Estimated value must be a non-negative number')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const { name, description, condition, estimated_value_kes } = req.body;
+
+      const property = await Property.findById(req.params.propertyId);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+
+      const newItem = {
+        name: name.trim(),
+        description: description?.trim() || '',
+        condition: condition || 'good',
+        estimated_value_kes: Number(estimated_value_kes || 0),
+        auction_status: 'none',
+        added_at: new Date(),
+        added_by: req.user._id
+      };
+
+      property.inventory = property.inventory || [];
+      property.inventory.push(newItem);
+      await property.save();
+
+      const savedItem = property.inventory[property.inventory.length - 1];
+      logger.info('Inventory item added', { propertyId: req.params.propertyId, itemName: name, by: req.user._id });
+      res.status(201).json({ success: true, data: savedItem });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /api/v1/inventory/:propertyId/items/:itemId
+ * Remove (soft-delete) an inventory item from a property.
+ * Admin only.
+ */
+router.delete('/:propertyId/items/:itemId',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    param('propertyId').isMongoId().withMessage('Invalid property ID'),
+    param('itemId').isMongoId().withMessage('Invalid item ID')
+  ],
+  async (req, res, next) => {
+    if (!validate(req, res)) return;
+    try {
+      const property = await Property.findById(req.params.propertyId);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+
+      const itemIndex = (property.inventory || []).findIndex(
+        item => item._id.toString() === req.params.itemId
+      );
+
+      if (itemIndex === -1) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Inventory item not found' } });
+      }
+
+      const item = property.inventory[itemIndex];
+      if (item.auction_status === 'pending') {
+        return res.status(409).json({ success: false, error: { code: 'CONFLICT', message: 'Cannot delete an item that is pending auction. Reclaim or complete the auction first.' } });
+      }
+
+      property.inventory.splice(itemIndex, 1);
+      await property.save();
+
+      logger.info('Inventory item deleted', { propertyId: req.params.propertyId, itemId: req.params.itemId, by: req.user._id });
+      res.json({ success: true, message: 'Inventory item removed successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;

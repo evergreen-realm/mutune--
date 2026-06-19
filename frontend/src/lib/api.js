@@ -214,7 +214,9 @@ export const fetchLateFeeRules     = ()               => api.get('/admin/late-fe
 export const createLateFeeRule     = (data)           => api.post('/admin/late-fee-rules', data);
 export const updateLateFeeRule     = (id, data)       => api.patch(`/admin/late-fee-rules/${id}`, data);
 export const deleteLateFeeRule     = (id)             => api.delete(`/admin/late-fee-rules/${id}`);
-export const reclaimInventoryItem = (propId, data)   => api.post(`/inventory/${propId}/reclaim`, data);
+export const reclaimInventoryItem  = (propId, data)   => api.post(`/inventory/${propId}/reclaim`, data);
+export const addInventoryItem      = (propId, data)   => api.post(`/inventory/${propId}/add-item`, data);
+export const deleteInventoryItem   = (propId, itemId) => api.delete(`/inventory/${propId}/items/${itemId}`);
 
 // ── File Upload — Verification Docs (Phase 5) ─────────────────────────────────
 /**
