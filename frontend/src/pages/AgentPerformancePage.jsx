@@ -175,21 +175,26 @@ export default function AgentPerformancePage({ dbUser }) {
             display: 'flex', alignItems: 'center', gap: 20,
             marginBottom: 24, flexWrap: 'wrap'
           }}>
-            <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Medal size={20} style={{ color: '#10b981' }} />
-            </div>
-            <div>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Your Agent ID</p>
-              <p style={{ color: '#10b981', fontSize: 22, fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.08em' }}>{dbUser.user_code}</p>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Medal size={22} style={{ color: '#10b981' }} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>Use this ID when communicating with tenants and landlords or referencing transactions.</p>
+              <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{dbUser.full_name}</p>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
+                <span style={{ color: '#10b981', fontSize: 12, fontWeight: 700, fontFamily: 'monospace' }}>ID: {dbUser.user_code}</span>
+                {dbUser.earb_license && <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>EARB: <strong style={{ color: '#a78bfa' }}>{dbUser.earb_license}</strong></span>}
+                {dbUser.phone && <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>📞 {dbUser.phone}</span>}
+                {dbUser.assigned_areas?.length > 0 && (
+                  <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>📍 {dbUser.assigned_areas.join(', ')}</span>
+                )}
+              </div>
             </div>
             <div style={{ flexShrink: 0, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 8, padding: '4px 12px' }}>
               <span style={{ color: '#34d399', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>✓ Approved</span>
             </div>
           </div>
         )}
+
 
         {/* Summary stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 28 }}>

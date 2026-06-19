@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { fetchProperties, fetchTenants, fetchPayments } from '../lib/api';
 import {
   Building2, Users2, TrendingUp, DollarSign, Home, PlusCircle,
-  ArrowUpRight, BarChart3, CheckCircle2, Clock, AlertTriangle, Eye
+  ArrowUpRight, BarChart3, CheckCircle2, Clock, AlertTriangle, Eye, UserPlus
 } from 'lucide-react';
 
 const FMT_KES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
@@ -97,14 +97,24 @@ export default function LandlordDashboardPage() {
               Welcome back, {clerkUser?.fullName?.split(' ')[0] || 'Landlord'} — Mombasa, KE
             </p>
           </div>
-          <Link to="/properties/add" style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
-            borderRadius: 14, textDecoration: 'none', fontSize: 14, fontWeight: 700,
-            boxShadow: '0 8px 24px rgba(99,102,241,0.4)'
-          }}>
-            <PlusCircle size={16} /> Add Property
-          </Link>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Link to="/properties/add" style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
+              borderRadius: 14, textDecoration: 'none', fontSize: 14, fontWeight: 700,
+              boxShadow: '0 8px 24px rgba(99,102,241,0.4)'
+            }}>
+              <PlusCircle size={16} /> Add Property
+            </Link>
+            <Link to="/tenants" style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
+              background: 'rgba(16,185,129,0.15)', color: '#34d399',
+              borderRadius: 14, textDecoration: 'none', fontSize: 14, fontWeight: 700,
+              border: '1px solid rgba(16,185,129,0.3)'
+            }}>
+              <UserPlus size={16} /> Add Tenant
+            </Link>
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -164,26 +174,32 @@ export default function LandlordDashboardPage() {
               const propUnits = prop.units?.length || 0;
               const propOccupied = prop.units?.filter(u => u.status === 'occupied').length || 0;
               const occ = propUnits > 0 ? Math.round((propOccupied / propUnits) * 100) : 0;
+              const propPhoto = (prop.photos || [])[0] || null;
               return (
                 <div key={prop._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Building2 size={18} style={{ color: '#6366f1' }} />
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {propPhoto
+                        ? <img src={propPhoto} alt={prop.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <Building2 size={18} style={{ color: '#6366f1' }} />}
                     </div>
                     <div>
                       <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{prop.name}</p>
-                      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{prop.address?.area} · {propUnits} units</p>
+                      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{prop.address?.area} · {propUnits} units · {propOccupied} occupied</p>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {prop.status === 'pending_admin_approval' ? (
                       <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>Pending</span>
                     ) : (
-                      <>
+                      <div style={{ textAlign: 'right', minWidth: 48 }}>
                         <p style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{occ}%</p>
                         <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>Occupancy</p>
-                      </>
+                      </div>
                     )}
+                    <Link to={`/properties/${prop._id}`} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a78bfa', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      <Eye size={12} /> View
+                    </Link>
                   </div>
                 </div>
               );
