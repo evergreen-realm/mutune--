@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchPayments } from '../lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '@clerk/clerk-react';
+import { fetchPayments, voidPayment } from '../lib/api';
 import { TableSkeleton } from '../components/SkeletonLoader';
+import { toast } from 'react-toastify';
 import {
   WalletCards, Search, CheckCircle2, XCircle, Clock,
-  AlertTriangle, ArrowUpRight, Phone, Receipt
+  AlertTriangle, ArrowUpRight, Phone, Receipt, Download, Ban, Loader2
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -25,8 +27,15 @@ const CHANNEL_LABELS = {
 };
 
 export default function PaymentsPage() {
+  const qc = useQueryClient();
+  const { user: clerkUser } = useUser();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [voidingPmt, setVoidingPmt] = useState(null);
+  const [voidReason, setVoidReason] = useState('');
+
+  const role = clerkUser?.publicMetadata?.role || 'landlord';
+  const isAdmin = ['admin', 'super_admin'].includes(role);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['payments', search, statusFilter],
@@ -34,11 +43,57 @@ export default function PaymentsPage() {
     refetchInterval: 10000
   });
 
+  const voidMutation = useMutation({
+    mutationFn: ({ id, reason }) => voidPayment(id, reason),
+    onSuccess: () => {
+      toast.success('Payment voided successfully');
+      setVoidingPmt(null);
+      setVoidReason('');
+      qc.invalidateQueries(['payments']);
+    },
+    onError: (err) => {
+      toast.error(err?.error?.message || 'Failed to void payment');
+    }
+  });
+
+  const handleVoidSubmit = (e) => {
+    e.preventDefault();
+    if (!voidReason.trim()) {
+      toast.error('Please specify a reason');
+      return;
+    }
+    voidMutation.mutate({ id: voidingPmt._id, reason: voidReason });
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['Transaction ID', 'M-Pesa Receipt', 'Tenant', 'Phone', 'Property', 'Amount (KES)', 'Channel', 'Status', 'Date'];
+    const rows = filtered.map(p => [
+      p.transaction_id || '',
+      p.mpesa_receipt || '',
+      p.tenant_id?.full_name || '',
+      p.tenant_id?.phone || '',
+      p.property_id?.name || '',
+      p.amount_kes || 0,
+      p.channel || '',
+      p.status || '',
+      new Date(p.created_at).toLocaleDateString('en-KE')
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `payments_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const payments = data?.data || [];
   const totalRevenue = payments.filter(p => p.status === 'confirmed').reduce((s, p) => s + p.amount_kes, 0);
   const pendingCount = payments.filter(p => p.status === 'pending').length;
   const failedCount = payments.filter(p => p.status === 'failed').length;
+
 
   const filtered = payments.filter(p => {
     const matchSearch = !search ||
@@ -73,6 +128,12 @@ export default function PaymentsPage() {
             Lipa Na M-Pesa auto-reconciliation · Mombasa Estate Agency
           </p>
         </div>
+        <button
+          onClick={handleExportCSV}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl transition shadow-sm self-start sm:self-auto"
+        >
+          <Download size={16} /> Export CSV
+        </button>
       </div>
 
       {/* Summary tiles */}
@@ -135,14 +196,16 @@ export default function PaymentsPage() {
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Property</th>
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Amount</th>
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Channel</th>
+                <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Reconciliation</th>
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Status</th>
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Date</th>
+                {isAdmin && <th className="px-5 py-3.5" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-gray-400">
+                  <td colSpan={isAdmin ? 9 : 8} className="text-center py-16 text-gray-400">
                     <WalletCards size={36} className="mx-auto mb-2 text-gray-200" />
                     <div className="font-medium">No payments found</div>
                   </td>
@@ -192,6 +255,21 @@ export default function PaymentsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
+                        {pmt.status === 'confirmed' && pmt.mpesa_receipt ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Matched ✓
+                          </span>
+                        ) : pmt.discrepancy_flag ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 animate-pulse">
+                            Unmatched ⚠️
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Pending Match
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${cfg.color}`}>
                           <StatusIcon size={10} /> {cfg.label}
                         </span>
@@ -213,6 +291,21 @@ export default function PaymentsPage() {
                           })}
                         </div>
                       </td>
+                      {isAdmin && (
+                        <td className="px-5 py-4 text-right">
+                          {pmt.status !== 'failed' && pmt.status !== 'reversed' ? (
+                            <button
+                              onClick={() => setVoidingPmt(pmt)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition"
+                              title="Void Payment"
+                            >
+                              <Ban size={14} />
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">Voided</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -221,6 +314,61 @@ export default function PaymentsPage() {
           </table>
         </div>
       </div>
+
+      {/* Void Payment Modal */}
+      {voidingPmt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-gray-100 animate-fade-in">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 bg-red-50 rounded-xl">
+                <Ban size={20} className="text-red-500" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Void Payment</h2>
+                <p className="text-xs text-gray-400">
+                  {voidingPmt.mpesa_receipt || voidingPmt.transaction_id} · KES {voidingPmt.amount_kes?.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <form onSubmit={handleVoidSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="void-reason" className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  Reason for Voiding <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="void-reason"
+                  rows={3}
+                  value={voidReason}
+                  onChange={e => setVoidReason(e.target.value)}
+                  placeholder="e.g. Bounced check / incorrect manual entry"
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition resize-none"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => { setVoidingPmt(null); setVoidReason(''); }}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!voidReason.trim() || voidMutation.isPending}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                >
+                  {voidMutation.isPending ? (
+                    <><Loader2 size={14} className="animate-spin" /> Voiding...</>
+                  ) : (
+                    'Void Payment'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

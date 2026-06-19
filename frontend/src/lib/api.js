@@ -247,5 +247,6 @@ export const fetchCustomerCareNumber  = ()                => api.get('/admin/set
 export const updateCustomerCareNumber = (number)          => api.post('/admin/settings/customer-care', { number });
 export const submitAgentReview        = (id, proposed_tier_id) => api.patch(`/properties/${id}/agent-review`, { proposed_tier_id });
 export const autoInitiatePayment      = ()                => api.post('/payments/auto-initiate');
+export const voidPayment              = (id, reason)      => api.post(`/payments/${id}/void`, { reason });
 
 export default api;

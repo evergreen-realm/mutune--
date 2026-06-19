@@ -386,4 +386,44 @@ router.post('/:id/override', requireAuth, requireRole(['admin', 'super_admin']),
   } catch (error) { next(error); }
 });
 
+router.post('/:id/void', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Reason for voiding is required' } });
+    }
+    const payment = await Payment.findById(id);
+    if (!payment) throw Object.assign(new Error('Payment not found'), { status: 404, code: 'PAYMENT_NOT_FOUND' });
+
+    if (payment.status === 'failed' || payment.status === 'reversed') {
+      return res.status(400).json({ success: false, error: { code: 'ALREADY_VOIDED', message: 'Payment is already void or failed' } });
+    }
+
+    const previousStatus = payment.status;
+    payment.status = 'failed';
+    payment.workflow_state = 'MANUAL_REVIEW';
+    payment.discrepancy_flag = true;
+    payment.discrepancy_reason = `Voided by admin (${req.user.email}). Reason: ${reason}`;
+    await payment.save();
+
+    if (previousStatus === 'confirmed') {
+      const tenantDoc = await Tenant.findById(payment.tenant_id);
+      if (tenantDoc) {
+        tenantDoc.arrears_kes += payment.amount_kes;
+        tenantDoc.payment_history = tenantDoc.payment_history.filter(h => h.payment_id?.toString() !== payment._id.toString());
+        tenantDoc.updated_at = new Date();
+        await tenantDoc.save();
+      }
+      await Property.updateOne(
+        { 'units._id': payment.unit_id },
+        { $set: { 'units.$.lock_status': 'pending_viewing' } }
+      );
+    }
+
+    logger.info('Payment voided', { paymentId: id, by: req.user.email, reason });
+    res.json({ success: true, message: 'Payment voided successfully', data: payment });
+  } catch (error) { next(error); }
+});
+
 module.exports = router;

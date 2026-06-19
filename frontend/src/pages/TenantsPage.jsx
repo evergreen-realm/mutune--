@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-react';
 import {
@@ -12,7 +12,7 @@ import {
   Users2, Search, Phone, Mail, Home, Calendar, AlertCircle,
   CheckCircle2, XCircle, ChevronRight, UserX, UserPlus, X,
   Building2, FileText, Edit2, Save, Link2, CreditCard,
-  RefreshCw, ExternalLink, Shield
+  RefreshCw, ExternalLink, Shield, Eye
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -241,15 +241,20 @@ function AddTenantModal({ onClose, onCreated }) {
 }
 
 // ─── Tenant Detail Drawer ─────────────────────────────────────────────────────
-function TenantDetailDrawer({ tenantId, onClose, onChanged }) {
+function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = false }) {
   const qc = useQueryClient();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditMode);
   const [editForm, setEditForm] = useState({});
   const [showLinkUser, setShowLinkUser] = useState(false);
   const [linkUserId, setLinkUserId] = useState('');
   const [showTermModal, setShowTermModal] = useState(false);
   const [termReason, setTermReason] = useState('');
   const [termDate, setTermDate] = useState('');
+
+  useEffect(() => {
+    setEditing(initialEditMode);
+    setEditForm({});
+  }, [initialEditMode, tenantId]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['tenant', tenantId],
@@ -271,6 +276,20 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged }) {
   const tenant = data?.data;
   const history = histData?.data || [];
   const users = (usersData?.data || []).filter(u => u.role !== 'admin' && u.role !== 'super_admin');
+
+  useEffect(() => {
+    if (editing && tenant && !editForm.full_name) {
+      setEditForm({
+        full_name: tenant.full_name,
+        phone: tenant.phone,
+        email: tenant.email || '',
+        rent_amount_kes: tenant.rent_amount_kes,
+        lease_end: tenant.lease_end ? tenant.lease_end.split('T')[0] : '',
+        tenancy_status: tenant.tenancy_status,
+        notes: tenant.notes || ''
+      });
+    }
+  }, [editing, tenant, editForm.full_name]);
 
   const updateMutation = useMutation({
     mutationFn: (d) => updateTenant(tenantId, d),
@@ -604,22 +623,90 @@ export default function TenantsPage() {
   const { user: clerkUser } = useUser();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [propertyFilter, setPropertyFilter] = useState('');
+  const [drawerEditMode, setDrawerEditMode] = useState(false);
+  const [evictTenant, setEvictTenant] = useState(null);
+  const [evictReason, setEvictReason] = useState('');
+  const [evictDate, setEvictDate] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState(null);
 
   const role = clerkUser?.publicMetadata?.role || 'landlord';
   const canAddTenant = ['admin', 'super_admin', 'agent'].includes(role);
+  const isStaff = ['admin', 'super_admin', 'agent'].includes(role);
+
+  const { data: propsData } = useQuery({
+    queryKey: ['properties-filter'],
+    queryFn: () => fetchProperties({ limit: 100 })
+  });
+  const properties = propsData?.data || [];
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['tenants', search, statusFilter],
-    queryFn: () => fetchTenants({ search: search || undefined, status: statusFilter || undefined })
+    queryKey: ['tenants', search, statusFilter, propertyFilter],
+    queryFn: () => fetchTenants({
+      search: search || undefined,
+      status: statusFilter || undefined,
+      property_id: propertyFilter || undefined
+    })
   });
+
+  const terminatePageMutation = useMutation({
+    mutationFn: ({ tenantId, reason, vacate_date }) => terminateTenancy(tenantId, { reason, vacate_date }),
+    onSuccess: () => {
+      qc.invalidateQueries(['tenants']);
+      toast.success('Tenancy terminated successfully');
+      setEvictTenant(null);
+      setEvictReason('');
+      setEvictDate('');
+    },
+    onError: (err) => {
+      toast.error(err?.error?.message || 'Failed to terminate tenancy');
+    }
+  });
+
+  const handleExportCSV = () => {
+    if (!tenants || tenants.length === 0) {
+      toast.warning('No tenants to export');
+      return;
+    }
+
+    const headers = ['Code', 'Full Name', 'Phone', 'Email', 'National ID', 'Property', 'Unit', 'Rent (KES)', 'Status', 'Lease Start', 'Lease End'];
+    
+    const rows = tenants.map(t => [
+      t.tenant_code || '',
+      t.full_name || '',
+      t.phone || '',
+      t.email || '',
+      t.id_number || '',
+      t.current_property_id?.name || '',
+      t.current_unit_id || '',
+      t.rent_amount_kes || '',
+      t.tenancy_status || '',
+      t.lease_start ? new Date(t.lease_start).toLocaleDateString('en-KE') : '',
+      t.lease_end ? new Date(t.lease_end).toLocaleDateString('en-KE') : ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `tenants_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const tenants = data?.data || [];
   const totalActive = tenants.filter(t => t.tenancy_status === 'active').length;
   const totalNotice = tenants.filter(t => t.tenancy_status === 'notice').length;
 
-  if (isLoading) return <TableSkeleton rows={5} cols={6} />;
+  if (isLoading) return <TableSkeleton rows={5} cols={isStaff ? 8 : 7} />;
 
   if (error) return (
     <div className="flex h-96 items-center justify-center border border-dashed border-red-200 rounded-xl bg-red-50 p-8 text-center">
@@ -645,15 +732,24 @@ export default function TenantsPage() {
             {totalNotice > 0 && <span className="text-amber-600 font-medium"> · {totalNotice} on notice</span>}
           </p>
         </div>
-        {canAddTenant && (
+        <div className="flex items-center gap-3">
           <button
-            id="btn-add-tenant"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition shadow-sm shadow-green-600/20"
+            id="btn-export-csv"
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-xl transition"
           >
-            <UserPlus size={16} /> Add Tenant
+            <FileText size={16} /> Export CSV
           </button>
-        )}
+          {canAddTenant && (
+            <button
+              id="btn-add-tenant"
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition shadow-sm shadow-green-600/20"
+            >
+              <UserPlus size={16} /> Add Tenant
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -669,6 +765,17 @@ export default function TenantsPage() {
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
           />
         </div>
+        <select
+          id="tenant-property-filter"
+          value={propertyFilter}
+          onChange={e => setPropertyFilter(e.target.value)}
+          className="text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-white text-gray-600"
+        >
+          <option value="">All Properties</option>
+          {properties.map(p => (
+            <option key={p._id} value={p._id}>{p.name}</option>
+          ))}
+        </select>
         <select
           id="tenant-status-filter"
           value={statusFilter}
@@ -695,13 +802,14 @@ export default function TenantsPage() {
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Lease</th>
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Rent (KES)</th>
                 <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Status</th>
+                {isStaff && <th className="text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">Actions</th>}
                 <th className="px-5 py-3.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {tenants.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-gray-400">
+                  <td colSpan={isStaff ? 8 : 7} className="text-center py-16 text-gray-400">
                     <Users2 size={36} className="mx-auto mb-2 text-gray-200" />
                     <div className="font-medium">No tenants found</div>
                     <button onClick={() => setShowAddModal(true)}
@@ -719,7 +827,10 @@ export default function TenantsPage() {
 
                   return (
                     <tr key={tenant._id} className="hover:bg-gray-50/60 transition-colors group cursor-pointer"
-                      onClick={() => setSelectedTenantId(tenant._id)}>
+                      onClick={() => {
+                        setSelectedTenantId(tenant._id);
+                        setDrawerEditMode(false);
+                      }}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -781,6 +892,49 @@ export default function TenantsPage() {
                           {statusCfg.label}
                         </span>
                       </td>
+                      {isStaff && (
+                        <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <button
+                              id={`btn-view-tenant-row-${tenant._id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTenantId(tenant._id);
+                                setDrawerEditMode(false);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition"
+                              title="View Details"
+                            >
+                              <Eye size={15} />
+                            </button>
+                            <button
+                              id={`btn-edit-tenant-row-${tenant._id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTenantId(tenant._id);
+                                setDrawerEditMode(true);
+                              }}
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                              title="Edit Tenant"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            {tenant.tenancy_status === 'active' && (
+                              <button
+                                id={`btn-evict-tenant-row-${tenant._id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEvictTenant(tenant);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                title="Evict Tenant"
+                              >
+                                <UserX size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-5 py-4">
                         <ChevronRight size={15} className="text-gray-300 group-hover:text-green-500 transition-colors" />
                       </td>
@@ -804,9 +958,52 @@ export default function TenantsPage() {
       {selectedTenantId && (
         <TenantDetailDrawer
           tenantId={selectedTenantId}
-          onClose={() => setSelectedTenantId(null)}
+          initialEditMode={drawerEditMode}
+          onClose={() => {
+            setSelectedTenantId(null);
+            setDrawerEditMode(false);
+          }}
           onChanged={() => qc.invalidateQueries(['tenants'])}
         />
+      )}
+
+      {evictTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setEvictTenant(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md border border-gray-100" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 bg-red-50 rounded-xl"><UserX size={20} className="text-red-500" /></div>
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Evict Tenant / Terminate Tenancy</h2>
+                <p className="text-xs text-gray-400">{evictTenant.full_name} · {evictTenant.tenant_code}</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <FIELD label="Reason for Termination" id="page-term-reason" required>
+                <textarea id="page-term-reason" rows={3} value={evictReason}
+                  onChange={e => setEvictReason(e.target.value)}
+                  placeholder="e.g. Non-payment of rent for 2 months"
+                  className={`${inputCls} resize-none`} />
+              </FIELD>
+              <FIELD label="Vacate Date" id="page-term-date" required>
+                <input id="page-term-date" type="date" value={evictDate}
+                  onChange={e => setEvictDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]} className={inputCls} />
+              </FIELD>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setEvictTenant(null)}
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                Cancel
+              </button>
+              <button id="confirm-page-terminate"
+                onClick={() => terminatePageMutation.mutate({ tenantId: evictTenant._id, reason: evictReason, vacate_date: evictDate })}
+                disabled={!evictReason.trim() || !evictDate || terminatePageMutation.isPending}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+                {terminatePageMutation.isPending ? 'Evicting…' : 'Evict Tenant'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
