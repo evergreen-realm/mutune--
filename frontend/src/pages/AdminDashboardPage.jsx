@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import {
   TrendingUp, Users, Home, Building2, Download, RefreshCw,
-  ArrowUpRight, AlertCircle, ShieldCheck
+  ArrowUpRight, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Loader2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { 
@@ -15,7 +16,7 @@ import {
   fetchPendingAgents, fetchPendingLandlords, fetchPendingProperties 
 } from '../lib/api';
 
-const PIE_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const MONTH_LABELS = {
   '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
@@ -24,36 +25,56 @@ const MONTH_LABELS = {
 };
 
 function formatMonth(yyyyMM) {
+  if (!yyyyMM) return '';
   const [year, mon] = yyyyMM.split('-');
   return `${MONTH_LABELS[mon] || mon} ${year.slice(2)}`;
 }
 
-function StatCard({ icon, label, value, sub, color }) {
+function StatCard({ icon, label, value, sub, color, index }) {
   const palette = {
-    blue:   'from-blue-50 to-blue-50/0 border-blue-100 text-blue-700',
-    green:  'from-green-50 to-green-50/0 border-green-100 text-green-700',
-    yellow: 'from-yellow-50 to-yellow-50/0 border-yellow-100 text-yellow-700',
-    slate:  'from-slate-50 to-slate-50/0 border-slate-100 text-slate-700'
+    blue:   'from-blue-50/50 to-indigo-50/5 shadow-blue-500/5 text-blue-700 border-blue-100/60',
+    green:  'from-green-50/50 to-emerald-50/5 shadow-emerald-500/5 text-emerald-700 border-green-100/60',
+    yellow: 'from-amber-50/50 to-orange-50/5 shadow-amber-500/5 text-amber-700 border-amber-100/60',
+    slate:  'from-slate-50/50 to-slate-100/5 shadow-slate-500/5 text-slate-700 border-slate-250/60'
   };
+
+  const iconBg = {
+    blue:   'bg-blue-100/80 text-blue-600',
+    green:  'bg-emerald-100/80 text-emerald-600',
+    yellow: 'bg-amber-100/80 text-amber-600',
+    slate:  'bg-slate-200/80 text-slate-600'
+  };
+
   return (
-    <div className={`bg-gradient-to-tr ${palette[color] || palette.slate} border rounded-2xl p-5`}>
-      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider opacity-60 mb-2">
-        {icon} {label}
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay: index * 0.05 }}
+      whileHover={{ y: -2, boxShadow: '0 8px 30px rgba(0,0,0,0.04)' }}
+      className={`bg-gradient-to-tr ${palette[color] || palette.slate} border rounded-2xl p-5 shadow-sm flex justify-between items-start`}
+    >
+      <div>
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider opacity-60 mb-2">
+          {label}
+        </div>
+        <div className="text-2xl font-black text-slate-800">{value ?? '—'}</div>
+        {sub && <div className="text-[10px] mt-1.5 opacity-70 font-semibold">{sub}</div>}
       </div>
-      <div className="text-2xl font-black">{value ?? '—'}</div>
-      {sub && <div className="text-[11px] mt-1 opacity-60">{sub}</div>}
-    </div>
+      <div className={`p-2.5 rounded-xl ${iconBg[color] || iconBg.slate} shadow-inner`}>
+        {icon}
+      </div>
+    </motion.div>
   );
 }
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-100 rounded-xl shadow-lg p-3 text-xs">
-      <p className="font-bold text-gray-700 mb-1">{label}</p>
-      <p className="text-green-700 font-semibold">KES {payload[0]?.value?.toLocaleString()}</p>
+    <div className="bg-white border border-slate-100 rounded-2xl shadow-xl p-3.5 text-xs">
+      <p className="font-extrabold text-slate-800 mb-1">{label}</p>
+      <p className="text-emerald-700 font-black">KES {payload[0]?.value?.toLocaleString()}</p>
       {payload[0]?.payload?.transactions && (
-        <p className="text-gray-400">{payload[0].payload.transactions} payments</p>
+        <p className="text-slate-400 text-[10px] font-bold uppercase mt-1">{payload[0].payload.transactions} payments settled</p>
       )}
     </div>
   );
@@ -96,9 +117,9 @@ export default function AdminDashboardPage() {
     setDownloading(true);
     try {
       await downloadKRAReport(kraMonth);
-      toast.success(`KRA reconciliation for ${kraMonth} downloaded ✓`);
+      toast.success(`KRA withholding statement for ${kraMonth} downloaded successfully ✓`);
     } catch (err) {
-      toast.error(err?.error?.message || 'Failed to download report');
+      toast.error(err?.error?.message || 'Failed to download KRA statement');
     } finally {
       setDownloading(false);
     }
@@ -106,25 +127,25 @@ export default function AdminDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 skeleton rounded-2xl" />
+            <div key={i} className="h-28 bg-slate-100 rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="h-64 skeleton rounded-2xl" />
+        <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="flex h-64 items-center justify-center border border-dashed border-red-200 rounded-2xl bg-red-50">
+      <div className="flex h-64 items-center justify-center border border-dashed border-red-200 rounded-2xl bg-red-50/50 p-6">
         <div className="text-center">
-          <AlertCircle className="mx-auto text-red-400 mb-2" size={28} />
-          <p className="text-red-600 font-semibold text-sm">Failed to load admin stats</p>
-          <button onClick={() => refetch()} className="mt-2 text-xs text-red-500 underline">
-            Retry
+          <AlertCircle className="mx-auto text-red-500 mb-2" size={28} />
+          <p className="text-red-600 font-bold text-sm">Failed to retrieve administrative analytics</p>
+          <button onClick={() => refetch()} className="mt-2 text-xs font-bold text-red-550 underline cursor-pointer">
+            Retry Connection
           </button>
         </div>
       </div>
@@ -142,51 +163,57 @@ export default function AdminDashboardPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
+    >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Admin Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Revenue analytics · Mombasa Estate Agency</p>
+          <h1 className="text-2xl font-black text-slate-900">Admin Dashboard</h1>
+          <p className="text-xs text-slate-450 mt-0.5">Revenue analytics · Mombasa Estate Agency</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            id="btn-refresh-stats"
-            onClick={() => refetch()}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-100 transition"
-            title="Refresh stats"
-          >
-            <RefreshCw size={15} />
-          </button>
-        </div>
+        <button
+          onClick={() => refetch()}
+          className="p-2.5 text-slate-400 hover:text-slate-655 hover:bg-slate-50 rounded-xl border border-slate-200/60 transition cursor-pointer"
+          title="Refresh stats"
+        >
+          <RefreshCw size={14} />
+        </button>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon={<Home size={14} />}
-          label="Properties"
+          icon={<Home size={18} />}
+          label="Managed Properties"
           value={stats?.summary?.totalProperties}
           color="blue"
+          index={0}
         />
         <StatCard
-          icon={<Users size={14} />}
-          label="Active Tenants"
+          icon={<Users size={18} />}
+          label="Active Leases"
           value={stats?.summary?.totalTenants}
           color="green"
+          index={1}
         />
         <StatCard
-          icon={<Building2 size={14} />}
-          label="Field Agents"
+          icon={<Building2 size={18} />}
+          label="Registered Agents"
           value={stats?.summary?.totalAgents}
           color="yellow"
+          index={2}
         />
         <StatCard
-          icon={<TrendingUp size={14} />}
-          label="Occupancy"
+          icon={<TrendingUp size={18} />}
+          label="Occupancy Rate"
           value={`${stats?.summary?.occupancyRate ?? 0}%`}
-          sub={`${stats?.summary?.occupiedUnits ?? 0} / ${stats?.summary?.totalUnits ?? 0} units`}
+          sub={`${stats?.summary?.occupiedUnits ?? 0} / ${stats?.summary?.totalUnits ?? 0} units occupied`}
           color="slate"
+          index={3}
         />
       </div>
 
@@ -197,111 +224,136 @@ export default function AdminDashboardPage() {
         const [yr, mon] = lastMonth.month.split('-');
         const label = `${MONTH_LABELS[mon] || mon} ${yr}`;
         return (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-gradient-to-r from-emerald-500/10 to-green-500/5 border border-emerald-500/20 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap"
+          >
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-green-700 opacity-70 mb-1">Monthly Revenue — {label}</p>
-              <p className="text-3xl font-black text-green-800">KES {lastMonth.amount?.toLocaleString('en-KE')}</p>
-              <p className="text-xs text-green-600 mt-0.5">{lastMonth.transactions} confirmed payment{lastMonth.transactions !== 1 ? 's' : ''} this month</p>
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 opacity-80 mb-1">Monthly Billing Revenue — {label}</p>
+              <p className="text-3xl font-black text-emerald-800">KES {lastMonth.amount?.toLocaleString('en-KE')}</p>
+              <p className="text-xs text-emerald-600 font-semibold mt-1">{lastMonth.transactions} payments settled this month</p>
             </div>
-            <div className="flex items-center gap-2">
-              <ArrowUpRight size={28} className="text-green-500" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-600">
+              <CheckCircle2 size={24} />
             </div>
-          </div>
+          </motion.div>
         );
       })()}
 
-
-      {/* Revenue Chart + Top Agents */}
+      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
         {/* Revenue Bar Chart */}
-        <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-gray-900">Monthly Revenue (Last 6 Months)</h3>
-            <ArrowUpRight size={16} className="text-green-500" />
-          </div>
-          {revenueData.length ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={revenueData} barSize={32}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f0fdf4' }} />
-                <Bar dataKey="amount" fill="#22c55e" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-60 flex items-center justify-center text-gray-400 text-sm">
-              No confirmed payments in the last 6 months
+        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-extrabold text-slate-800 text-sm">Monthly Revenue Trend</h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">Settle statement over the last 6 months</p>
             </div>
-          )}
+            <TrendingUp size={16} className="text-emerald-500" />
+          </div>
+          
+          <div className="h-60 w-full">
+            {revenueData.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={revenueData} barSize={26}>
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" />
+                      <stop offset="100%" stopColor="#059669" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f0fdf4/40', radius: 4 }} />
+                  <Bar dataKey="amount" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-xs font-semibold">
+                No verified payments in the ledger database.
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Payment Breakdown Pie */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
-          <h3 className="font-bold text-gray-900 mb-4">Payment Status</h3>
-          {paymentPieData.length ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={paymentPieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {paymentPieData.map((_, index) => (
-                    <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Legend
-                  formatter={(value) => <span className="text-xs text-gray-600 capitalize">{value}</span>}
-                />
-                <Tooltip formatter={(v) => [`${v} payments`, '']} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-48 flex items-center justify-center text-gray-400 text-sm">No payments yet</div>
-          )}
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm">Settlement Status</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">Summary of transaction counts</p>
+          </div>
+          
+          <div className="h-48 w-full mt-4">
+            {paymentPieData.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={paymentPieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={65}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {paymentPieData.map((_, index) => (
+                      <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Legend
+                    formatter={(value) => <span className="text-[10px] text-slate-600 capitalize font-bold">{value}</span>}
+                    iconSize={8}
+                    wrapperStyle={{ paddingTop: '8px' }}
+                  />
+                  <Tooltip formatter={(v) => [`${v} payments`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #f1f5f9', fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-xs font-semibold">No payments logged</div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Top Agents + KRA Download + Verification Queue */}
+      {/* Performance, KRA & Verification Queue */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Top Agents */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between">
+        
+        {/* Top Performing Agents */}
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="px-5 py-4 border-b bg-gray-50">
-              <h3 className="font-bold text-gray-900 text-sm">Top Performing Agents (6 months)</h3>
+            <div className="px-5 py-4 border-b border-slate-50 bg-slate-50/50">
+              <h3 className="font-extrabold text-slate-850 text-xs uppercase tracking-wider">Top Field Agents</h3>
             </div>
-            <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+            <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
               {stats?.topAgents?.length ? (
                 stats.topAgents.map((agent, i) => (
-                  <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50/60 transition-colors">
+                  <div key={i} className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/60 transition-colors">
                     <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-[10px] font-black">
+                      <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center text-[10px] font-black">
                         {i + 1}
                       </span>
                       <div>
-                        <p className="text-xs font-semibold text-gray-800">{agent.name}</p>
-                        {agent.email && <p className="text-[10px] text-gray-400">{agent.email}</p>}
+                        <p className="text-xs font-bold text-slate-800">{agent.name}</p>
+                        {agent.email && <p className="text-[9px] text-slate-400 font-medium truncate w-32 sm:w-auto">{agent.email}</p>}
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-black text-gray-900">KES {agent.total?.toLocaleString()}</p>
-                      <p className="text-[10px] text-gray-400">{agent.count} transactions</p>
+                      <p className="text-xs font-black text-slate-900">KES {agent.total?.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400 font-semibold">{agent.count} collections</p>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="px-5 py-8 text-center text-sm text-gray-400">
-                  No agent performance data yet
+                <div className="px-5 py-8 text-center text-xs text-slate-400 font-semibold">
+                  No performance history recorded.
                 </div>
               )}
             </div>
@@ -309,88 +361,88 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* KRA Download */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
           <div>
-            <h3 className="font-bold text-gray-900 mb-1 text-sm">KRA Reconciliation Report</h3>
-            <p className="text-xs text-gray-400 mb-5">
-              CSV export with 5% withholding tax for commercial properties. UTF-8 BOM for Excel.
+            <h3 className="font-extrabold text-slate-800 text-sm">KRA Withholding Tax</h3>
+            <p className="text-[11px] text-slate-450 leading-relaxed mt-1">
+              Monthly CSV reconciliation with 5% withholding tax calculated for commercial properties.
             </p>
-            <div className="space-y-3">
+            <div className="space-y-4.5 mt-5">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5" htmlFor="kra-month">
-                  Select Month
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5" htmlFor="kra-month">
+                  Select Billing Month
                 </label>
                 <input
                   id="kra-month"
                   type="month"
                   value={kraMonth}
                   onChange={(e) => setKraMonth(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 transition"
+                  className="w-full px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition text-slate-700 font-bold"
                 />
               </div>
               <button
                 id="btn-download-kra"
                 onClick={handleDownloadKRA}
                 disabled={downloading || !kraMonth}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-50"
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition disabled:opacity-50 cursor-pointer uppercase tracking-wider shadow-sm shadow-slate-900/10"
               >
-                {downloading
-                  ? <RefreshCw size={15} className="animate-spin" />
-                  : <Download size={15} />
-                }
-                {downloading ? 'Generating…' : 'Download KRA Report'}
+                {downloading ? (
+                  <><Loader2 size={13} className="animate-spin" /> Generating…</>
+                ) : (
+                  <><Download size={13} /> Download Report</>
+                )}
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-gray-400 text-center mt-3">
-            Available to Admin, Super Admin, and Accountant roles
+          <p className="text-[9px] text-slate-400 text-center mt-3 font-semibold">
+            Authorized for Admin, Super Admin & Accountant roles
           </p>
         </div>
 
         {/* Verification Queue Widget */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm">
-                <ShieldCheck className="text-indigo-600" size={18} /> Verification Queue
+            <div className="flex items-center justify-between mb-1 border-b border-slate-50 pb-2">
+              <h3 className="font-extrabold text-slate-800 flex items-center gap-2 text-sm">
+                <ShieldCheck className="text-indigo-600 animate-pulse" size={18} /> Approvals Queue
               </h3>
               {totalPending > 0 && (
-                <span className="animate-pulse bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <span className="bg-red-50 text-red-650 text-[9px] font-black px-2 py-0.5 rounded-full border border-red-200/50">
                   {totalPending} Pending
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400 mb-5">
-              Approve onboarding requests and listings.
+            <p className="text-[11px] text-slate-450 mt-1">
+              Verify credentials and approve listed properties.
             </p>
 
-            <div className="space-y-2">
+            <div className="space-y-2 mt-4">
               <div 
                 onClick={() => navigate('/admin/users', { state: { defaultTab: 'agents' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-gray-50 hover:border-gray-100 cursor-pointer transition"
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-50 hover:border-slate-100 cursor-pointer transition"
               >
-                <span className="text-xs text-gray-600">Pending Agents</span>
-                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${pendingAgentsCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="text-xs font-bold text-slate-655">Pending Agents</span>
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${pendingAgentsCount > 0 ? 'bg-amber-50 border border-amber-200/50 text-amber-800 animate-pulse' : 'bg-slate-50 text-slate-450 border border-slate-100'}`}>
                   {pendingAgentsCount}
                 </span>
               </div>
 
               <div 
                 onClick={() => navigate('/admin/users', { state: { defaultTab: 'landlords' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-gray-50 hover:border-gray-100 cursor-pointer transition"
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-50 hover:border-slate-100 cursor-pointer transition"
               >
-                <span className="text-xs text-gray-600">Pending Landlords</span>
-                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${pendingLandlordsCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="text-xs font-bold text-slate-655">Pending Landlords</span>
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${pendingLandlordsCount > 0 ? 'bg-amber-50 border border-amber-200/50 text-amber-800 animate-pulse' : 'bg-slate-50 text-slate-450 border border-slate-100'}`}>
                   {pendingLandlordsCount}
                 </span>
               </div>
 
               <div 
                 onClick={() => navigate('/admin/users', { state: { defaultTab: 'properties' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-gray-50 hover:border-gray-100 cursor-pointer transition"
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-50 hover:border-slate-100 cursor-pointer transition"
               >
-                <span className="text-xs text-gray-600">Pending Properties</span>
-                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${pendingPropertiesCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="text-xs font-bold text-slate-655">Pending Listings</span>
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${pendingPropertiesCount > 0 ? 'bg-amber-50 border border-amber-200/50 text-amber-800 animate-pulse' : 'bg-slate-50 text-slate-450 border border-slate-100'}`}>
                   {pendingPropertiesCount}
                 </span>
               </div>
@@ -399,12 +451,13 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => navigate('/admin/users')}
-            className="w-full py-3 mt-4 border border-gray-200 hover:border-indigo-100 hover:bg-indigo-50/20 text-indigo-600 rounded-xl text-sm font-bold transition flex items-center justify-center gap-1.5"
+            className="w-full py-3 mt-4 border border-slate-200 hover:border-indigo-150 hover:bg-indigo-50/20 text-indigo-650 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 cursor-pointer uppercase tracking-wider"
           >
-            Manage Approvals <ArrowUpRight size={14} />
+            Manage Approvals <ChevronRight size={13} />
           </button>
         </div>
+
       </div>
-    </div>
+    </motion.div>
   );
 }

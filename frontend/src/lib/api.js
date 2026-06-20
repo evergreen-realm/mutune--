@@ -143,11 +143,12 @@ export const sendChatMessage  = (data)      => api.post('/ai/chat', data);
 export const getChatHistory   = (sessionId) => api.get(`/ai/history/${sessionId}`);
 export const clearChatHistory = (sessionId) => api.delete(`/ai/history/${sessionId}`);
 
-// ── Notices (Phase 3) ─────────────────────────────────────────────────────────
 export const fetchNotices      = ()        => api.get('/notices');
 export const generateNotice    = (data)    => api.post('/notices/generate', data);
 export const acknowledgeNotice = (id)      => api.post(`/notices/${id}/acknowledge`);
 export const sendBulkNotice    = (data)    => api.post('/notices/bulk', data);
+export const updateNotice      = (id, data) => api.patch(`/notices/${id}`, data);
+export const deleteNotice      = (id)       => api.delete(`/notices/${id}`);
 
 // ── Onboarding / User (Phase 4) ───────────────────────────────────────────────
 export const updateUserRole    = (data)    => api.patch('/users/me/role', data);
