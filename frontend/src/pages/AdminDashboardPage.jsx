@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useThemeStore } from '../store/themeStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -32,17 +33,17 @@ function formatMonth(yyyyMM) {
 
 function StatCard({ icon, label, value, sub, color, index }) {
   const palette = {
-    blue:   'from-blue-50/50 to-indigo-50/5 shadow-blue-500/5 text-blue-700 border-blue-100/60',
-    green:  'from-green-50/50 to-emerald-50/5 shadow-emerald-500/5 text-emerald-700 border-green-100/60',
-    yellow: 'from-amber-50/50 to-orange-50/5 shadow-amber-500/5 text-amber-700 border-amber-100/60',
-    slate:  'from-slate-50/50 to-slate-100/5 shadow-slate-500/5 text-slate-700 border-slate-250/60'
+    blue:   'from-blue-500/10 to-indigo-500/5 dark:from-blue-500/20 dark:to-indigo-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 shadow-blue-500/5',
+    green:  'from-green-500/10 to-emerald-500/5 dark:from-green-500/20 dark:to-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-green-500/20 shadow-emerald-500/5',
+    yellow: 'from-amber-500/10 to-orange-500/5 dark:from-amber-500/20 dark:to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shadow-amber-500/5',
+    slate:  'from-slate-500/10 to-slate-600/5 dark:from-slate-500/20 dark:to-slate-600/10 text-muted border-border shadow-slate-500/5'
   };
 
   const iconBg = {
-    blue:   'bg-blue-100/80 text-blue-600',
-    green:  'bg-emerald-100/80 text-emerald-600',
-    yellow: 'bg-amber-100/80 text-amber-600',
-    slate:  'bg-slate-200/80 text-slate-600'
+    blue:   'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+    green:  'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+    yellow: 'bg-amber-500/20 text-amber-600 dark:text-amber-400',
+    slate:  'bg-slate-500/20 text-muted'
   };
 
   return (
@@ -54,11 +55,11 @@ function StatCard({ icon, label, value, sub, color, index }) {
       className={`bg-gradient-to-tr ${palette[color] || palette.slate} border rounded-2xl p-5 shadow-sm flex justify-between items-start`}
     >
       <div>
-        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider opacity-60 mb-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider opacity-60 mb-2">
           {label}
         </div>
-        <div className="text-2xl font-black text-slate-800">{value ?? '—'}</div>
-        {sub && <div className="text-[10px] mt-1.5 opacity-70 font-semibold">{sub}</div>}
+        <div className="text-2xl font-black text-foreground">{value ?? '—'}</div>
+        {sub && <div className="text-xs mt-1.5 opacity-70 font-semibold">{sub}</div>}
       </div>
       <div className={`p-2.5 rounded-xl ${iconBg[color] || iconBg.slate} shadow-inner`}>
         {icon}
@@ -70,11 +71,11 @@ function StatCard({ icon, label, value, sub, color, index }) {
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl shadow-xl p-3.5 text-xs">
-      <p className="font-extrabold text-slate-800 mb-1">{label}</p>
+    <div className="bg-surface border border-border rounded-2xl shadow-xl p-3.5 text-xs">
+      <p className="font-extrabold text-foreground mb-1">{label}</p>
       <p className="text-emerald-700 font-black">KES {payload[0]?.value?.toLocaleString()}</p>
       {payload[0]?.payload?.transactions && (
-        <p className="text-slate-400 text-[10px] font-bold uppercase mt-1">{payload[0].payload.transactions} payments settled</p>
+        <p className="text-muted text-xs font-bold uppercase mt-1">{payload[0].payload.transactions} payments settled</p>
       )}
     </div>
   );
@@ -82,6 +83,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
+  const { theme } = useThemeStore();
   const [kraMonth, setKraMonth] = useState(new Date().toISOString().slice(0, 7));
   const [downloading, setDownloading] = useState(false);
 
@@ -172,12 +174,12 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Admin Dashboard</h1>
-          <p className="text-xs text-slate-450 mt-0.5">Revenue analytics · Mombasa Estate Agency</p>
+          <h1 className="text-2xl font-black text-foreground">Admin Dashboard</h1>
+          <p className="text-xs text-muted mt-0.5">Revenue analytics · Mombasa Estate Agency</p>
         </div>
         <button
           onClick={() => refetch()}
-          className="p-2.5 text-slate-400 hover:text-slate-655 hover:bg-slate-50 rounded-xl border border-slate-200/60 transition cursor-pointer"
+          className="p-2.5 text-muted hover:text-foreground hover:bg-background rounded-xl border border-border transition cursor-pointer"
           title="Refresh stats"
         >
           <RefreshCw size={14} />
@@ -230,8 +232,8 @@ export default function AdminDashboardPage() {
             className="bg-gradient-to-r from-emerald-500/10 to-green-500/5 border border-emerald-500/20 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap"
           >
             <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 opacity-80 mb-1">Monthly Billing Revenue — {label}</p>
-              <p className="text-3xl font-black text-emerald-800">KES {lastMonth.amount?.toLocaleString('en-KE')}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 opacity-80 mb-1">Monthly Billing Revenue — {label}</p>
+              <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">KES {lastMonth.amount?.toLocaleString('en-KE')}</p>
               <p className="text-xs text-emerald-600 font-semibold mt-1">{lastMonth.transactions} payments settled this month</p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-600">
@@ -245,11 +247,11 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Revenue Bar Chart */}
-        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="font-extrabold text-slate-800 text-sm">Monthly Revenue Trend</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Settle statement over the last 6 months</p>
+              <h3 className="font-extrabold text-foreground text-sm">Monthly Revenue Trend</h3>
+              <p className="text-xs text-muted mt-0.5">Settle statement over the last 6 months</p>
             </div>
             <TrendingUp size={16} className="text-emerald-500" />
           </div>
@@ -264,10 +266,10 @@ export default function AdminDashboardPage() {
                       <stop offset="100%" stopColor="#059669" />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#334155' : '#e2e8f0'} vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: theme === 'dark' ? '#94a3b8' : '#64748b', fontWeight: 600 }} axisLine={false} tickLine={false} />
                   <YAxis
-                    tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                    tick={{ fontSize: 12, fill: theme === 'dark' ? '#94a3b8' : '#64748b', fontWeight: 600 }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
@@ -285,10 +287,10 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Payment Breakdown Pie */}
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+        <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
           <div>
-            <h3 className="font-extrabold text-slate-800 text-sm">Settlement Status</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Summary of transaction counts</p>
+            <h3 className="font-extrabold text-foreground text-sm">Settlement Status</h3>
+            <p className="text-xs text-muted mt-0.5">Summary of transaction counts</p>
           </div>
           
           <div className="h-48 w-full mt-4">
@@ -309,11 +311,11 @@ export default function AdminDashboardPage() {
                     ))}
                   </Pie>
                   <Legend
-                    formatter={(value) => <span className="text-[10px] text-slate-600 capitalize font-bold">{value}</span>}
+                    formatter={(value) => <span className="text-xs text-muted capitalize font-bold">{value}</span>}
                     iconSize={8}
                     wrapperStyle={{ paddingTop: '8px' }}
                   />
-                  <Tooltip formatter={(v) => [`${v} payments`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #f1f5f9', fontSize: 11 }} />
+                  <Tooltip formatter={(v) => [`${v} payments`, '']} contentStyle={{ borderRadius: 12, border: theme === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0', backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff', color: theme === 'dark' ? '#f8fafc' : '#0f172a', fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -325,29 +327,28 @@ export default function AdminDashboardPage() {
 
       {/* Performance, KRA & Verification Queue */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Top Performing Agents */}
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between">
+          {/* Top Performing Agents */}
+        <div className="bg-surface border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="px-5 py-4 border-b border-slate-50 bg-slate-50/50">
-              <h3 className="font-extrabold text-slate-850 text-xs uppercase tracking-wider">Top Field Agents</h3>
+            <div className="px-5 py-4 border-b border-border bg-background/50">
+              <h3 className="font-extrabold text-foreground text-xs uppercase tracking-wider">Top Field Agents</h3>
             </div>
-            <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+            <div className="divide-y divide-border max-h-72 overflow-y-auto">
               {stats?.topAgents?.length ? (
                 stats.topAgents.map((agent, i) => (
-                  <div key={i} className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/60 transition-colors">
+                  <div key={i} className="flex items-center justify-between px-5 py-3.5 hover:bg-background/60 transition-colors">
                     <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center text-[10px] font-black">
+                      <span className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-xs font-black">
                         {i + 1}
                       </span>
                       <div>
-                        <p className="text-xs font-bold text-slate-800">{agent.name}</p>
-                        {agent.email && <p className="text-[9px] text-slate-400 font-medium truncate w-32 sm:w-auto">{agent.email}</p>}
+                        <p className="text-xs font-bold text-foreground">{agent.name}</p>
+                        {agent.email && <p className="text-xs text-muted font-medium truncate w-32 sm:w-auto">{agent.email}</p>}
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-black text-slate-900">KES {agent.total?.toLocaleString()}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold">{agent.count} collections</p>
+                      <p className="text-xs font-black text-foreground">KES {agent.total?.toLocaleString()}</p>
+                      <p className="text-xs text-muted font-semibold">{agent.count} collections</p>
                     </div>
                   </div>
                 ))
@@ -361,15 +362,15 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* KRA Download */}
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+        <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
           <div>
-            <h3 className="font-extrabold text-slate-800 text-sm">KRA Withholding Tax</h3>
-            <p className="text-[11px] text-slate-450 leading-relaxed mt-1">
+            <h3 className="font-extrabold text-foreground text-sm">KRA Withholding Tax</h3>
+            <p className="text-xs text-muted leading-relaxed mt-1">
               Monthly CSV reconciliation with 5% withholding tax calculated for commercial properties.
             </p>
             <div className="space-y-4.5 mt-5">
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5" htmlFor="kra-month">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5" htmlFor="kra-month">
                   Select Billing Month
                 </label>
                 <input
@@ -377,14 +378,14 @@ export default function AdminDashboardPage() {
                   type="month"
                   value={kraMonth}
                   onChange={(e) => setKraMonth(e.target.value)}
-                  className="w-full px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition text-slate-700 font-bold"
+                  className="w-full px-4 py-2.5 text-xs bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400 transition text-foreground font-bold"
                 />
               </div>
               <button
                 id="btn-download-kra"
                 onClick={handleDownloadKRA}
                 disabled={downloading || !kraMonth}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition disabled:opacity-50 cursor-pointer uppercase tracking-wider shadow-sm shadow-slate-900/10"
+                className="w-full py-3 bg-primary hover:opacity-90 active:scale-[0.99] text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition disabled:opacity-50 cursor-pointer uppercase tracking-wider shadow-sm"
               >
                 {downloading ? (
                   <><Loader2 size={13} className="animate-spin" /> Generating…</>
@@ -394,55 +395,55 @@ export default function AdminDashboardPage() {
               </button>
             </div>
           </div>
-          <p className="text-[9px] text-slate-400 text-center mt-3 font-semibold">
+          <p className="text-xs text-muted text-center mt-3 font-semibold">
             Authorized for Admin, Super Admin & Accountant roles
           </p>
         </div>
 
         {/* Verification Queue Widget */}
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+        <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-1 border-b border-slate-50 pb-2">
-              <h3 className="font-extrabold text-slate-800 flex items-center gap-2 text-sm">
+            <div className="flex items-center justify-between mb-1 border-b border-border pb-2">
+              <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm">
                 <ShieldCheck className="text-indigo-600 animate-pulse" size={18} /> Approvals Queue
               </h3>
               {totalPending > 0 && (
-                <span className="bg-red-50 text-red-650 text-[9px] font-black px-2 py-0.5 rounded-full border border-red-200/50">
+                <span className="bg-red-500/10 text-red-500 text-xs font-black px-2 py-0.5 rounded-full border border-red-500/20">
                   {totalPending} Pending
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-slate-450 mt-1">
+            <p className="text-xs text-muted mt-1">
               Verify credentials and approve listed properties.
             </p>
 
             <div className="space-y-2 mt-4">
               <div 
                 onClick={() => navigate('/admin/users', { state: { defaultTab: 'agents' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-50 hover:border-slate-100 cursor-pointer transition"
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
               >
-                <span className="text-xs font-bold text-slate-655">Pending Agents</span>
-                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${pendingAgentsCount > 0 ? 'bg-amber-50 border border-amber-200/50 text-amber-800 animate-pulse' : 'bg-slate-50 text-slate-450 border border-slate-100'}`}>
+                <span className="text-xs font-bold text-foreground">Pending Agents</span>
+                <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingAgentsCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
                   {pendingAgentsCount}
                 </span>
               </div>
 
               <div 
                 onClick={() => navigate('/admin/users', { state: { defaultTab: 'landlords' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-50 hover:border-slate-100 cursor-pointer transition"
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
               >
-                <span className="text-xs font-bold text-slate-655">Pending Landlords</span>
-                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${pendingLandlordsCount > 0 ? 'bg-amber-50 border border-amber-200/50 text-amber-800 animate-pulse' : 'bg-slate-50 text-slate-450 border border-slate-100'}`}>
+                <span className="text-xs font-bold text-foreground">Pending Landlords</span>
+                <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingLandlordsCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
                   {pendingLandlordsCount}
                 </span>
               </div>
 
               <div 
                 onClick={() => navigate('/admin/users', { state: { defaultTab: 'properties' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-50 hover:border-slate-100 cursor-pointer transition"
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
               >
-                <span className="text-xs font-bold text-slate-655">Pending Listings</span>
-                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${pendingPropertiesCount > 0 ? 'bg-amber-50 border border-amber-200/50 text-amber-800 animate-pulse' : 'bg-slate-50 text-slate-450 border border-slate-100'}`}>
+                <span className="text-xs font-bold text-foreground">Pending Listings</span>
+                <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingPropertiesCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
                   {pendingPropertiesCount}
                 </span>
               </div>
@@ -451,7 +452,7 @@ export default function AdminDashboardPage() {
 
           <button
             onClick={() => navigate('/admin/users')}
-            className="w-full py-3 mt-4 border border-slate-200 hover:border-indigo-150 hover:bg-indigo-50/20 text-indigo-650 rounded-xl text-xs font-black transition flex items-center justify-center gap-1 cursor-pointer uppercase tracking-wider"
+            className="w-full py-3 mt-4 border border-border hover:bg-background text-foreground rounded-xl text-xs font-black transition flex items-center justify-center gap-1 cursor-pointer uppercase tracking-wider"
           >
             Manage Approvals <ChevronRight size={13} />
           </button>

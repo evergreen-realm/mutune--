@@ -38,6 +38,20 @@
 
   <!-- Theme colour for mobile browsers -->
   <meta name="theme-color" content="#16a34a" />
+
+  <!-- Prevent FOUC (flash of unstyled content) by immediately applying dark mode class -->
+  <script>
+    (function() {
+      try {
+        var theme = localStorage.getItem('mutunerent-theme') || 'light';
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

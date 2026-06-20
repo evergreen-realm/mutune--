@@ -87,7 +87,7 @@ export default function PropertyList({ properties = [] }) {
       {/* Table grid */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
-          <thead className="bg-gray-50/50 text-gray-500 uppercase text-[10px] font-bold tracking-wider">
+          <thead className="bg-gray-50/50 text-gray-500 uppercase text-xs font-bold tracking-wider">
             <tr>
               <th className="p-4 pl-6">Code</th>
               <th className="p-4">Property Name</th>

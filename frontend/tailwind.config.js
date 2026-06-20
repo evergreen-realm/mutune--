@@ -1,22 +1,30 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Green-based brand palette (mirrors Tailwind's green scale)
+        primary: 'var(--primary)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        success: 'var(--success)',
+        'success-bg': 'var(--success-bg)',
+        surface: 'var(--surface)',
+        border: 'var(--border)',
+        muted: 'var(--muted)',
         brand: {
-          50:  '#f0fdf4',
-          100: '#dcfce7',
-          200: '#bbf7d0',
-          300: '#86efac',
-          400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
-          950: '#052e16'
+          50:  'var(--brand-50)',
+          100: 'var(--brand-100)',
+          200: 'var(--brand-200)',
+          300: 'var(--brand-300)',
+          400: 'var(--brand-400)',
+          500: 'var(--brand-500)',
+          600: 'var(--brand-600)',
+          700: 'var(--brand-700)',
+          800: 'var(--brand-800)',
+          900: 'var(--brand-900)',
+          950: 'var(--brand-950)'
         }
       },
       fontFamily: {

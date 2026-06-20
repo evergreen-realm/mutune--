@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --primary: #2563EB;
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --surface: #FFFFFF;
+  --success: #16A34A;
+  --success-bg: #F0FDF4;
+  --border: #E2E8F0;
+  --muted: #64748B;
+
+  /* Blue-based brand palette */
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+}
+
+.dark {
+  --primary: #3B82F6;
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+  --surface: #1E293B;
+  --success: #22C55E;
+  --success-bg: #052E16;
+  --border: #334155;
+  --muted: #94A3B8;
+
+  /* Blue-based brand palette */
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+}
+
 /* ── Global base ─────────────────────────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
@@ -14,7 +62,7 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-background text-foreground antialiased transition-colors duration-200;
     min-height: 100dvh;
   }
 
@@ -80,7 +128,7 @@
 /* ── Status badge helpers ────────────────────────────────────────────────── */
 @layer components {
   .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border;
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border;
   }
 }
 

@@ -98,14 +98,14 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
           {label} {multiple ? '(Multiple files allowed)' : ''}
         </label>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setMode('dropzone')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${
               mode === 'dropzone'
                 ? 'bg-green-600 text-white shadow-sm shadow-green-900/10'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
@@ -116,7 +116,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
           <button
             type="button"
             onClick={() => setMode('camera')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${
               mode === 'camera'
                 ? 'bg-green-600 text-white shadow-sm shadow-green-900/10'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
@@ -151,7 +151,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
                 <p className="text-xs text-slate-700 font-bold">
                   {isDragActive ? 'Drop files here' : 'Drag & drop image/PDF here, or click to browse'}
                 </p>
-                <p className="text-[10px] text-slate-400">Supports JPEG, PNG, WEBP, or PDF</p>
+                <p className="text-xs text-slate-400">Supports JPEG, PNG, WEBP, or PDF</p>
               </div>
             )}
           </div>
@@ -207,7 +207,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
                 {isPdf ? (
                   <div className="flex flex-col items-center gap-1 p-2 text-center">
                     <Image size={24} className="text-red-500" />
-                    <span className="text-[9px] text-slate-600 font-bold truncate max-w-full">PDF Document</span>
+                    <span className="text-xs text-slate-600 font-bold truncate max-w-full">PDF Document</span>
                   </div>
                 ) : (
                   <img src={url} alt={`Upload preview ${idx}`} className="object-cover w-full h-full" />
@@ -217,7 +217,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-1.5 bg-white hover:bg-slate-100 rounded-lg text-slate-700 transition-colors text-[10px] font-bold"
+                    className="p-1.5 bg-white hover:bg-slate-100 rounded-lg text-slate-700 transition-colors text-xs font-bold"
                   >
                     View File
                   </a>

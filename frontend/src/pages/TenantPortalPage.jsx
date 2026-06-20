@@ -37,53 +37,53 @@ const statusColor = (s) => ({
   confirmed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
   pending:   'bg-amber-500/10 text-amber-400 border-amber-500/30',
   failed:    'bg-red-500/10 text-red-400 border-red-500/30'
-}[s] || 'bg-slate-500/10 text-slate-400 border-slate-500/30');
+}[s] || 'bg-muted/10 text-muted border-border');
 
 const ticketStatusColor = (s) => ({
   open:        'bg-amber-500/10 text-amber-400 border border-amber-500/20',
   in_progress: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
   resolved:    'bg-green-500/10 text-green-400 border border-green-500/20',
-  closed:      'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-}[s] || 'bg-slate-500/10 text-slate-400 border border-slate-500/20');
+  closed:      'bg-muted/10 text-muted border border-border'
+}[s] || 'bg-muted/10 text-muted border border-border');
 
 // Skeleton loader component for portal
 function PortalSkeleton() {
   return (
-    <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-start relative overflow-hidden">
+    <div className="min-h-screen bg-background p-6 flex flex-col items-center justify-start relative overflow-hidden">
       {/* Background blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/20 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-900/20 blur-[120px] pointer-events-none" />
       
       <div className="w-full max-w-5xl space-y-6 z-10">
-        <div className="flex items-center justify-between border-b border-slate-900 pb-4">
-          <div className="h-8 w-40 bg-slate-900 rounded-lg animate-pulse" />
-          <div className="h-10 w-10 bg-slate-900 rounded-full animate-pulse" />
+        <div className="flex items-center justify-between border-b border-border pb-4">
+          <div className="h-8 w-40 bg-muted/20 rounded-lg animate-pulse" />
+          <div className="h-10 w-10 bg-muted/20 rounded-full animate-pulse" />
         </div>
         
         {/* Hero skeleton */}
-        <div className="rounded-3xl bg-slate-900/40 border border-slate-800/80 p-8 space-y-6">
+        <div className="rounded-3xl bg-surface border border-border p-8 space-y-6">
           <div className="flex items-center gap-6">
-            <div className="w-20 h-20 rounded-2xl bg-slate-900 animate-pulse" />
+            <div className="w-20 h-20 rounded-2xl bg-muted/20 animate-pulse" />
             <div className="space-y-3 flex-1">
-              <div className="h-4 w-32 bg-slate-900 rounded-full animate-pulse" />
-              <div className="h-8 w-56 bg-slate-900 rounded-full animate-pulse" />
-              <div className="h-4 w-44 bg-slate-900 rounded-full animate-pulse" />
+              <div className="h-4 w-32 bg-muted/20 rounded-full animate-pulse" />
+              <div className="h-8 w-56 bg-muted/20 rounded-full animate-pulse" />
+              <div className="h-4 w-44 bg-muted/20 rounded-full animate-pulse" />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-800/40">
-            {[1, 2, 3].map(i => <div key={i} className="h-20 bg-slate-900/50 rounded-2xl border border-slate-800 animate-pulse" />)}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-border/40">
+            {[1, 2, 3].map(i => <div key={i} className="h-20 bg-surface border border-border animate-pulse" />)}
           </div>
         </div>
         
         {/* Grid skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-slate-900/40 border border-slate-800 rounded-2xl animate-pulse" />)}
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-surface border border-border animate-pulse" />)}
         </div>
         
         {/* Table skeleton */}
-        <div className="bg-slate-900/30 border border-slate-800/80 rounded-3xl p-6 space-y-4">
-          <div className="h-6 w-32 bg-slate-900 rounded-full animate-pulse" />
-          {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-900/50 border border-slate-800/40 rounded-xl animate-pulse" />)}
+        <div className="bg-surface border border-border rounded-3xl p-6 space-y-4">
+          <div className="h-6 w-32 bg-muted/20 rounded-full animate-pulse" />
+          {[1, 2, 3].map(i => <div key={i} className="h-14 bg-surface border border-border/40 rounded-xl animate-pulse" />)}
         </div>
       </div>
     </div>
@@ -272,7 +272,7 @@ export default function TenantPortalPage() {
   // No profile found — display input form for Tenant Code
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950 text-white relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-background text-foreground relative overflow-hidden">
         {/* Glowing background mesh */}
         <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-600/10 blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none" />
@@ -281,22 +281,22 @@ export default function TenantPortalPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-md bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative z-10 space-y-6"
+          className="w-full max-w-md bg-surface/60 backdrop-blur-xl border border-border rounded-[32px] p-8 shadow-2xl relative z-10 space-y-6"
         >
           <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400">
             <Home className="w-8 h-8" />
           </div>
           
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">Link Your Tenancy</h1>
-            <p className="text-sm text-slate-400">
+            <h1 className="text-2xl font-black text-foreground tracking-tight">Link Your Tenancy</h1>
+            <p className="text-sm text-muted">
               Please enter your unique Tenant Code below to link your account to your lease.
             </p>
           </div>
 
           <form onSubmit={handleLinkTenantCode} className="space-y-4">
             <div>
-              <label htmlFor="tenantCode" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              <label htmlFor="tenantCode" className="block text-xs font-bold uppercase tracking-wider text-muted mb-2">
                 Tenant Code
               </label>
               <input
@@ -306,7 +306,7 @@ export default function TenantPortalPage() {
                 onChange={(e) => setTenantCode(e.target.value)}
                 placeholder="e.g., TEN-XXXX-XXXX"
                 disabled={submittingCode}
-                className="w-full px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
+                className="w-full px-4 py-3 bg-background/80 border border-border rounded-xl text-sm text-foreground placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
               />
             </div>
 
@@ -326,11 +326,11 @@ export default function TenantPortalPage() {
             </button>
           </form>
 
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 flex gap-3">
+          <div className="bg-background/60 border border-border rounded-2xl p-4 flex gap-3">
             <Phone className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-bold text-slate-300">Need Help or Don't Have a Code?</p>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs font-bold text-muted">Need Help or Don't Have a Code?</p>
+              <p className="text-xs text-muted leading-relaxed">
                 Contact Mutune Estate Agency customer care via Call or WhatsApp at{' '}
                 <a href={`tel:+${customerCare}`} className="text-emerald-400 hover:text-emerald-350 font-bold underline transition-colors">
                   {customerCare}
@@ -344,7 +344,7 @@ export default function TenantPortalPage() {
             <button
               type="button"
               onClick={() => { if (clerkUser) { signOut(); } }}
-              className="text-xs font-bold text-slate-500 hover:text-slate-400 transition-colors uppercase tracking-wider flex items-center gap-1.5 justify-center mx-auto cursor-pointer"
+              className="text-xs font-bold text-muted hover:text-muted transition-colors uppercase tracking-wider flex items-center gap-1.5 justify-center mx-auto cursor-pointer"
             >
               <LogOut size={12} /> Sign Out
             </button>
@@ -365,7 +365,7 @@ export default function TenantPortalPage() {
     const tierName = profile?.current_property_id?.tier_id?.name || 'Standard';
     
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-white bg-slate-950 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center p-6 text-foreground bg-background relative overflow-hidden">
         {/* Glowing background mesh */}
         <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-amber-500/5 blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-slate-500/5 blur-[120px] pointer-events-none" />
@@ -374,37 +374,37 @@ export default function TenantPortalPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-xl bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-[32px] p-8 shadow-2xl text-center space-y-6 relative overflow-hidden"
+          className="w-full max-w-xl bg-surface/60 backdrop-blur-xl border border-border rounded-[32px] p-8 shadow-2xl text-center space-y-6 relative overflow-hidden"
         >
           <div className="mx-auto w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20">
             <Clock className="w-8 h-8 text-amber-400 animate-pulse" />
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">Registration Awaiting Approval</h1>
-            <p className="text-sm text-slate-400">
+            <h1 className="text-2xl font-black text-foreground tracking-tight">Registration Awaiting Approval</h1>
+            <p className="text-sm text-muted">
               Your tenant profile has been submitted and is currently pending verification.
             </p>
           </div>
 
-          <div className="border border-slate-800/80 rounded-2xl bg-slate-950/40 p-5 text-left space-y-3.5">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lease Details Summary</h2>
+          <div className="border border-border rounded-2xl bg-background/40 p-5 text-left space-y-3.5">
+            <h2 className="text-xs font-bold text-muted uppercase tracking-wider">Lease Details Summary</h2>
             <div className="grid grid-cols-2 gap-y-3.5 gap-x-4 text-xs">
               <div>
-                <span className="text-slate-500 block">Tenant Code</span>
-                <span className="text-white font-mono font-bold">{profile.tenant_code}</span>
+                <span className="text-muted block">Tenant Code</span>
+                <span className="text-foreground font-mono font-bold">{profile.tenant_code}</span>
               </div>
               <div>
-                <span className="text-slate-500 block">Assigned Rent</span>
-                <span className="text-white font-bold">{FMT_KES(profile.rent_amount_kes)} / month</span>
+                <span className="text-muted block">Assigned Rent</span>
+                <span className="text-foreground font-bold">{FMT_KES(profile.rent_amount_kes)} / month</span>
               </div>
               <div>
-                <span className="text-slate-500 block">Property & Unit</span>
-                <span className="text-white font-bold">{propertyName} — Unit {unitNo}</span>
+                <span className="text-muted block">Property & Unit</span>
+                <span className="text-foreground font-bold">{propertyName} — Unit {unitNo}</span>
               </div>
               <div>
-                <span className="text-slate-500 block">Property Code & Tier</span>
-                <span className="text-white font-bold">{propertyCode} ({tierName})</span>
+                <span className="text-muted block">Property Code & Tier</span>
+                <span className="text-foreground font-bold">{propertyCode} ({tierName})</span>
               </div>
             </div>
           </div>
@@ -413,8 +413,8 @@ export default function TenantPortalPage() {
             <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="text-xs font-bold text-amber-400">Next Steps</p>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Once Mutune Estate Agency approves your tenancy, you will receive a registration email at <strong className="text-white">{profile.email || clerkUser?.emailAddresses?.[0]?.emailAddress}</strong> instructing you to make your rent payment of <strong className="text-white">{FMT_KES(profile.rent_amount_kes)}</strong> via the portal.
+              <p className="text-xs text-muted leading-relaxed">
+                Once Mutune Estate Agency approves your tenancy, you will receive a registration email at <strong className="text-foreground">{profile.email || clerkUser?.emailAddresses?.[0]?.emailAddress}</strong> instructing you to make your rent payment of <strong className="text-foreground">{FMT_KES(profile.rent_amount_kes)}</strong> via the portal.
               </p>
             </div>
           </div>
@@ -422,7 +422,7 @@ export default function TenantPortalPage() {
           <div className="pt-2">
             <button
               onClick={() => { if (clerkUser) { signOut(); } }}
-              className="px-6 py-3 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center gap-2 justify-center mx-auto border border-slate-700/50 cursor-pointer"
+              className="px-6 py-3 bg-background/80 hover:bg-slate-700/80 text-muted rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center gap-2 justify-center mx-auto border border-border cursor-pointer"
             >
               <LogOut size={13} /> Sign Out / Back
             </button>
@@ -453,7 +453,7 @@ export default function TenantPortalPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden pb-12">
+    <div className="min-h-screen bg-background text-foreground relative overflow-hidden pb-12">
       {/* Background orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <motion.div 
@@ -479,25 +479,25 @@ export default function TenantPortalPage() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-6">
         
         {/* Top Header Row */}
-        <header className="flex items-center justify-between border-b border-slate-900 pb-4 mb-6">
+        <header className="flex items-center justify-between border-b border-border pb-4 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-emerald-500/15">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-foreground font-black text-lg shadow-lg shadow-emerald-500/15">
               MR
             </div>
             <div>
-              <h2 className="text-md font-black tracking-tight text-white flex items-center gap-1">MutuneRent <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">PRO</span></h2>
-              <p className="text-[10px] text-slate-555 tracking-wider uppercase font-semibold">Tenant Portal</p>
+              <h2 className="text-md font-black tracking-tight text-foreground flex items-center gap-1">MutuneRent <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">PRO</span></h2>
+              <p className="text-xs text-muted tracking-wider uppercase font-semibold">Tenant Portal</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setNotifOpen(true)} 
-              className="relative p-2.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 rounded-xl cursor-pointer text-slate-300 transition"
+              className="relative p-2.5 bg-surface/80 hover:bg-background border border-border hover:border-border rounded-xl cursor-pointer text-muted transition"
             >
               <Bell size={18} />
               {unread > 0 && (
-                <span className="absolute top-[-4px] right-[-4px] bg-emerald-500 text-slate-950 rounded-full w-5 h-5 text-[10px] font-black flex items-center justify-center border-2 border-slate-950">
+                <span className="absolute top-[-4px] right-[-4px] bg-emerald-500 text-background rounded-full w-5 h-5 text-xs font-black flex items-center justify-center border-2 border-background">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}
@@ -505,7 +505,7 @@ export default function TenantPortalPage() {
 
             <button
               onClick={() => { if (clerkUser) { signOut(); } }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-900/80 hover:bg-slate-800 text-xs font-bold text-slate-300 border border-slate-800/80 rounded-xl transition cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 bg-surface/80 hover:bg-background text-xs font-bold text-muted border border-border rounded-xl transition cursor-pointer"
             >
               <LogOut size={13} />
               <span className="hidden sm:inline">Sign Out</span>
@@ -514,7 +514,7 @@ export default function TenantPortalPage() {
         </header>
 
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-semibold tracking-wide uppercase mb-4">
+        <div className="flex items-center gap-1.5 text-xs text-muted font-semibold tracking-wide uppercase mb-4">
           <span>My Portal</span>
           <ChevronRight size={10} />
           <span className="text-green-500 capitalize">{activeTab}</span>
@@ -534,13 +534,13 @@ export default function TenantPortalPage() {
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0 border border-emerald-500/25">
                   <Star size={16} className="text-emerald-400" />
                 </div>
-                <p className="text-xs text-slate-200">
+                <p className="text-xs text-foreground">
                   New property listed: <strong className="text-emerald-400">{n.property_name}</strong> in <strong>{n.property_area}</strong> – Tier: <strong>{n.property_tier_name}</strong> – Rent: <strong>{FMT_KES(n.property_rent)}</strong>
                 </p>
               </div>
               <button 
                 onClick={() => handleNotifClick(n)} 
-                className="p-1.5 bg-slate-900/50 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition flex-shrink-0 cursor-pointer"
+                className="p-1.5 bg-surface/50 hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition flex-shrink-0 cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -562,7 +562,7 @@ export default function TenantPortalPage() {
                 </div>
                 <div>
                   <p className="text-xs font-black text-red-400 uppercase tracking-wider mb-0.5">Rent Arrears Outstanding</p>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-xs text-muted">
                     You have <strong className="text-amber-400">{FMT_KES(arrears)}</strong> in outstanding arrears. Please settle your balance promptly to avoid late fees.
                   </p>
                 </div>
@@ -579,14 +579,14 @@ export default function TenantPortalPage() {
         </AnimatePresence>
 
         {/* HERO PROPERTY LEASE CARD */}
-        <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/80 rounded-[32px] overflow-hidden shadow-2xl mb-8 relative">
+        <div className="bg-surface/40 backdrop-blur-xl border border-border rounded-[32px] overflow-hidden shadow-2xl mb-8 relative">
           
           {propertyPhoto ? (
             <div className="h-44 overflow-hidden relative">
               <img src={propertyPhoto} alt={propertyName} className="w-full h-full object-cover filter brightness-75" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
               {arrears > 0 && (
-                <span className="absolute top-4 right-4 bg-red-500 text-slate-950 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-lg shadow-red-950/30">
+                <span className="absolute top-4 right-4 bg-red-500 text-background text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-lg shadow-red-950/30">
                   Arrears: {FMT_KES(arrears)}
                 </span>
               )}
@@ -597,7 +597,7 @@ export default function TenantPortalPage() {
 
           <div className="p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500/10 to-indigo-500/10 border border-slate-800/80 flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500/10 to-indigo-500/10 border border-border flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden">
                 {propertyPhoto ? (
                   <img src={propertyPhoto} alt={propertyName} className="w-full h-full object-cover" />
                 ) : (
@@ -605,40 +605,40 @@ export default function TenantPortalPage() {
                 )}
               </div>
               <div>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">
+                <p className="text-xs text-muted font-bold uppercase tracking-wider mb-1">
                   {propertyArea} · {propertyName}
                 </p>
-                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+                <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight leading-tight">
                   Unit <span className="bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">{unitNumber}</span>
                 </h1>
-                <p className="text-xs text-slate-400 mt-1">
-                  Welcome back, <span className="font-semibold text-slate-200">{tenantName}</span> 👋
+                <p className="text-xs text-muted mt-1">
+                  Welcome back, <span className="font-semibold text-foreground">{tenantName}</span> 👋
                 </p>
               </div>
             </div>
 
             {/* Quick Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="bg-slate-950/50 border border-slate-850 p-4 rounded-2xl min-w-[130px]">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Monthly Rent</span>
-                <p className="text-md font-black text-white">{FMT_KES(unitRent || rent)}</p>
-                <span className={`text-[10px] font-bold mt-1 block ${arrears > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <div className="bg-background/50 border border-border p-4 rounded-2xl min-w-[130px]">
+                <span className="text-xs font-bold text-muted uppercase tracking-widest block mb-1">Monthly Rent</span>
+                <p className="text-md font-black text-foreground">{FMT_KES(unitRent || rent)}</p>
+                <span className={`text-xs font-bold mt-1 block ${arrears > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                   {arrears > 0 ? `Arrears: ${FMT_KES(arrears)}` : '✓ Account Clear'}
                 </span>
               </div>
 
-              <div className="bg-slate-950/50 border border-slate-850 p-4 rounded-2xl min-w-[130px]">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Last Payment</span>
+              <div className="bg-background/50 border border-border p-4 rounded-2xl min-w-[130px]">
+                <span className="text-xs font-bold text-muted uppercase tracking-widest block mb-1">Last Payment</span>
                 <p className="text-md font-black text-emerald-400">{lastPayment ? FMT_KES(lastPayment.amount_kes) : '—'}</p>
-                <span className="text-[10px] text-slate-550 mt-1 block truncate">
+                <span className="text-xs text-muted mt-1 block truncate">
                   {lastPayment ? FMT_DATE(lastPayment.created_at) : 'No history'}
                 </span>
               </div>
 
-              <div className="bg-slate-950/50 border border-slate-850 p-4 rounded-2xl min-w-[130px] col-span-2 sm:col-span-1">
-                <span className="text-[9px] font-bold text-slate-505 uppercase tracking-widest block mb-1">Lease Period</span>
-                <p className="text-xs font-bold text-slate-300">{FMT_DATE(profile?.lease_start)}</p>
-                <span className="text-[10px] text-slate-500 mt-1 block truncate font-medium">
+              <div className="bg-background/50 border border-border p-4 rounded-2xl min-w-[130px] col-span-2 sm:col-span-1">
+                <span className="text-xs font-bold text-muted uppercase tracking-widest block mb-1">Lease Period</span>
+                <p className="text-xs font-bold text-muted">{FMT_DATE(profile?.lease_start)}</p>
+                <span className="text-xs text-muted mt-1 block truncate font-medium">
                   to {FMT_DATE(profile?.lease_end)}
                 </span>
               </div>
@@ -646,13 +646,13 @@ export default function TenantPortalPage() {
           </div>
 
           {/* Elegant Custom Sliding Tab Bar */}
-          <div className="px-6 sm:px-8 pb-5 flex gap-2 overflow-x-auto scrollbar-none border-t border-slate-850/50 pt-4">
+          <div className="px-6 sm:px-8 pb-5 flex gap-2 overflow-x-auto scrollbar-none border-t border-border/50 pt-4">
             {tabs.map(tab => (
               <button 
                 key={tab.key} 
                 onClick={() => setActiveTab(tab.key)} 
                 className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl cursor-pointer text-xs font-bold tracking-wide transition duration-300 flex-shrink-0 ${
-                  activeTab === tab.key ? 'text-white' : 'text-slate-500 hover:text-slate-300'
+                  activeTab === tab.key ? 'text-foreground' : 'text-muted hover:text-muted'
                 }`}
               >
                 {activeTab === tab.key && (
@@ -662,7 +662,7 @@ export default function TenantPortalPage() {
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                   />
                 )}
-                <span className={activeTab === tab.key ? 'text-emerald-400' : 'text-slate-500'}>
+                <span className={activeTab === tab.key ? 'text-emerald-400' : 'text-muted'}>
                   {tab.icon}
                 </span>
                 {tab.label}
@@ -685,25 +685,25 @@ export default function TenantPortalPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Lease details box */}
-                <div className="md:col-span-3 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <div className="md:col-span-3 bg-surface/80 border border-border rounded-2xl p-6 space-y-4">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                     <Home size={16} className="text-green-500" /> Lease Summary
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-1">Property Name</span>
-                      <p className="text-xs font-bold text-slate-200">{propertyName}</p>
+                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Property Name</span>
+                      <p className="text-xs font-bold text-foreground">{propertyName}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-1">Unit</span>
-                      <p className="text-xs font-bold text-slate-200">{unitNumber}</p>
+                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Unit</span>
+                      <p className="text-xs font-bold text-foreground">{unitNumber}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-1">Monthly Rent</span>
-                      <p className="text-xs font-bold text-slate-200">{FMT_KES(unitRent || rent)}</p>
+                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Monthly Rent</span>
+                      <p className="text-xs font-bold text-foreground">{FMT_KES(unitRent || rent)}</p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block mb-1">Next Due Date</span>
+                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Next Due Date</span>
                       <p className="text-xs font-bold text-green-500">
                         {profile?.rent_due_day ? `${profile.rent_due_day}th of every month` : '5th of every month'}
                       </p>
@@ -719,7 +719,7 @@ export default function TenantPortalPage() {
                     { label: 'Official Notices', desc: `${notices.length} active notice${notices.length !== 1 ? 's' : ''}`, icon: <FileText size={20} />, color: 'amber', action: () => setActiveTab('notices') },
                     { label: 'Contact Property Agent', desc: agentPhone, icon: <Phone size={20} />, color: 'violet', href: `tel:${formatPhoneHref(agentPhone)}` }
                   ].map((item, i) => {
-                    const cardStyle = "bg-slate-900/30 hover:bg-slate-900/60 backdrop-blur-md border border-slate-850 hover:border-slate-800/85 p-5 rounded-2xl cursor-pointer text-left transition duration-300 flex items-center justify-between group";
+                    const cardStyle = "bg-surface/30 hover:bg-surface/60 backdrop-blur-md border border-border hover:border-border/85 p-5 rounded-2xl cursor-pointer text-left transition duration-300 flex items-center justify-between group";
                     const isEmerald = item.color === 'emerald';
                     const isIndigo = item.color === 'indigo';
                     const isAmber = item.color === 'amber';
@@ -735,8 +735,8 @@ export default function TenantPortalPage() {
                           {item.icon}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">{item.label}</p>
-                          <p className="text-[11px] text-slate-500 mt-1">{item.desc}</p>
+                          <p className="text-xs font-bold text-foreground group-hover:text-emerald-400 transition-colors">{item.label}</p>
+                          <p className="text-xs text-muted mt-1">{item.desc}</p>
                         </div>
                       </div>
                     );
@@ -745,7 +745,7 @@ export default function TenantPortalPage() {
                       return (
                         <a key={i} href={item.href} className={cardStyle}>
                           {content}
-                          <ChevronRight size={16} className="text-slate-600 group-hover:text-white transition" />
+                          <ChevronRight size={16} className="text-muted group-hover:text-foreground transition" />
                         </a>
                       );
                     }
@@ -753,24 +753,24 @@ export default function TenantPortalPage() {
                     return (
                       <button key={i} onClick={item.action} disabled={item.label === 'Pay Rent' && paying} className={`${cardStyle} disabled:opacity-50`}>
                         {content}
-                        <ChevronRight size={16} className="text-slate-600 group-hover:text-white transition animate-none" />
+                        <ChevronRight size={16} className="text-muted group-hover:text-foreground transition animate-none" />
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Recent Payments Section */}
-                <div className="md:col-span-3 bg-slate-900/30 backdrop-blur-md border border-slate-850 rounded-[24px] p-6">
-                  <div className="flex items-center justify-between mb-4 border-b border-slate-850 pb-3">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Recent Transactions</h3>
+                <div className="md:col-span-3 bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6">
+                  <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Recent Transactions</h3>
                     <button onClick={() => setActiveTab('payments')} className="text-xs font-bold text-emerald-400 hover:text-emerald-355 transition flex items-center gap-1 cursor-pointer">
                       View Statement <ArrowUpRight size={14} />
                     </button>
                   </div>
                   {payments.slice(0, 3).length === 0 ? (
-                    <p className="text-xs text-slate-500 py-6 text-center">No payment history found.</p>
+                    <p className="text-xs text-muted py-6 text-center">No payment history found.</p>
                   ) : (
-                    <div className="divide-y divide-slate-850/50">
+                    <div className="divide-y divide-border/50">
                       {payments.slice(0, 3).map(p => (
                         <div key={p._id} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
                           <div className="flex items-center gap-3">
@@ -780,11 +780,11 @@ export default function TenantPortalPage() {
                               <CreditCard size={15} />
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-white">{FMT_KES(p.amount_kes)}</p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">{FMT_DATE(p.created_at)}</p>
+                              <p className="text-xs font-bold text-foreground">{FMT_KES(p.amount_kes)}</p>
+                              <p className="text-xs text-muted mt-0.5">{FMT_DATE(p.created_at)}</p>
                             </div>
                           </div>
-                          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 border rounded-full ${statusColor(p.status)}`}>
+                          <span className={`text-xs font-extrabold uppercase px-2.5 py-0.5 border rounded-full ${statusColor(p.status)}`}>
                             {p.status}
                           </span>
                         </div>
@@ -798,11 +798,11 @@ export default function TenantPortalPage() {
 
             {/* PAYMENTS TAB */}
             {activeTab === 'payments' && (
-              <div className="bg-slate-900/30 backdrop-blur-md border border-slate-850 rounded-[24px] p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-850 pb-4 gap-4">
+              <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border pb-4 gap-4">
                   <div>
-                    <h2 className="text-sm font-bold text-white uppercase tracking-wider">Statement of Accounts</h2>
-                    <p className="text-[11px] text-slate-500 mt-1">Check verified transactions and receipts.</p>
+                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Statement of Accounts</h2>
+                    <p className="text-xs text-muted mt-1">Check verified transactions and receipts.</p>
                   </div>
                   <button
                     onClick={handlePayRent}
@@ -816,7 +816,7 @@ export default function TenantPortalPage() {
                 {payments.length === 0 ? (
                   <div className="text-center py-12">
                     <CreditCard size={40} className="text-slate-700 mx-auto mb-3" />
-                    <p className="text-xs text-slate-500">No payment statement found for this account.</p>
+                    <p className="text-xs text-muted">No payment statement found for this account.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -827,7 +827,7 @@ export default function TenantPortalPage() {
                       return (
                         <div 
                           key={p._id} 
-                          className="bg-slate-950/40 border border-slate-850 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-800 transition duration-300"
+                          className="bg-background/40 border border-border p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-border transition duration-300"
                         >
                           <div className="flex items-start gap-3.5">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
@@ -842,23 +842,23 @@ export default function TenantPortalPage() {
                               )}
                             </div>
                             <div>
-                              <p className="text-xs font-black text-white">{FMT_KES(p.amount_kes)}</p>
+                              <p className="text-xs font-black text-foreground">{FMT_KES(p.amount_kes)}</p>
                               {receipt && (
                                 <div className="flex items-center gap-1 mt-1">
                                   <Receipt size={10} className="text-emerald-400" />
-                                  <span className="text-[11px] text-emerald-400 font-mono font-bold tracking-wider">{receipt}</span>
+                                  <span className="text-xs text-emerald-400 font-mono font-bold tracking-wider">{receipt}</span>
                                 </div>
                               )}
-                              <p className="text-[10px] text-slate-500 mt-1">
+                              <p className="text-xs text-muted mt-1">
                                 {isMpesa ? 'M-Pesa Auto' : (p.channel || 'Internal Collection')} · {FMT_DATE(p.created_at)}
                                 {!receipt && ref && ` · Ref: ${ref.slice(0, 14)}`}
                               </p>
-                              <p className="text-[9px] text-slate-600 font-bold uppercase tracking-wider mt-0.5">{p.payment_type || 'rent'}</p>
+                              <p className="text-xs text-muted font-bold uppercase tracking-wider mt-0.5">{p.payment_type || 'rent'}</p>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 self-end sm:self-auto">
-                            <span className={`text-[10px] font-extrabold uppercase px-3 py-1 border rounded-full ${statusColor(p.status)}`}>
+                            <span className={`text-xs font-extrabold uppercase px-3 py-1 border rounded-full ${statusColor(p.status)}`}>
                               {p.status}
                             </span>
                             {p.status === 'confirmed' && (
@@ -889,7 +889,7 @@ export default function TenantPortalPage() {
                                   URL.revokeObjectURL(url);
                                   toast.success('Receipt downloaded!');
                                 }}
-                                className="bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-750 text-slate-350 hover:text-white rounded-lg px-2.5 py-1 text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                                className="bg-surface hover:bg-background border border-border hover:border-slate-750 text-muted hover:text-foreground rounded-lg px-2.5 py-1 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                               >
                                 Download
                               </button>
@@ -905,11 +905,11 @@ export default function TenantPortalPage() {
 
             {/* MAINTENANCE TAB */}
             {activeTab === 'tickets' && (
-              <div className="bg-slate-900/30 backdrop-blur-md border border-slate-850 rounded-[24px] p-6 space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-850 pb-4">
+              <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
+                <div className="flex items-center justify-between border-b border-border pb-4">
                   <div>
-                    <h2 className="text-sm font-bold text-white uppercase tracking-wider">Maintenance Reports</h2>
-                    <p className="text-[11px] text-slate-500 mt-1">Report plumbing, electrical or structural issues.</p>
+                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Maintenance Reports</h2>
+                    <p className="text-xs text-muted mt-1">Report plumbing, electrical or structural issues.</p>
                   </div>
                   <button 
                     onClick={() => setTicketForm(f => ({ ...f, open: true }))} 
@@ -922,27 +922,27 @@ export default function TenantPortalPage() {
                 {tickets.length === 0 ? (
                   <div className="text-center py-12">
                     <Wrench size={40} className="text-slate-700 mx-auto mb-3" />
-                    <p className="text-xs text-slate-500">No active maintenance logs.</p>
+                    <p className="text-xs text-muted">No active maintenance logs.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {tickets.map(t => (
                       <div 
                         key={t._id} 
-                        className="bg-slate-950/40 border border-slate-850 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:border-slate-800 transition duration-300"
+                        className="bg-background/40 border border-border p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:border-border transition duration-300"
                       >
                         <div className="space-y-2 flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-xs font-bold text-white truncate">{t.title}</h4>
-                            <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${ticketStatusColor(t.status)}`}>
+                            <h4 className="text-xs font-bold text-foreground truncate">{t.title}</h4>
+                            <span className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-full ${ticketStatusColor(t.status)}`}>
                               {t.status?.replace(/_/g, ' ')}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-400 leading-relaxed break-words">{t.description}</p>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-505 flex-wrap">
+                          <p className="text-xs text-muted leading-relaxed break-words">{t.description}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
                             <span>Priority:</span>
                             <span className={`font-bold capitalize ${
-                              t.priority === 'urgent' ? 'text-red-400' : t.priority === 'high' ? 'text-amber-400' : 'text-slate-400'
+                              t.priority === 'urgent' ? 'text-red-400' : t.priority === 'high' ? 'text-amber-400' : 'text-muted'
                             }`}>
                               {t.priority}
                             </span>
@@ -955,13 +955,13 @@ export default function TenantPortalPage() {
                           <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
                             <button
                               onClick={() => setTicketForm({ open: true, editId: t._id, title: t.title, description: t.description, priority: t.priority || 'medium' })}
-                              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-350 text-[10px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
+                              className="px-2.5 py-1 bg-surface hover:bg-background border border-border text-muted text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
                             >
                               <Edit2 size={10} /> Edit
                             </button>
                             <button
                               onClick={() => setCancelConfirmId(t._id)}
-                              className="px-2.5 py-1 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 text-red-400 text-[10px] font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
+                              className="px-2.5 py-1 bg-red-500/10 hover:bg-red-950/40 border border-red-500/20 text-red-400 text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
                             >
                               <Ban size={10} /> Cancel
                             </button>
@@ -976,31 +976,31 @@ export default function TenantPortalPage() {
 
             {/* NOTICES TAB */}
             {activeTab === 'notices' && (
-              <div className="bg-slate-900/30 backdrop-blur-md border border-slate-850 rounded-[24px] p-6 space-y-6">
+              <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
                 <div>
-                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">Estate Broadcasts</h2>
-                  <p className="text-[11px] text-slate-500 mt-1">Official communications from Mutune Agency management.</p>
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Estate Broadcasts</h2>
+                  <p className="text-xs text-muted mt-1">Official communications from Mutune Agency management.</p>
                 </div>
 
                 {notices.length === 0 ? (
                   <div className="text-center py-12">
                     <FileText size={40} className="text-slate-700 mx-auto mb-3" />
-                    <p className="text-xs text-slate-500">No broadcasts at this time.</p>
+                    <p className="text-xs text-muted">No broadcasts at this time.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-850/50">
+                  <div className="divide-y divide-border/50">
                     {notices.map(n => (
                       <div key={n._id} className="py-4 first:pt-0 last:pb-0 space-y-2">
                         <div className="flex items-center justify-between gap-3">
-                          <h4 className="text-xs font-bold text-white">{n.title}</h4>
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                            n.type === 'urgent' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-slate-800 text-slate-400'
+                          <h4 className="text-xs font-bold text-foreground">{n.title}</h4>
+                          <span className={`text-xs font-black uppercase px-2 py-0.5 rounded-full ${
+                            n.type === 'urgent' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-background text-muted'
                           }`}>
                             {n.type || 'General'}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400 leading-relaxed">{n.body || n.content}</p>
-                        <p className="text-[10px] text-slate-500 font-semibold">{FMT_DATE(n.created_at)}</p>
+                        <p className="text-xs text-muted leading-relaxed">{n.body || n.content}</p>
+                        <p className="text-xs text-muted font-semibold">{FMT_DATE(n.created_at)}</p>
                       </div>
                     ))}
                   </div>
@@ -1020,43 +1020,43 @@ export default function TenantPortalPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setNotifOpen(false)} 
-              className="fixed inset-0 bg-slate-950/70 z-[100] backdrop-blur-sm" 
+              className="fixed inset-0 bg-background/70 z-[100] backdrop-blur-sm" 
             />
             <motion.div 
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-              className="fixed top-0 right-0 bottom-0 w-full max-w-sm z-[101] bg-slate-900 border-l border-slate-850 flex flex-col shadow-2xl"
+              className="fixed top-0 right-0 bottom-0 w-full max-w-sm z-[101] bg-surface border-l border-border flex flex-col shadow-2xl"
             >
-              <div className="p-5 border-b border-slate-850 flex items-center justify-between">
+              <div className="p-5 border-b border-border flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Notifications</h3>
+                  <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Notifications</h3>
                   {unread > 0 && <p className="text-xs text-emerald-400 font-bold mt-0.5">{unread} unread updates</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   {unread > 0 && (
                     <button 
                       onClick={handleMarkAllRead} 
-                      className="px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-bold cursor-pointer transition"
+                      className="px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold cursor-pointer transition"
                     >
                       Clear All
                     </button>
                   )}
                   <button 
                     onClick={() => setNotifOpen(false)} 
-                    className="p-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded-lg text-slate-400 cursor-pointer"
+                    className="p-1.5 bg-background hover:bg-background border border-border rounded-lg text-muted cursor-pointer"
                   >
                     <X size={15} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto divide-y divide-slate-850/50">
+              <div className="flex-1 overflow-y-auto divide-y divide-border/50">
                 {notifs.length === 0 ? (
                   <div className="text-center py-16">
                     <Bell size={28} className="text-slate-700 mx-auto mb-3" />
-                    <p className="text-xs text-slate-500">No alerts logged.</p>
+                    <p className="text-xs text-muted">No alerts logged.</p>
                   </div>
                 ) : (
                   notifs.map(n => {
@@ -1069,9 +1069,9 @@ export default function TenantPortalPage() {
                           isRead ? 'border-transparent bg-transparent opacity-60' : 'border-emerald-500 bg-emerald-500/[0.02]'
                         }`}
                       >
-                        <p className={`text-xs font-bold ${isRead ? 'text-slate-300' : 'text-white'}`}>{n.title}</p>
-                        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{n.message}</p>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-2">{FMT_DATE(n.created_at)}</p>
+                        <p className={`text-xs font-bold ${isRead ? 'text-muted' : 'text-foreground'}`}>{n.title}</p>
+                        <p className="text-xs text-muted mt-1 leading-relaxed">{n.message}</p>
+                        <p className="text-xs text-muted font-bold uppercase tracking-wider mt-2">{FMT_DATE(n.created_at)}</p>
                       </div>
                     );
                   })
@@ -1091,17 +1091,17 @@ export default function TenantPortalPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setCancelConfirmId(null)} 
-              className="fixed inset-0 bg-slate-950/80 z-[300] backdrop-blur-sm" 
+              className="fixed inset-0 bg-background/80 z-[300] backdrop-blur-sm" 
             />
              <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
               animate={{ opacity: 1, scale: 1, y: "-50%", x: "-50%" }}
               exit={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm z-[301] bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-center space-y-4 relative"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm z-[301] bg-surface border border-border rounded-3xl p-6 shadow-2xl text-center space-y-4 relative"
             >
               <button 
                 onClick={() => setCancelConfirmId(null)}
-                className="absolute top-4 right-4 p-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+                className="absolute top-4 right-4 p-1.5 bg-background hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -1109,15 +1109,15 @@ export default function TenantPortalPage() {
                 <Ban size={22} />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-white">Cancel Request?</h3>
-                <p className="text-xs text-slate-400">
-                  Are you sure you want to cancel the ticket <strong className="text-white">"{tickets.find(t => t._id === cancelConfirmId)?.title || 'this ticket'}"</strong>? This will mark it as closed.
+                <h3 className="text-sm font-bold text-foreground">Cancel Request?</h3>
+                <p className="text-xs text-muted">
+                  Are you sure you want to cancel the ticket <strong className="text-foreground">"{tickets.find(t => t._id === cancelConfirmId)?.title || 'this ticket'}"</strong>? This will mark it as closed.
                 </p>
               </div>
               <div className="flex gap-2 pt-2">
                 <button 
                   onClick={() => setCancelConfirmId(null)}
-                  className="flex-1 py-2.5 bg-slate-950 border border-slate-850 hover:bg-slate-800 text-slate-350 rounded-xl text-xs font-bold transition cursor-pointer"
+                  className="flex-1 py-2.5 bg-background border border-border hover:bg-background text-muted rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   Keep Open
                 </button>
@@ -1142,21 +1142,21 @@ export default function TenantPortalPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setTicketForm(f => ({ ...f, open: false }))} 
-              className="fixed inset-0 bg-slate-950/80 z-[200] backdrop-blur-sm" 
+              className="fixed inset-0 bg-background/80 z-[200] backdrop-blur-sm" 
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
               animate={{ opacity: 1, scale: 1, y: "-50%", x: "-50%" }}
               exit={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-slate-900 border border-slate-800 rounded-[32px] p-6 sm:p-8 shadow-2xl space-y-6"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-surface border border-border rounded-[32px] p-6 sm:p-8 shadow-2xl space-y-6"
             >
-              <div className="flex items-center justify-between border-b border-slate-850 pb-3">
-                <h3 className="text-md font-black text-white">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="text-md font-black text-foreground">
                   {ticketForm.editId ? 'Edit Maintenance Request' : 'New Maintenance Request'}
                 </h3>
                 <button 
                   onClick={() => setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium' })} 
-                  className="p-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 text-slate-400 rounded-lg cursor-pointer"
+                  className="p-1 bg-background hover:bg-background border border-border text-muted rounded-lg cursor-pointer"
                 >
                   <X size={15} />
                 </button>
@@ -1164,35 +1164,35 @@ export default function TenantPortalPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Issue Title <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Issue Title <span className="text-red-500">*</span></label>
                   <input 
                     value={ticketForm.title} 
                     onChange={e => setTicketForm(f => ({ ...f, title: e.target.value }))}
                     placeholder="e.g. Water leak in bathroom"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all" 
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all" 
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Detailed Description <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Detailed Description <span className="text-red-500">*</span></label>
                   <textarea 
                     value={ticketForm.description} 
                     onChange={e => setTicketForm(f => ({ ...f, description: e.target.value }))}
                     placeholder="Describe the issue in detail so agents can send the right contractor..."
                     rows={4}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all resize-none font-sans" 
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all resize-none font-sans" 
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Urgency / Priority</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Urgency / Priority</label>
                   <select 
                     value={ticketForm.priority} 
                     onChange={e => setTicketForm(f => ({ ...f, priority: e.target.value }))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-all"
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-500 transition-all"
                   >
-                    <option value="low" className="bg-slate-905 text-white">Low — No immediate action needed</option>
-                    <option value="medium" className="bg-slate-905 text-white">Medium — Repair within a week</option>
-                    <option value="high" className="bg-slate-905 text-white">High — Repair within 24-48h</option>
-                    <option value="urgent" className="bg-slate-905 text-white">Urgent 🚨 — Severe or dangerous hazard</option>
+                    <option value="low" className="bg-surface text-foreground">Low — No immediate action needed</option>
+                    <option value="medium" className="bg-surface text-foreground">Medium — Repair within a week</option>
+                    <option value="high" className="bg-surface text-foreground">High — Repair within 24-48h</option>
+                    <option value="urgent" className="bg-surface text-foreground">Urgent 🚨 — Severe or dangerous hazard</option>
                   </select>
                 </div>
               </div>
@@ -1200,7 +1200,7 @@ export default function TenantPortalPage() {
               <div className="flex gap-3 pt-2">
                 <button 
                   onClick={() => setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium' })}
-                  className="flex-1 py-3 bg-slate-950 border border-slate-855 hover:bg-slate-800 text-slate-400 rounded-xl text-xs font-bold transition cursor-pointer"
+                  className="flex-1 py-3 bg-background border border-border hover:bg-background text-muted rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   Cancel
                 </button>

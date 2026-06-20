@@ -268,7 +268,7 @@ export default function MaintenancePage() {
         
         {/* Status Filter */}
         <div className="flex flex-col min-w-[120px]">
-          <label className="text-[10px] text-slate-500 mb-1 font-medium">Status</label>
+          <label className="text-xs text-slate-500 mb-1 font-medium">Status</label>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -287,7 +287,7 @@ export default function MaintenancePage() {
         {/* Property Filter (Admins/Agents/Landlords) */}
         {!isTenant && (
           <div className="flex flex-col min-w-[150px]">
-            <label className="text-[10px] text-slate-500 mb-1 font-medium">Property</label>
+            <label className="text-xs text-slate-500 mb-1 font-medium">Property</label>
             <select
               value={filterProperty}
               onChange={(e) => setFilterProperty(e.target.value)}
@@ -303,7 +303,7 @@ export default function MaintenancePage() {
 
         {/* Date range filters */}
         <div className="flex flex-col min-w-[120px]">
-          <label className="text-[10px] text-slate-500 mb-1 font-medium">Start Date</label>
+          <label className="text-xs text-slate-500 mb-1 font-medium">Start Date</label>
           <input
             type="date"
             value={filterStartDate}
@@ -313,7 +313,7 @@ export default function MaintenancePage() {
         </div>
 
         <div className="flex flex-col min-w-[120px]">
-          <label className="text-[10px] text-slate-500 mb-1 font-medium">End Date</label>
+          <label className="text-xs text-slate-500 mb-1 font-medium">End Date</label>
           <input
             type="date"
             value={filterEndDate}
@@ -364,15 +364,15 @@ export default function MaintenancePage() {
                     <div className="flex justify-between items-start">
                       <div className="space-y-1.5">
                         <div className="flex items-center flex-wrap gap-2">
-                          <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider">
+                          <span className="text-xs font-mono font-bold text-slate-400 tracking-wider">
                             {t.ticket_code}
                           </span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider border ${
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border ${
                             PRIORITIES.find(p => p.value === t.priority)?.color || 'bg-slate-800 text-slate-400'
                           }`}>
                             {t.priority}
                           </span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider border ${badge.color}`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border ${badge.color}`}>
                             {badge.label}
                           </span>
                         </div>
@@ -392,7 +392,7 @@ export default function MaintenancePage() {
                       )}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-slate-900/80 flex flex-wrap items-center justify-between text-[11px] text-slate-500 font-semibold gap-2">
+                    <div className="mt-4 pt-3 border-t border-slate-900/80 flex flex-wrap items-center justify-between text-xs text-slate-500 font-semibold gap-2">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 text-slate-400">
                           <Building size={13} className="text-green-600" /> {t.property_id?.name || 'Assigned Property'} (Unit {t.unit_id})

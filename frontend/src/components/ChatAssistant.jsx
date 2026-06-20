@@ -87,7 +87,7 @@ export default function ChatAssistant({ user, context = {} }) {
         {tools.map((t, i) => (
           <span
             key={i}
-            className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] rounded-full border border-green-200 flex items-center gap-1 font-medium"
+            className="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full border border-green-200 flex items-center gap-1 font-medium"
           >
             {iconMap[t.tool] || null}
             {t.tool.replace(/_/g, ' ')}
@@ -122,7 +122,7 @@ export default function ChatAssistant({ user, context = {} }) {
               </div>
               <div>
                 <p className="font-semibold text-sm leading-none">Mutune AI</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Property Assistant</p>
+                <p className="text-xs text-slate-400 mt-0.5">Property Assistant</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -164,7 +164,7 @@ export default function ChatAssistant({ user, context = {} }) {
                       <button
                         key={i}
                         onClick={() => setInput(chip)}
-                        className="px-2.5 py-1 text-[10px] font-medium bg-gray-50 border border-gray-200 rounded-full text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                        className="px-2.5 py-1 text-xs font-medium bg-gray-50 border border-gray-200 rounded-full text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
                       >
                         {chip}
                       </button>

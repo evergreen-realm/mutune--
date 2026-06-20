@@ -160,7 +160,7 @@ export default function DashboardPage() {
             title="Rent Collection Trend"
             subtitle="Confirmed M-Pesa rent collections — last 6 months"
             badge={
-              <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
+              <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
                 <TrendingUp size={10} /> Live Data
               </span>
             }

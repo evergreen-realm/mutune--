@@ -184,9 +184,9 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
       {/* 3D Header Info */}
       <div className="absolute top-4 left-4 z-10 text-white pointer-events-none">
         <h3 className="font-bold text-sm">{property.name}</h3>
-        <p className="text-[10px] text-slate-400 font-mono">{property.property_code}</p>
+        <p className="text-xs text-slate-400 font-mono">{property.property_code}</p>
         <div className="mt-2 flex gap-2">
-          <span className="text-[9px] bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/50 flex items-center gap-1 text-slate-300">
+          <span className="text-xs bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/50 flex items-center gap-1 text-slate-300">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Interactive 3D Model
           </span>
         </div>
@@ -243,14 +243,14 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
           {hoveredUnit ? (
             <div className="bg-slate-850/50 p-2.5 rounded border border-slate-800">
               <p className="font-semibold text-white">Unit {hoveredUnit.unit_number}</p>
-              <p className="text-[10px] text-slate-400 capitalize">Status: {hoveredUnit.status.replace('_', ' ')}</p>
-              <p className="text-[10px] text-slate-400">Rent: KES {hoveredUnit.rent_kes?.toLocaleString()}</p>
+              <p className="text-xs text-slate-400 capitalize">Status: {hoveredUnit.status.replace('_', ' ')}</p>
+              <p className="text-xs text-slate-400">Rent: KES {hoveredUnit.rent_kes?.toLocaleString()}</p>
             </div>
           ) : selectedUnit ? (
             <div className="bg-blue-950/20 p-2.5 rounded border border-blue-900/30">
               <p className="font-semibold text-blue-400">Selected: Unit {selectedUnit.unit_number}</p>
-              <p className="text-[10px] text-slate-300 capitalize">Status: {selectedUnit.status.replace('_', ' ')}</p>
-              <p className="text-[10px] text-slate-300">Rent: KES {selectedUnit.rent_kes?.toLocaleString()}</p>
+              <p className="text-xs text-slate-300 capitalize">Status: {selectedUnit.status.replace('_', ' ')}</p>
+              <p className="text-xs text-slate-300">Rent: KES {selectedUnit.rent_kes?.toLocaleString()}</p>
             </div>
           ) : (
             <p className="italic text-slate-500 py-2">Hover over or click a 3D unit block to inspect details. Drag to rotate model.</p>
@@ -259,7 +259,7 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
 
         <div className="flex flex-wrap gap-2 items-center justify-end">
           {Object.entries(statusColors).map(([status, color]) => (
-            <span key={status} className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
+            <span key={status} className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
               <span className="w-2 h-2 rounded-full" style={{ background: color }} />
               {status}
             </span>
@@ -420,7 +420,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
                           <p className="font-semibold text-sm">Unit {unit.unit_number}</p>
                           <p className="text-xs capitalize">{unit.status} | {unit.lock_status?.replace('_', ' ')}</p>
                           <p className="text-xs text-gray-500">KES {unit.rent_kes?.toLocaleString()}/mo</p>
-                          <span className="text-[10px] text-blue-600 font-semibold block mt-1">Click to open 3D preview</span>
+                          <span className="text-xs text-blue-600 font-semibold block mt-1">Click to open 3D preview</span>
                         </div>
                       </Popup>
                     </Marker>
@@ -481,7 +481,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
             {status}
           </span>
         ))}
-        <span className="text-gray-400 text-[10px] ml-auto">
+        <span className="text-gray-400 text-xs ml-auto">
           {activeTab === 'properties' ? 'Click show units on property popup to view details' : 'Click a unit marker to trigger 3D visual preview'}
         </span>
       </div>

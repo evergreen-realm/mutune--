@@ -76,7 +76,7 @@ export default function CheckInButton({ propertyId, onSuccess }) {
         <span className="text-green-500">{checkedIn.distance_m}m away</span>
         <button
           onClick={() => setCheckedIn(null)}
-          className="ml-auto text-[10px] text-green-500 hover:text-green-700 underline"
+          className="ml-auto text-xs text-green-500 hover:text-green-700 underline"
         >
           Reset
         </button>
@@ -120,7 +120,7 @@ export default function CheckInButton({ propertyId, onSuccess }) {
       </label>
 
       {photoFile && (
-        <span className="text-[10px] text-gray-400 max-w-[80px] truncate" title={photoFile.name}>
+        <span className="text-xs text-gray-400 max-w-[80px] truncate" title={photoFile.name}>
           {photoFile.name}
         </span>
       )}

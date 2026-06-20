@@ -61,7 +61,7 @@ export default function AdminPasswordGuard({ children, onVerified }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
               Admin Password
             </label>
             <div className="relative">
@@ -101,7 +101,7 @@ export default function AdminPasswordGuard({ children, onVerified }) {
 
         <div className="relative flex py-4 items-center">
           <div className="flex-grow border-t border-slate-800/60"></div>
-          <span className="flex-shrink mx-4 text-[9px] text-slate-500 font-bold uppercase tracking-wider">or</span>
+          <span className="flex-shrink mx-4 text-xs text-slate-500 font-bold uppercase tracking-wider">or</span>
           <div className="flex-grow border-t border-slate-800/60"></div>
         </div>
 
