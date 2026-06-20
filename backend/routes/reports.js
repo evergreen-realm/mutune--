@@ -260,8 +260,7 @@ router.get('/income-statement',
           netIncome: totalRevenue,
           taxLiability: {
             mri: totalMRI,
-            wht: totalWHT,
-            total: totalMRI + totalWHT
+            wht: totalWHT
           }
         }
       });
