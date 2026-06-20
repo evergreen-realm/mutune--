@@ -793,13 +793,23 @@ router.post('/landlords',
     body('full_name').trim().notEmpty().withMessage('Full name is required'),
     body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
     body('phone').trim().notEmpty().withMessage('Phone is required'),
-    body('landlord_verification_doc_url').optional().trim().notEmpty().withMessage('Document URL cannot be empty'),
+    body('landlord_verification_doc_url').optional().trim().notEmpty().withMessage('Landlord verification document link cannot be empty'),
     body('assigned_property_ids').optional().isArray().withMessage('Assigned property IDs must be an array')
   ],
   async (req, res, next) => {
     if (!validate(req, res)) return;
     try {
       const { full_name, email, phone, landlord_verification_doc_url, assigned_property_ids = [] } = req.body;
+
+      if (!landlord_verification_doc_url) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_DOCUMENT',
+            message: 'Property ownership verification document is required for landlord registration.'
+          }
+        });
+      }
       
       const existing = await User.findOne({ email });
       if (existing) {
@@ -820,7 +830,7 @@ router.post('/landlords',
         phone,
         landlord_id: landlordIdCode,
         landlord_approval_status: 'approved',
-        ...(landlord_verification_doc_url ? { landlord_verification_doc_url } : {}),
+        landlord_verification_doc_url,
         assigned_property_ids,
         is_active: true
       });
