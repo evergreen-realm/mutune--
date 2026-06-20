@@ -16,7 +16,12 @@ import {
 } from 'lucide-react';
 
 const FMT_KES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
-const FMT_DATE = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const FMT_DATE = (d) => {
+  if (!d) return '—';
+  const dateObj = new Date(d);
+  if (isNaN(dateObj.getTime())) return '—';
+  return dateObj.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 const formatPhoneHref = (number) => {
   if (!number) return '';
@@ -706,7 +711,7 @@ export default function TenantPortalPage() {
                       <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{FMT_DATE(p.created_at)}</p>
                     </div>
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 100, border: '1px solid', ...Object.fromEntries(Object.entries(statusColor(p.status)).map(([k]) => [k, ''])) }} className={statusColor(p.status)}>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 100, border: '1px solid' }} className={statusColor(p.status)}>
                     {p.status}
                   </span>
                 </div>

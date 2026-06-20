@@ -190,6 +190,27 @@ export default function AdminDashboardPage() {
         />
       </div>
 
+      {/* Monthly Revenue Banner */}
+      {(() => {
+        const lastMonth = stats?.revenue?.slice(-1)?.[0];
+        if (!lastMonth) return null;
+        const [yr, mon] = lastMonth.month.split('-');
+        const label = `${MONTH_LABELS[mon] || mon} ${yr}`;
+        return (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-green-700 opacity-70 mb-1">Monthly Revenue — {label}</p>
+              <p className="text-3xl font-black text-green-800">KES {lastMonth.amount?.toLocaleString('en-KE')}</p>
+              <p className="text-xs text-green-600 mt-0.5">{lastMonth.transactions} confirmed payment{lastMonth.transactions !== 1 ? 's' : ''} this month</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <ArrowUpRight size={28} className="text-green-500" />
+            </div>
+          </div>
+        );
+      })()}
+
+
       {/* Revenue Chart + Top Agents */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Bar Chart */}

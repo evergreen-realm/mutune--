@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 
 const FMT_KES = n => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
-const FMT_DATE = d => d ? new Date(d).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' }) : '—';
+const FMT_DATE = (d) => {
+  if (!d) return '—';
+  const dateObj = new Date(d);
+  if (isNaN(dateObj.getTime())) return '—';
+  return dateObj.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+};
 
 const MEDAL_COLORS = ['#fbbf24', '#9ca3af', '#b45309'];
 const MEDAL_LABELS = ['🥇', '🥈', '🥉'];
@@ -201,7 +206,7 @@ export default function AgentPerformancePage({ dbUser }) {
           {(dbUser?.role === 'agent'
             ? [
                 { label: 'Tasks Completed', value: (agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.completed_tasks ?? 0, icon: <CheckCircle2 size={18} />, color: '#10b981' },
-                { label: 'Avg Response Time', value: (agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.avg_task_completion_time_hrs ? `${(agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0]).avg_task_completion_time_hrs.toFixed(1)} hrs` : '—', icon: <Target size={18} />, color: '#6366f1' },
+                { label: 'Avg Response Time', value: (() => { const me = agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0]; const hrs = me?.avg_task_completion_hours ?? me?.avg_task_completion_time_hrs; return hrs ? `${hrs.toFixed(1)} hrs` : '—'; })(), icon: <Target size={18} />, color: '#6366f1' },
                 { label: 'Collections This Month', value: FMT_KES((agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.rent_collected_kes), icon: <Wallet size={18} />, color: '#f59e0b' },
                 { label: 'Active Tasks', value: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length, icon: <Clock size={18} />, color: '#ec4899' }
               ]
