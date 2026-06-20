@@ -342,4 +342,57 @@ const acknowledgeHandler = async (req, res, next) => {
 router.post('/:id/acknowledge', requireAuth, requirePermission('view:notices'), acknowledgeHandler);
 router.patch('/:id/acknowledge', requireAuth, requirePermission('view:notices'), acknowledgeHandler);
 
+// PATCH /api/v1/notices/:id — Update notice details
+router.patch('/:id',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent']),
+  [
+    body('title').optional().trim().notEmpty().isLength({ max: 200 }).withMessage('Title cannot be empty (max 200 chars)'),
+    body('body').optional().trim().notEmpty().isLength({ max: 5000 }).withMessage('Body cannot be empty (max 5000 chars)'),
+    body('effective_date').optional().isISO8601().withMessage('Valid effective date required')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+      }
+
+      const notice = await Notice.findById(req.params.id);
+      if (!notice) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Notice not found' } });
+      }
+
+      const { title, body, effective_date } = req.body;
+      if (title !== undefined) notice.title = title;
+      if (body !== undefined) notice.body = body;
+      if (effective_date !== undefined) notice.effective_date = new Date(effective_date);
+
+      await notice.save();
+      logger.info('Notice updated', { noticeId: notice._id, by: req.user._id });
+      res.json({ success: true, data: notice });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/v1/notices/:id — Delete a notice
+router.delete('/:id',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  async (req, res, next) => {
+    try {
+      const notice = await Notice.findByIdAndDelete(req.params.id);
+      if (!notice) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Notice not found' } });
+      }
+      logger.info('Notice deleted', { noticeId: req.params.id, by: req.user._id });
+      res.json({ success: true, message: 'Notice deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
