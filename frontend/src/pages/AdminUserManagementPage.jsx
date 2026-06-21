@@ -417,15 +417,15 @@ export default function AdminUserManagementPage() {
           <button style={tabStyle('users')} onClick={() => setTab('users')}>👥 Users ({users.length})</button>
           <button style={tabStyle('properties')} onClick={() => setTab('properties')}>
             🏢 Pending Properties
-            {pendingProps.length > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: 10, fontWeight: 800 }}>{pendingProps.length}</span>}
+            {pendingProps.length > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: 12, fontWeight: 800 }}>{pendingProps.length}</span>}
           </button>
           <button style={tabStyle('agents')} onClick={() => setTab('agents')}>
             💼 Agent Approvals
-            {pendingAgents.length > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: 10, fontWeight: 800 }}>{pendingAgents.length}</span>}
+            {pendingAgents.length > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: 12, fontWeight: 800 }}>{pendingAgents.length}</span>}
           </button>
           <button style={tabStyle('landlords')} onClick={() => setTab('landlords')}>
             👑 Landlords Approvals
-            {pendingLandlords.length > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: 10, fontWeight: 800 }}>{pendingLandlords.length}</span>}
+            {pendingLandlords.length > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', borderRadius: '50%', padding: '2px 6px', fontSize: 12, fontWeight: 800 }}>{pendingLandlords.length}</span>}
           </button>
           <button style={tabStyle('tiers')} onClick={() => setTab('tiers')}>💎 Property Tiers ({propertyTiers.length})</button>
           <button style={tabStyle('rules')} onClick={() => setTab('rules')}>⚙️ Late Fee Rules ({lateFeeRules.length})</button>
@@ -485,11 +485,11 @@ export default function AdminUserManagementPage() {
                     </p>
                   </div>
 
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 100, background: `${ROLE_COLORS[u.role] || '#6366f1'}22`, color: ROLE_COLORS[u.role] || '#6366f1', border: `1px solid ${ROLE_COLORS[u.role] || '#6366f1'}44`, textTransform: 'capitalize' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 100, background: `${ROLE_COLORS[u.role] || '#6366f1'}22`, color: ROLE_COLORS[u.role] || '#6366f1', border: `1px solid ${ROLE_COLORS[u.role] || '#6366f1'}44`, textTransform: 'capitalize' }}>
                     {ROLE_LABELS[u.role] || u.role}
                   </span>
 
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: u.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: u.is_active ? '#34d399' : '#f87171', border: `1px solid ${u.is_active ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}` }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: u.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: u.is_active ? '#34d399' : '#f87171', border: `1px solid ${u.is_active ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}` }}>
                     {u.is_active ? '● Active' : '● Inactive'}
                   </span>
 
@@ -514,7 +514,7 @@ export default function AdminUserManagementPage() {
                           background: u.agent_allow_all_areas ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.06)',
                           border: `1px solid ${u.agent_allow_all_areas ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.12)'}`,
                           color: u.agent_allow_all_areas ? '#fbbf24' : 'rgba(255,255,255,0.45)',
-                          borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+                          borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                           display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'
                         }}
                       >
@@ -569,7 +569,7 @@ export default function AdminUserManagementPage() {
                         style={{
                           background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
                           color: '#a78bfa', borderRadius: 8, padding: '7px 10px',
-                          cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                          cursor: 'pointer', fontSize: 12, fontWeight: 700,
                           display: 'flex', alignItems: 'center', gap: 4
                         }}
                       >
@@ -614,8 +614,8 @@ export default function AdminUserManagementPage() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>⏳ Pending Approval</span>
-                        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>{prop.property_code}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }}>⏳ Pending Approval</span>
+                        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{prop.property_code}</span>
                       </div>
                       <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{prop.name}</h3>
                       <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 4 }}>
@@ -695,9 +695,9 @@ export default function AdminUserManagementPage() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(16,185,129,0.2)', color: '#34d399' }}>⏳ Agent Review Pending</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(16,185,129,0.2)', color: '#34d399' }}>⏳ Agent Review Pending</span>
                       {agent.earb_license && (
-                        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>EARB License: {agent.earb_license}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>EARB License: {agent.earb_license}</span>
                       )}
                     </div>
                     <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{agent.full_name}</h3>
@@ -709,7 +709,7 @@ export default function AdminUserManagementPage() {
                         📍 Areas: {agent.assigned_areas.join(', ')}
                       </p>
                     )}
-                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8 }}>
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginBottom: 8 }}>
                       Applied: {agent.created_at ? new Date(agent.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </p>
                     {agent.earb_verification_doc_url ? (
@@ -722,7 +722,7 @@ export default function AdminUserManagementPage() {
                         <FileText size={14} /> View Verification Document
                       </a>
                     ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(251,191,36,0.8)', fontSize: 11, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: '5px 10px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(251,191,36,0.8)', fontSize: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: '5px 10px' }}>
                         ⚠ No verification document uploaded
                       </span>
                     )}
@@ -759,13 +759,13 @@ export default function AdminUserManagementPage() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(245,158,11,0.2)', color: '#fb923c' }}>👑 Landlord Verification Pending</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: 'rgba(245,158,11,0.2)', color: '#fb923c' }}>👑 Landlord Verification Pending</span>
                     </div>
                     <h3 style={{ color: '#fff', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{lld.full_name}</h3>
                     <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 4 }}>
                       📧 {lld.email} · 📞 {lld.phone || '—'}
                     </p>
-                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8 }}>
+                    <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginBottom: 8 }}>
                       Registered: {lld.created_at ? new Date(lld.created_at).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                     </p>
                     {lld.landlord_verification_doc_url ? (
@@ -778,7 +778,7 @@ export default function AdminUserManagementPage() {
                         <FileText size={14} /> View Property Verification Document
                       </a>
                     ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(251,191,36,0.8)', fontSize: 11, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: '5px 10px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'rgba(251,191,36,0.8)', fontSize: 12, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 8, padding: '5px 10px' }}>
                         ⚠ No verification document uploaded
                       </span>
                     )}
@@ -840,7 +840,7 @@ export default function AdminUserManagementPage() {
                         <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 8 }}>{tier.description}</p>
                       )}
                       {tier.criteria && (
-                        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontStyle: 'italic' }}><strong>Criteria:</strong> {tier.criteria}</p>
+                        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, fontStyle: 'italic' }}><strong>Criteria:</strong> {tier.criteria}</p>
                       )}
                     </div>
 
@@ -883,10 +883,10 @@ export default function AdminUserManagementPage() {
                   <div key={rule._id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: rule.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.1)', color: rule.is_active ? '#34d399' : 'rgba(255,255,255,0.4)' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 100, background: rule.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.1)', color: rule.is_active ? '#34d399' : 'rgba(255,255,255,0.4)' }}>
                           {rule.is_active ? '● Running' : '● Paused'}
                         </span>
-                        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 6 }}>
                           Applies to: {rule.applies_to}
                         </span>
                       </div>
@@ -945,7 +945,7 @@ export default function AdminUserManagementPage() {
             </p>
             <form onSubmit={handleUpdateCustomerCare} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }} htmlFor="customer-care-phone">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }} htmlFor="customer-care-phone">
                   Customer Care Number (Format: e.g. 2547XXXXXXXX)
                 </label>
                 <input
@@ -993,19 +993,19 @@ export default function AdminUserManagementPage() {
             <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Register Landlord manually</h3>
             <form onSubmit={handleCreateLandlord} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Full Name *</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Full Name *</label>
                 <input value={landlordModal.full_name} onChange={e => setLandlordModal(m => ({ ...m, full_name: e.target.value }))} type="text" placeholder="e.g. John Mutune" required style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Email Address *</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Email Address *</label>
                 <input value={landlordModal.email} onChange={e => setLandlordModal(m => ({ ...m, email: e.target.value }))} type="email" placeholder="e.g. landlord@mutune.test" required style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Phone Number *</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Phone Number *</label>
                 <input value={landlordModal.phone} onChange={e => setLandlordModal(m => ({ ...m, phone: e.target.value }))} type="text" placeholder="e.g. 254700000000" required style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verification Document (Optional)</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Verification Document (Optional)</label>
                 <ImageUpload
                   value={landlordModal.landlord_verification_doc_url ? [landlordModal.landlord_verification_doc_url] : []}
                   onChange={(urls) => setLandlordModal(m => ({ ...m, landlord_verification_doc_url: urls[0] || '' }))}
@@ -1034,25 +1034,25 @@ export default function AdminUserManagementPage() {
             </h3>
             <form onSubmit={handleSaveTier} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Tier Name *</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Tier Name *</label>
                 <input value={tierModal.name} onChange={e => setTierModal(tm => ({ ...tm, name: e.target.value }))} type="text" placeholder="e.g. Gold" required style={inputStyle} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Min Rent (KES) *</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Min Rent (KES) *</label>
                   <input value={tierModal.min_rent_kes} onChange={e => setTierModal(tm => ({ ...tm, min_rent_kes: e.target.value }))} type="number" required style={inputStyle} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Max Rent (KES) *</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Max Rent (KES) *</label>
                   <input value={tierModal.max_rent_kes} onChange={e => setTierModal(tm => ({ ...tm, max_rent_kes: e.target.value }))} type="number" required style={inputStyle} />
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Description</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Description</label>
                 <textarea value={tierModal.description} onChange={e => setTierModal(tm => ({ ...tm, description: e.target.value }))} rows={2} placeholder="Sleek summary of this class..." style={inputStyle} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Criteria</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>Criteria</label>
                 <textarea value={tierModal.criteria} onChange={e => setTierModal(tm => ({ ...tm, criteria: e.target.value }))} rows={2} placeholder="Listing check criteria..." style={inputStyle} />
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>

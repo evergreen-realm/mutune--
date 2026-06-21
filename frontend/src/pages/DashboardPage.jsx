@@ -86,7 +86,7 @@ export default function DashboardPage() {
         <p style={{ fontWeight: 700, color: '#374151', marginBottom: 4 }}>{label}</p>
         <p style={{ color: '#16a34a', fontWeight: 600 }}>KES {Number(payload[0]?.value || 0).toLocaleString('en-KE')}</p>
         {payload[0]?.payload?.transactions > 0 && (
-          <p style={{ color: '#9ca3af', fontSize: 11 }}>{payload[0].payload.transactions} payments</p>
+          <p style={{ color: '#9ca3af', fontSize: 12 }}>{payload[0].payload.transactions} payments</p>
         )}
       </div>
     );
@@ -175,8 +175,8 @@ export default function DashboardPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" stroke="#9ca3af" fontSize={11} tickLine={false} />
-                <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => v > 0 ? `${(v/1000).toFixed(0)}k` : '0'} />
+                <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} />
+                <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} tickFormatter={v => v > 0 ? `${(v/1000).toFixed(0)}k` : '0'} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area type="monotone" dataKey="revenue" stroke="#16a34a" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" name="Collection (KES)" />
               </AreaChart>
@@ -193,10 +193,10 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} tickLine={false} />
-                <YAxis stroke="#9ca3af" fontSize={10} tickLine={false} axisLine={false} />
+                <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} tickLine={false} />
+                <YAxis stroke="#9ca3af" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #f3f4f6' }} />
-                <Legend iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                <Legend iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: '10px' }} />
                 <Bar dataKey="occupied" fill="#22c55e" name="Occupied" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="total" fill="#e5e7eb" name="Capacity" radius={[4, 4, 0, 0]} />
               </BarChart>

@@ -23,7 +23,7 @@ const inputStyle = {
 };
 
 const labelStyle = {
-  color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: 700, display: 'block',
+  color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 700, display: 'block',
   marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em'
 };
 
@@ -354,7 +354,7 @@ export default function LandlordAddPropertyPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 10 }}>
                   <label style={labelStyle}>Your Signature *</label>
                   {hasSigned && (
-                    <button onClick={clearSignature} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
+                    <button onClick={clearSignature} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
                       <Trash2 size={12} /> Clear
                     </button>
                   )}
@@ -364,7 +364,7 @@ export default function LandlordAddPropertyPage() {
                     onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
                     onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
                 </div>
-                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 6, textAlign: 'center' }}>
+                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 6, textAlign: 'center' }}>
                   {hasSigned ? '✓ Signed' : 'Draw your signature above'}
                 </p>
               </div>
