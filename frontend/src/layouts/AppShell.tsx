@@ -68,7 +68,14 @@ export default function AppShellLayout({
   clerkUserId,
   onLogout,
 }: AppShellLayoutProps) {
-  const location = useLocation();
+  const [isLarge, setIsLarge] = React.useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setIsLarge(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
@@ -87,14 +94,11 @@ export default function AppShellLayout({
       {/* ── Main area (shifts right based on sidebar width) ──────────────── */}
       <motion.div
         initial={false}
-        animate={{ marginLeft: sidebarOpen ? 240 : 72 }}
+        animate={{ marginLeft: isLarge ? (sidebarOpen ? 240 : 72) : 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
         className="flex-1 flex flex-col h-screen overflow-hidden"
-        // On mobile the sidebar overlays, so no margin shift
-        style={{ marginLeft: undefined }}
       >
-        {/* Override motion margin on mobile via Tailwind */}
-        <div className="flex flex-col h-screen overflow-hidden lg:[margin-left:inherit]">
+        <div className="flex flex-col h-screen overflow-hidden">
           {/* ── Topbar ──────────────────────────────────────────────────── */}
           <Topbar
             theme={theme}

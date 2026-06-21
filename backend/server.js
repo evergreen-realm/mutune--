@@ -102,7 +102,8 @@ app.use((err, req, res, _next) => {
   }
 
   const status = err.status || 500;
-  const message = `${err.message} | Stack: ${err.stack}`;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const message = (status >= 500 && isProduction) ? 'Internal server error' : (err.message || 'Internal server error');
 
   res.status(status).json({
     success: false,
