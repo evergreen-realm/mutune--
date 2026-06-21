@@ -23,8 +23,9 @@ const MEDAL_COLORS = ['#fbbf24', '#9ca3af', '#b45309'];
 const MEDAL_LABELS = ['🥇', '🥈', '🥉'];
 
 const taskTypeIcon = (t) => ({ check_in: '🏠', payment_followup: '💰', inspection: '🔍', maintenance: '🔧' }[t] || '📋');
-const taskStatusColor = s => ({ pending: 'rgba(251,191,36,0.15)', in_progress: 'rgba(99,102,241,0.15)', completed: 'rgba(16,185,129,0.15)', overdue: 'rgba(239,68,68,0.15)' }[s] || 'rgba(255,255,255,0.1)');
-const taskStatusText  = s => ({ pending: '#fbbf24', in_progress: '#a78bfa', completed: '#34d399', overdue: '#f87171' }[s] || '#fff');
+const taskStatusColor = s => ({ pending: 'rgba(245,158,11,0.12)', in_progress: 'rgba(37,99,235,0.12)', completed: 'rgba(16,185,129,0.12)', overdue: 'rgba(239,68,68,0.12)' }[s] || 'rgba(156,163,175,0.1)');
+const taskStatusText  = s => ({ pending: '#d97706', in_progress: '#2563EB', completed: '#059669', overdue: '#dc2626' }[s] || 'currentColor');
+
 
 export default function AgentPerformancePage({ dbUser }) {
   const { user: clerkUser } = useUser();
@@ -126,44 +127,44 @@ export default function AgentPerformancePage({ dbUser }) {
 
   const tabStyle = (t) => ({
     padding: '8px 20px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, transition: 'all 0.2s',
-    background: tab === t ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)',
-    color: tab === t ? '#fff' : 'rgba(255,255,255,0.45)'
+    background: tab === t ? '#2563EB' : 'rgba(156,163,175,0.15)',
+    color: tab === t ? '#fff' : 'inherit'
   });
 
   if (loading) return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f0c29, #24243e)' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(99,102,241,0.3)', borderTop: '3px solid #6366f1', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading agent data…</p>
+    <div className="min-h-[80vh] flex items-center justify-center bg-background text-foreground">
+      <div className="text-center">
+        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(37,99,235,0.3)', borderTop: '3px solid #2563EB', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+        <p className="text-slate-500 dark:text-slate-400 text-xs">Loading agent data…</p>
       </div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)', padding: '28px' }}>
-      <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-        <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100 p-7 relative">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-[10%] -right-[5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[40px]" />
       </div>
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto' }}>
+      <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+        <div className="flex items-center justify-between mb-7 flex-wrap gap-3">
           <div>
-            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, marginBottom: 4 }}>Agent Performance</h1>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>KPIs, leaderboards & task management</p>
+            <h1 className="text-slate-900 dark:text-slate-100 text-2xl sm:text-3xl font-black tracking-tight mb-1">Agent Performance</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-xs">KPIs, leaderboards & task management</p>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select value={period} onChange={e => setPeriod(e.target.value)} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 14px', color: '#fff', fontSize: 13, outline: 'none' }}>
-              <option value="7" style={{ background: '#1a1a3e' }}>Last 7 days</option>
-              <option value="30" style={{ background: '#1a1a3e' }}>Last 30 days</option>
-              <option value="90" style={{ background: '#1a1a3e' }}>Last 90 days</option>
+          <div className="flex gap-2.5 items-center flex-wrap">
+            <select value={period} onChange={e => setPeriod(e.target.value)} className="bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-slate-900 dark:text-slate-100 text-xs outline-none">
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
             </select>
             {dbUser?.role !== 'agent' && (
               <button onClick={() => setTaskModal({ open: true })} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
+                background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: '#fff',
                 border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                boxShadow: '0 6px 20px rgba(99,102,241,0.4)'
+                boxShadow: '0 6px 20px rgba(37,99,235,0.4)'
               }}>
                 <Plus size={14} /> Assign Task
               </button>
@@ -171,64 +172,57 @@ export default function AgentPerformancePage({ dbUser }) {
           </div>
         </div>
 
-        {/* Agent ID Banner — shown only for agent users when they have an approved user_code */}
+        {/* Agent ID Banner */}
         {dbUser?.user_code && dbUser.role === 'agent' && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.08))',
-            border: '1px solid rgba(16,185,129,0.3)',
-            borderRadius: 16, padding: '16px 24px',
-            display: 'flex', alignItems: 'center', gap: 20,
-            marginBottom: 24, flexWrap: 'wrap'
-          }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Medal size={22} style={{ color: '#10b981' }} />
+          <div className="bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 flex items-center gap-5 mb-6 flex-wrap">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+              <Medal size={22} className="text-emerald-600 dark:text-emerald-400" />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{dbUser.full_name}</p>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
-                <span style={{ color: '#10b981', fontSize: 12, fontWeight: 700, fontFamily: 'monospace' }}>ID: {dbUser.user_code}</span>
-                {dbUser.earb_license && <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>EARB: <strong style={{ color: '#a78bfa' }}>{dbUser.earb_license}</strong></span>}
-                {dbUser.phone && <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>📞 {dbUser.phone}</span>}
+            <div className="flex-1 min-w-0">
+              <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold mb-0.5">{dbUser.full_name}</p>
+              <div className="flex gap-4 flex-wrap mt-1">
+                <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold font-mono">ID: {dbUser.user_code}</span>
+                {dbUser.earb_license && <span className="text-slate-500 dark:text-slate-400 text-xs">EARB: <strong className="text-blue-600 dark:text-blue-450">{dbUser.earb_license}</strong></span>}
+                {dbUser.phone && <span className="text-slate-500 dark:text-slate-400 text-xs">📞 {dbUser.phone}</span>}
                 {dbUser.assigned_areas?.length > 0 && (
-                  <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>📍 {dbUser.assigned_areas.join(', ')}</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-xs">📍 {dbUser.assigned_areas.join(', ')}</span>
                 )}
               </div>
             </div>
-            <div style={{ flexShrink: 0, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 8, padding: '4px 12px' }}>
-              <span style={{ color: '#34d399', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>✓ Approved</span>
+            <div className="flex-shrink-0 bg-emerald-500/15 border border-emerald-500/25 rounded-lg px-3 py-1">
+              <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase">✓ Approved</span>
             </div>
           </div>
         )}
 
-
         {/* Summary stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 28 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
           {(dbUser?.role === 'agent'
             ? [
                 { label: 'Tasks Completed', value: (agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.completed_tasks ?? 0, icon: <CheckCircle2 size={18} />, color: '#10b981' },
-                { label: 'Avg Response Time', value: (() => { const me = agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0]; const hrs = me?.avg_task_completion_hours ?? me?.avg_task_completion_time_hrs; return hrs ? `${hrs.toFixed(1)} hrs` : '—'; })(), icon: <Target size={18} />, color: '#6366f1' },
+                { label: 'Avg Response Time', value: (() => { const me = agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0]; const hrs = me?.avg_task_completion_hours ?? me?.avg_task_completion_time_hrs; return hrs ? `${hrs.toFixed(1)} hrs` : '—'; })(), icon: <Target size={18} />, color: '#2563EB' },
                 { label: 'Collections This Month', value: FMT_KES((agents.find(a => a.agent_id?.toString() === dbUser._id?.toString()) || agents[0])?.rent_collected_kes), icon: <Wallet size={18} />, color: '#f59e0b' },
                 { label: 'Active Tasks', value: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length, icon: <Clock size={18} />, color: '#ec4899' }
               ]
             : [
-                { label: 'Total Agents', value: agents.length, icon: <Users2 size={18} />, color: '#6366f1' },
+                { label: 'Total Agents', value: agents.length, icon: <Users2 size={18} />, color: '#2563EB' },
                 { label: 'Avg Completion', value: `${avgCompletion}%`, icon: <Target size={18} />, color: '#10b981' },
                 { label: 'Revenue Collected', value: FMT_KES(totalRevenue), icon: <Wallet size={18} />, color: '#f59e0b' },
                 { label: 'Active Tasks', value: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length, icon: <Clock size={18} />, color: '#ec4899' }
               ]
           ).map((s, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 18, padding: 20 }}>
+            <div key={i} className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
               <div style={{ width: 38, height: 38, borderRadius: 10, background: `${s.color}22`, border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <span style={{ color: s.color }}>{s.icon}</span>
               </div>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{s.label}</p>
-              <p style={{ color: '#fff', fontSize: 20, fontWeight: 900 }}>{s.value}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">{s.label}</p>
+              <p className="text-slate-900 dark:text-slate-100 text-xl font-black">{s.value}</p>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <div className="flex gap-2 mb-5">
           <button style={tabStyle('leaderboard')} onClick={() => setTab('leaderboard')}>🏆 Leaderboard</button>
           <button style={tabStyle('tasks')} onClick={() => setTab('tasks')}>📋 Tasks ({tasks.length})</button>
           <button style={tabStyle('reviews')} onClick={() => setTab('reviews')}>🔍 Review Queue ({reviewProperties.length})</button>
@@ -236,59 +230,52 @@ export default function AgentPerformancePage({ dbUser }) {
 
         {/* LEADERBOARD */}
         {tab === 'leaderboard' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="flex flex-col gap-3">
             {agents.length === 0 ? (
-              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 48, textAlign: 'center' }}>
-                <Users2 size={40} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
-                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No agent data for this period</p>
+              <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center">
+                <Users2 size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400 text-xs">No agent data for this period</p>
               </div>
             ) : agents.map((agent, i) => (
-              <div key={agent.agent_id} style={{
-                background: i === 0 ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.05)',
-                backdropFilter: 'blur(20px)',
-                border: `1px solid ${i === 0 ? 'rgba(251,191,36,0.25)' : 'rgba(255,255,255,0.08)'}`,
-                borderRadius: 20, padding: '20px 24px',
-                display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
-                boxShadow: i === 0 ? '0 8px 32px rgba(251,191,36,0.1)' : 'none'
-              }}>
+              <div key={agent.agent_id} className={`bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border rounded-2xl p-5 sm:px-6 flex items-center gap-5 flex-wrap ${i === 0 ? 'border-amber-400/40 shadow-amber-500/5' : 'border-slate-200 dark:border-slate-800'}`}>
                 {/* Rank */}
-                <div style={{ fontSize: 24, width: 40, textAlign: 'center', flexShrink: 0 }}>
-                  {i < 3 ? MEDAL_LABELS[i] : <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 16, fontWeight: 800 }}>#{i + 1}</span>}
+                <div className="text-xl sm:text-2xl w-10 text-center flex-shrink-0">
+                  {i < 3 ? MEDAL_LABELS[i] : <span className="text-slate-400 dark:text-slate-600 text-sm font-extrabold">#{i + 1}</span>}
                 </div>
 
                 {/* Avatar */}
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: `linear-gradient(135deg, ${MEDAL_COLORS[i] || '#6366f1'}, #8b5cf6)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 900, flexShrink: 0 }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: `linear-gradient(135deg, ${MEDAL_COLORS[i] || '#2563EB'}, #1D4ED8)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 900, flexShrink: 0 }}>
                   {agent.name?.charAt(0) || 'A'}
                 </div>
 
                 {/* Name */}
-                <div style={{ minWidth: 150 }}>
-                  <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{agent.name}</p>
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{agent.email}</p>
+                <div className="min-w-[150px]">
+                  <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold mb-0.5">{agent.name}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs">{agent.email}</p>
                 </div>
 
                 {/* KPIs */}
-                <div style={{ flex: 1, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                <div className="flex-1 flex gap-6 flex-wrap justify-between sm:justify-start">
                   {[
-                    { label: 'Completion', value: `${agent.task_completion_rate_pct}%`, color: agent.task_completion_rate_pct >= 80 ? '#10b981' : agent.task_completion_rate_pct >= 50 ? '#f59e0b' : '#f87171' },
-                    { label: 'Tasks', value: `${agent.completed_tasks}/${agent.total_tasks}`, color: '#a78bfa' },
-                    { label: 'Collected', value: FMT_KES(agent.rent_collected_kes), color: '#34d399' },
-                    { label: 'Tickets Resolved', value: agent.tickets_resolved, color: '#60a5fa' },
-                    { label: 'Overdue', value: agent.overdue_tasks, color: agent.overdue_tasks > 0 ? '#f87171' : '#34d399' }
+                    { label: 'Completion', value: `${agent.task_completion_rate_pct}%`, color: agent.task_completion_rate_pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : agent.task_completion_rate_pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-650' },
+                    { label: 'Tasks', value: `${agent.completed_tasks}/${agent.total_tasks}`, color: 'text-blue-600 dark:text-blue-400' },
+                    { label: 'Collected', value: FMT_KES(agent.rent_collected_kes), color: 'text-emerald-600 dark:text-emerald-400' },
+                    { label: 'Tickets Resolved', value: agent.tickets_resolved, color: 'text-sky-600 dark:text-sky-400' },
+                    { label: 'Overdue', value: agent.overdue_tasks, color: agent.overdue_tasks > 0 ? 'text-red-650' : 'text-emerald-600 dark:text-emerald-400' }
                   ].map((kpi, j) => (
-                    <div key={j} style={{ textAlign: 'center' }}>
-                      <p style={{ color: kpi.color, fontSize: 17, fontWeight: 900 }}>{kpi.value}</p>
-                      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kpi.label}</p>
+                    <div key={j} className="text-center min-w-[70px]">
+                      <p className={`text-base font-black ${kpi.color}`}>{kpi.value}</p>
+                      <p className="text-slate-400 dark:text-slate-500 text-xs font-semibold uppercase tracking-wider">{kpi.label}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Progress bar */}
-                <div style={{ width: 100, flexShrink: 0 }}>
-                  <div style={{ height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${agent.task_completion_rate_pct}%`, background: agent.task_completion_rate_pct >= 80 ? '#10b981' : '#f59e0b', borderRadius: 3, transition: 'width 0.5s ease' }} />
+                <div className="w-24 flex-shrink-0 ml-auto">
+                  <div className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${agent.task_completion_rate_pct >= 80 ? 'bg-emerald-500' : 'bg-amber-500'} rounded-full`} style={{ width: `${agent.task_completion_rate_pct}%`, transition: 'width 0.5s ease' }} />
                   </div>
-                  <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 4, textAlign: 'right' }}>{agent.task_completion_rate_pct}%</p>
+                  <p className="text-slate-400 dark:text-slate-500 text-xs mt-1 text-right font-medium">{agent.task_completion_rate_pct}%</p>
                 </div>
               </div>
             ))}
@@ -297,18 +284,18 @@ export default function AgentPerformancePage({ dbUser }) {
 
         {/* TASKS LIST */}
         {tab === 'tasks' && (
-          <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden' }}>
+          <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
             {tasks.length === 0 ? (
-              <div style={{ padding: 48, textAlign: 'center' }}>
-                <CheckCircle2 size={40} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
-                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No tasks found</p>
+              <div className="p-12 text-center">
+                <CheckCircle2 size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400 text-xs">No tasks found</p>
               </div>
             ) : tasks.map(task => (
-              <div key={task._id} style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 20 }}>{taskTypeIcon(task.type)}</span>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{task.title}</p>
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+              <div key={task._id} className="p-4 sm:px-6 border-b border-slate-200 dark:border-slate-800/60 last:border-b-0 flex items-center gap-4 flex-wrap text-slate-900 dark:text-slate-100">
+                <span className="text-xl">{taskTypeIcon(task.type)}</span>
+                <div className="flex-1 min-w-[200px]">
+                  <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold mb-0.5">{task.title}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs">
                     Assigned to: {task.assigned_to?.full_name || '—'} · Due: {FMT_DATE(task.due_date)}
                   </p>
                 </div>
@@ -331,24 +318,24 @@ export default function AgentPerformancePage({ dbUser }) {
                       border: `1px solid ${taskStatusText(task.status)}55`,
                       borderRadius: 100,
                       padding: '4px 12px',
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 700,
                       outline: 'none',
                       cursor: 'pointer'
                     }}
                   >
-                    <option value="pending" style={{ background: '#1a1a3e', color: '#fbbf24' }}>Pending</option>
-                    <option value="in_progress" style={{ background: '#1a1a3e', color: '#a78bfa' }}>In Progress</option>
-                    <option value="completed" style={{ background: '#1a1a3e', color: '#34d399' }}>Completed</option>
-                    <option value="overdue" style={{ background: '#1a1a3e', color: '#f87171' }}>Overdue</option>
+                    <option value="pending" style={{ color: '#d97706' }}>Pending</option>
+                    <option value="in_progress" style={{ color: '#2563EB' }}>In Progress</option>
+                    <option value="completed" style={{ color: '#059669' }}>Completed</option>
+                    <option value="overdue" style={{ color: '#dc2626' }}>Overdue</option>
                   </select>
                 ) : (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 100, background: taskStatusColor(task.status), color: taskStatusText(task.status), textTransform: 'capitalize', border: `1px solid ${taskStatusText(task.status)}33` }}>
+                  <span className="text-xs font-bold py-1 px-3 rounded-full text-center border capitalize" style={{ background: taskStatusColor(task.status), color: taskStatusText(task.status), borderColor: `${taskStatusText(task.status)}33` }}>
                     {task.status?.replace('_', ' ')}
                   </span>
                 )}
                 {dbUser?.role !== 'agent' && (
-                  <button onClick={() => handleDeleteTask(task._id)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+                  <button onClick={() => handleDeleteTask(task._id)} className="bg-red-100 dark:bg-red-950/40 hover:bg-red-200 border-none text-red-650 rounded-lg p-2 cursor-pointer transition">
                     <Trash2 size={13} />
                   </button>
                 )}
@@ -359,39 +346,29 @@ export default function AgentPerformancePage({ dbUser }) {
 
         {/* REVIEW QUEUE */}
         {tab === 'reviews' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="flex flex-col gap-3">
             {reviewProperties.length === 0 ? (
-              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 48, textAlign: 'center' }}>
-                <ClipboardList size={40} style={{ color: 'rgba(255,255,255,0.15)', margin: '0 auto 12px' }} />
-                <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>No properties pending agent review</p>
+              <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center">
+                <ClipboardList size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400 text-xs">No properties pending agent review</p>
               </div>
             ) : reviewProperties.map(property => (
-              <div key={property._id} style={{
-                background: 'rgba(255,255,255,0.05)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 20, padding: '20px 24px',
-                display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap'
-              }}>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, marginBottom: 2 }}>{property.name}</p>
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+              <div key={property._id} className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:px-6 flex items-center gap-4 flex-wrap text-slate-900 dark:text-slate-100">
+                <div className="flex-1 min-w-[200px]">
+                  <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold mb-0.5">{property.name}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs">
                     Code: {property.property_code} · Type: {property.type} · Area: {property.address?.area || '—'}, {property.address?.city || '—'}
                   </p>
-                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 4 }}>
+                  <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">
                     Units: {property.units?.length || 0} units · Base Rent: {FMT_KES(property.units?.[0]?.rent_kes || 0)}
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="flex gap-2 items-center flex-wrap ml-auto">
                   {/* Details Button */}
                   <button
                     onClick={() => setViewPropertyModal(property)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
-                      background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: 10, color: '#fff', fontSize: 13, cursor: 'pointer', transition: 'all 0.2s'
-                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-xs font-bold cursor-pointer transition"
                   >
                     <Eye size={14} /> Details
                   </button>
@@ -400,14 +377,11 @@ export default function AgentPerformancePage({ dbUser }) {
                   <select
                     value={selectedProposedTiers[property._id] || ''}
                     onChange={e => setSelectedProposedTiers(prev => ({ ...prev, [property._id]: e.target.value }))}
-                    style={{
-                      background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: 10, padding: '8px 14px', color: '#fff', fontSize: 13, outline: 'none'
-                    }}
+                    className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-slate-100 text-xs outline-none"
                   >
-                    <option value="" style={{ background: '#1a1a3e' }}>Select Proposed Tier…</option>
+                    <option value="">Select Proposed Tier…</option>
                     {activeTiers.map(tier => (
-                      <option key={tier._id} value={tier._id} style={{ background: '#1a1a3e' }}>
+                      <option key={tier._id} value={tier._id}>
                         {tier.name} ({FMT_KES(tier.min_rent_kes)} - {FMT_KES(tier.max_rent_kes)})
                       </option>
                     ))}
@@ -438,21 +412,15 @@ export default function AgentPerformancePage({ dbUser }) {
       {/* Task assignment modal */}
       {taskModal.open && (
         <>
-          <div onClick={() => setTaskModal({ open: false })} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
-          <div style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            width: '90%', maxWidth: 500, zIndex: 201,
-            background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)',
-            border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32,
-            boxShadow: '0 32px 64px rgba(0,0,0,0.6)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Assign Task to Agent</h3>
-              <button onClick={() => setTaskModal({ open: false })} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+          <div onClick={() => setTaskModal({ open: false })} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Assign Task to Agent</h3>
+              <button onClick={() => setTaskModal({ open: false })} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
                 <X size={18} />
               </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="flex flex-col gap-4">
               {[
                 { label: 'Agent *', key: 'assigned_to', type: 'select', options: agentList.map(a => ({ value: a._id, label: a.full_name })) },
                 { label: 'Task Type *', key: 'type', type: 'select', options: [{ value: 'check_in', label: '🏠 Check-In' }, { value: 'payment_followup', label: '💰 Payment Follow-Up' }, { value: 'inspection', label: '🔍 Inspection' }, { value: 'maintenance', label: '🔧 Maintenance' }] },
@@ -461,24 +429,24 @@ export default function AgentPerformancePage({ dbUser }) {
                 { label: 'Due Date *', key: 'due_date', type: 'datetime-local' }
               ].map(field => (
                 <div key={field.key}>
-                  <label style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: 700, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{field.label}</label>
+                  <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">{field.label}</label>
                   {field.type === 'select' ? (
                     <select value={taskForm[field.key]} onChange={e => setTaskForm(f => ({ ...f, [field.key]: e.target.value }))}
-                      style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}>
-                      <option value="" style={{ background: '#1a1a3e' }}>Select…</option>
-                      {field.options.map(o => <option key={o.value} value={o.value} style={{ background: '#1a1a3e' }}>{o.label}</option>)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none">
+                      <option value="">Select…</option>
+                      {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   ) : field.type === 'textarea' ? (
                     <textarea value={taskForm[field.key]} onChange={e => setTaskForm(f => ({ ...f, [field.key]: e.target.value }))} rows={3} placeholder={field.placeholder}
-                      style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none resize-vertical fontFamily-inherit" />
                   ) : (
                     <input type={field.type} value={taskForm[field.key]} onChange={e => setTaskForm(f => ({ ...f, [field.key]: e.target.value }))} placeholder={field.placeholder}
-                      style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }} />
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none colorScheme-dark" />
                   )}
                 </div>
               ))}
               <button onClick={handleCreateTask} disabled={submitting} style={{
-                padding: '13px', background: submitting ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                padding: '13px', background: submitting ? 'rgba(37,99,235,0.4)' : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
                 color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: submitting ? 'not-allowed' : 'pointer', marginTop: 4
               }}>
                 {submitting ? 'Assigning…' : '✓ Assign Task'}
@@ -491,72 +459,66 @@ export default function AgentPerformancePage({ dbUser }) {
       {/* Property Details Modal */}
       {viewPropertyModal && (
         <>
-          <div onClick={() => setViewPropertyModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
-          <div style={{
-            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-            width: '90%', maxWidth: 700, maxHeight: '85vh', overflowY: 'auto', zIndex: 201,
-            background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)',
-            border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32,
-            boxShadow: '0 32px 64px rgba(0,0,0,0.6)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-              <h3 style={{ color: '#fff', fontSize: 20, fontWeight: 800 }}>Property Review: {viewPropertyModal.name}</h3>
-              <button onClick={() => setViewPropertyModal(null)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+          <div onClick={() => setViewPropertyModal(null)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-2xl max-h-[85vh] overflow-y-auto z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Property Review: {viewPropertyModal.name}</h3>
+              <button onClick={() => setViewPropertyModal(null)} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
                 <X size={18} />
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20, color: 'rgba(255,255,255,0.8)' }}>
+            <div className="flex flex-col gap-5 text-slate-700 dark:text-slate-350">
               {/* Photo Carousel or Grid */}
               {viewPropertyModal.photos && viewPropertyModal.photos.length > 0 ? (
                 <div>
-                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Photos</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase mb-2">Photos</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {viewPropertyModal.photos.map((photoUrl, idx) => (
-                      <img key={idx} src={photoUrl} alt={`Property ${idx + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)' }} />
+                      <img key={idx} src={photoUrl} alt={`Property ${idx + 1}`} className="w-full h-24 object-cover rounded-xl border border-slate-200 dark:border-slate-800" />
                     ))}
                   </div>
                 </div>
               ) : (
-                <div style={{ padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+                <div className="p-5 bg-slate-50 dark:bg-slate-950 rounded-xl text-center text-xs text-slate-400 dark:text-slate-650">
                   No photos uploaded for this property
                 </div>
               )}
 
               {/* Main Specs */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>General Info</p>
-                  <p style={{ fontSize: 13 }}><strong>Code:</strong> {viewPropertyModal.property_code}</p>
-                  <p style={{ fontSize: 13 }}><strong>Type:</strong> {viewPropertyModal.type}</p>
-                  <p style={{ fontSize: 13 }}><strong>Floors:</strong> {viewPropertyModal.num_floors || 1}</p>
-                  <p style={{ fontSize: 13 }}><strong>Year Built:</strong> {viewPropertyModal.year_built || '—'}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase mb-1.5">General Info</p>
+                  <p className="text-xs"><strong>Code:</strong> {viewPropertyModal.property_code}</p>
+                  <p className="text-xs"><strong>Type:</strong> {viewPropertyModal.type}</p>
+                  <p className="text-xs"><strong>Floors:</strong> {viewPropertyModal.num_floors || 1}</p>
+                  <p className="text-xs"><strong>Year Built:</strong> {viewPropertyModal.year_built || '—'}</p>
                 </div>
                 <div>
-                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Address</p>
-                  <p style={{ fontSize: 13 }}><strong>Street:</strong> {viewPropertyModal.address?.street || '—'}</p>
-                  <p style={{ fontSize: 13 }}><strong>Area:</strong> {viewPropertyModal.address?.area}</p>
-                  <p style={{ fontSize: 13 }}><strong>City:</strong> {viewPropertyModal.address?.city}</p>
-                  <p style={{ fontSize: 13 }}><strong>County:</strong> {viewPropertyModal.address?.county}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase mb-1.5">Address</p>
+                  <p className="text-xs"><strong>Street:</strong> {viewPropertyModal.address?.street || '—'}</p>
+                  <p className="text-xs"><strong>Area:</strong> {viewPropertyModal.address?.area}</p>
+                  <p className="text-xs"><strong>City:</strong> {viewPropertyModal.address?.city}</p>
+                  <p className="text-xs"><strong>County:</strong> {viewPropertyModal.address?.county}</p>
                 </div>
               </div>
 
               {/* Description */}
               {viewPropertyModal.description && (
                 <div>
-                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Description</p>
-                  <p style={{ fontSize: 13, lineHeight: '1.6', background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12 }}>{viewPropertyModal.description}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase mb-1.5">Description</p>
+                  <p className="text-xs leading-relaxed bg-slate-50 dark:bg-slate-950 p-3 rounded-xl">{viewPropertyModal.description}</p>
                 </div>
               )}
 
               {/* Units List */}
               <div>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Units Configured</p>
-                <div style={{ maxHeight: 200, overflowY: 'auto', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+                <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase mb-2">Units Configured</p>
+                <div className="max-h-48 overflow-y-auto bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
                   {viewPropertyModal.units && viewPropertyModal.units.map((unit, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', borderBottom: idx < viewPropertyModal.units.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>Unit {unit.unit_number} ({unit.type})</span>
-                      <span style={{ fontSize: 13, color: '#34d399', fontWeight: 700 }}>{FMT_KES(unit.rent_kes)}</span>
+                    <div key={idx} className="flex justify-between p-2.5 px-4 border-b border-slate-100 dark:border-slate-900/60 last:border-b-0 items-center">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Unit {unit.unit_number} ({unit.type})</span>
+                      <span className="text-xs text-emerald-600 dark:text-emerald-450 font-bold">{FMT_KES(unit.rent_kes)}</span>
                     </div>
                   ))}
                 </div>
@@ -568,8 +530,6 @@ export default function AgentPerformancePage({ dbUser }) {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
-        select option { background: #1a1a3e; }
       `}</style>
     </div>
   );

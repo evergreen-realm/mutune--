@@ -190,10 +190,10 @@ export default function PropertyDetailPage() {
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2.5 py-1 rounded">
+            <span className="text-xs font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2.5 py-1 rounded">
               {property.property_code}
             </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded capitalize">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded capitalize">
               {property.type.replace('_', ' ')}
             </span>
           </div>
@@ -202,7 +202,7 @@ export default function PropertyDetailPage() {
             <MapPin size={13} className="text-red-500" />
             {property.address.street}, {property.address.area}, {property.address.city}
             {property.address.plus_code && (
-              <span className="font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-[10px]">
+              <span className="font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-xs">
                 Plus Code: {property.address.plus_code}
               </span>
             )}
@@ -217,7 +217,7 @@ export default function PropertyDetailPage() {
                 <CheckCircle2 size={16} className="text-emerald-600" />
                 <div>
                   <p>Verified On-Site Check-in</p>
-                  <p className="text-[10px] text-emerald-600 font-normal">
+                  <p className="text-xs text-emerald-600 font-normal">
                     Expires: {checkinExpiry.toLocaleTimeString()} ({Math.round((checkinExpiry - Date.now()) / 60000)}m left)
                   </p>
                 </div>
@@ -262,7 +262,7 @@ export default function PropertyDetailPage() {
             {/* Units Grid */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
-                <thead className="bg-gray-50/50 text-gray-500 uppercase text-[10px] font-bold tracking-wider">
+                <thead className="bg-gray-50/50 text-gray-500 uppercase text-xs font-bold tracking-wider">
                   <tr>
                     <th className="p-4 pl-6">Unit #</th>
                     <th className="p-4">Rent</th>
@@ -283,7 +283,7 @@ export default function PropertyDetailPage() {
                           {u.bedrooms} Bed / {u.bathrooms} Bath
                         </td>
                         <td className="p-4">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase ${
                             u.status === 'occupied' 
                               ? 'bg-green-50 text-green-700' 
                               : 'bg-amber-50 text-amber-700'
@@ -309,7 +309,7 @@ export default function PropertyDetailPage() {
                               )}
                             </button>
                           ) : isAgent ? (
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded px-2.5 py-1 uppercase">
+                            <span className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded px-2.5 py-1 uppercase">
                               Check-in Required
                             </span>
                           ) : (
@@ -434,7 +434,7 @@ export default function PropertyDetailPage() {
               <div>
                 <p className="text-slate-400">Owner / Landlord</p>
                 <p className="font-semibold text-slate-200">{property.landlord_id?.full_name || 'Agency Managed'}</p>
-                <p className="text-slate-500 text-[10px]">{property.landlord_id?.phone || 'No phone'}</p>
+                <p className="text-slate-500 text-xs">{property.landlord_id?.phone || 'No phone'}</p>
               </div>
 
               <div>
@@ -443,7 +443,7 @@ export default function PropertyDetailPage() {
                   {property.location?.coordinates[1].toFixed(6)}, {property.location?.coordinates[0].toFixed(6)}
                 </p>
                 {property.gps_accuracy_m && (
-                  <p className="text-slate-500 text-[10px]">Capture accuracy: {property.gps_accuracy_m.toFixed(1)}m</p>
+                  <p className="text-slate-500 text-xs">Capture accuracy: {property.gps_accuracy_m.toFixed(1)}m</p>
                 )}
               </div>
 

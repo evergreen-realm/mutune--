@@ -272,7 +272,7 @@ export default function OnboardingPage() {
                     <Key className="w-3.5 h-3.5 text-green-400" />
                     Tenant Code *
                     {autoCode && (
-                      <span className="ml-auto flex items-center gap-1 text-green-400 text-[10px]">
+                      <span className="ml-auto flex items-center gap-1 text-green-400 text-xs">
                         <Lock className="w-3 h-3" /> Auto-filled
                       </span>
                     )}
@@ -543,7 +543,7 @@ export default function OnboardingPage() {
                     ) : (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">Select Property</label>
+                          <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Select Property</label>
                           <select
                             value={selectedPropertyId}
                             onChange={e => { setSelectedPropertyId(e.target.value); setSelectedUnitId(''); }}
@@ -563,7 +563,7 @@ export default function OnboardingPage() {
                         </div>
                         {selectedPropertyId && (
                           <div>
-                            <label className="block text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">Select Unit</label>
+                            <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Select Unit</label>
                             <select
                               value={selectedUnitId}
                               onChange={e => setSelectedUnitId(e.target.value)}

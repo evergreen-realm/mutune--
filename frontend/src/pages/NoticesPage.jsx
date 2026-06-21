@@ -515,7 +515,7 @@ export default function NoticesPage({ user }) {
               required
               maxLength={5000}
             />
-            <p className="text-[10px] text-slate-500 mt-0.5 text-right">{form.body.length}/5000</p>
+            <p className="text-xs text-slate-500 mt-0.5 text-right">{form.body.length}/5000</p>
           </div>
 
           <div>
@@ -592,7 +592,7 @@ export default function NoticesPage({ user }) {
                   return (
                     <tr key={n._id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide ${typeStyle}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide ${typeStyle}`}>
                           {n.notice_type?.replace(/_/g, ' ')}
                         </span>
                       </td>
@@ -610,15 +610,15 @@ export default function NoticesPage({ user }) {
                       <td className="p-4">
                         <div className="flex items-center gap-1.5" title={n.delivery_status?.map(d => `${d.method}: ${d.status}`).join(', ')}>
                           {allDelivered ? (
-                            <span className="flex items-center gap-1 text-[11px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
+                            <span className="flex items-center gap-1 text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20">
                               <CheckCircle size={12} /> Sent
                             </span>
                           ) : hasFailure ? (
-                            <span className="flex items-center gap-1 text-[11px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                            <span className="flex items-center gap-1 text-xs text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                               <AlertCircle size={12} /> Error
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 text-[11px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                            <span className="flex items-center gap-1 text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                               <Clock size={12} /> Pending
                             </span>
                           )}
@@ -626,7 +626,7 @@ export default function NoticesPage({ user }) {
                       </td>
                       <td className="p-4">
                         {n.tenant_acknowledged ? (
-                          <span className="flex items-center gap-1 text-[11px] text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20 w-fit">
+                          <span className="flex items-center gap-1 text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20 w-fit">
                             <CheckCircle size={12} /> Acknowledged
                           </span>
                         ) : isTenant ? (
@@ -634,7 +634,7 @@ export default function NoticesPage({ user }) {
                             id={`ack-notice-${n._id}`}
                             onClick={() => acknowledgeMutation.mutate(n._id)}
                             disabled={acknowledgeMutation.isPending}
-                            className="text-[10px] px-2.5 py-1 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors font-medium cursor-pointer"
+                            className="text-xs px-2.5 py-1 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors font-medium cursor-pointer"
                           >
                             Acknowledge
                           </button>
@@ -843,7 +843,7 @@ export default function NoticesPage({ user }) {
                   required
                   maxLength={5000}
                 />
-                <p className="text-[10px] text-slate-500 mt-0.5 text-right">{bulkForm.body.length}/5000</p>
+                <p className="text-xs text-slate-500 mt-0.5 text-right">{bulkForm.body.length}/5000</p>
               </div>
 
               {/* Effective Date */}
@@ -937,7 +937,7 @@ export default function NoticesPage({ user }) {
                   required
                   maxLength={5000}
                 />
-                <p className="text-[10px] text-slate-500 mt-0.5 text-right">{editForm.body.length}/5000</p>
+                <p className="text-xs text-slate-500 mt-0.5 text-right">{editForm.body.length}/5000</p>
               </div>
 
               <div>

@@ -147,9 +147,9 @@ export default function PaymentsPage() {
           whileHover={{ y: -2 }}
           className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm bg-gradient-to-tr from-emerald-950/20 to-slate-900/80"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Collected Revenue</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Collected Revenue</div>
           <div className="text-2xl font-black text-emerald-500">KES {totalRevenue.toLocaleString()}</div>
-          <div className="text-[11px] text-emerald-450 mt-2.5 flex items-center gap-1 font-semibold">
+          <div className="text-xs text-emerald-450 mt-2.5 flex items-center gap-1 font-semibold">
             <ArrowUpRight size={13} /> {payments.filter(p => p.status === 'confirmed').length} confirmed payments
           </div>
         </motion.div>
@@ -158,18 +158,18 @@ export default function PaymentsPage() {
           whileHover={{ y: -2 }}
           className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm bg-gradient-to-tr from-amber-950/20 to-slate-900/80"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Pending Payments</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Pending Payments</div>
           <div className="text-2xl font-black text-amber-500">{pendingCount}</div>
-          <div className="text-[11px] text-amber-450 mt-2.5 font-semibold">Awaiting M-Pesa callback status</div>
+          <div className="text-xs text-amber-450 mt-2.5 font-semibold">Awaiting M-Pesa callback status</div>
         </motion.div>
 
         <motion.div 
           whileHover={{ y: -2 }}
           className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-sm bg-gradient-to-tr from-red-950/20 to-slate-900/80"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Failed / Review</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Failed / Review</div>
           <div className="text-2xl font-black text-red-500">{failedCount}</div>
-          <div className="text-[11px] text-red-405 mt-2.5 font-semibold">Requires admin manual check</div>
+          <div className="text-xs text-red-405 mt-2.5 font-semibold">Requires admin manual check</div>
         </motion.div>
       </div>
 
@@ -212,14 +212,14 @@ export default function PaymentsPage() {
           <table className="w-full text-xs text-left">
             <thead>
               <tr className="bg-slate-950/40 border-b border-slate-800">
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Transaction</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Tenant</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Property</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Amount</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Channel</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Reconciliation</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Date</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Transaction</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Tenant</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Property</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Amount</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Channel</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Reconciliation</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Date</th>
                 {isAdmin && <th className="px-5 py-4 w-12" />}
               </tr>
             </thead>
@@ -256,11 +256,11 @@ export default function PaymentsPage() {
                               <div className="font-mono text-xs font-bold text-slate-200">
                                 {pmt.mpesa_receipt || pmt.transaction_id?.slice(0, 16)}
                               </div>
-                              <div className="text-[10px] text-slate-500 capitalize font-medium">{pmt.payment_type}</div>
+                              <div className="text-xs text-slate-500 capitalize font-medium">{pmt.payment_type}</div>
                             </div>
                           </div>
                           {pmt.discrepancy_flag && (
-                            <div className="mt-1 flex items-center gap-1 text-[9px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 w-max">
+                            <div className="mt-1 flex items-center gap-1 text-xs text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 w-max">
                               <AlertTriangle size={9} />
                               {pmt.discrepancy_reason?.slice(0, 32)}
                             </div>
@@ -268,46 +268,46 @@ export default function PaymentsPage() {
                         </td>
                         <td className="px-5 py-4">
                           <div className="font-bold text-slate-100">{pmt.tenant_id?.full_name}</div>
-                          <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5 font-mono">
+                          <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5 font-mono">
                             <Phone size={10} className="text-slate-500" /> {pmt.tenant_id?.phone}
                           </div>
                         </td>
                         <td className="px-5 py-4">
                           <div className="font-semibold text-slate-300">{pmt.property_id?.name}</div>
-                          <div className="text-[10px] text-slate-500 font-bold">{pmt.property_id?.property_code}</div>
+                          <div className="text-xs text-slate-500 font-bold">{pmt.property_id?.property_code}</div>
                         </td>
                         <td className="px-5 py-4">
                           <div className="font-black text-white text-[13px]">
                             {pmt.amount_kes?.toLocaleString()}
                           </div>
-                          <div className="text-[9px] text-slate-500 font-bold uppercase">KES</div>
+                          <div className="text-xs text-slate-500 font-bold uppercase">KES</div>
                         </td>
                         <td className="px-5 py-4">
-                          <span className="text-[10px] font-bold text-slate-300 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-md">
+                          <span className="text-xs font-bold text-slate-300 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-md">
                             {CHANNEL_LABELS[pmt.channel] || pmt.channel}
                           </span>
                         </td>
                         <td className="px-5 py-4">
                           {pmt.status === 'confirmed' && pmt.mpesa_receipt ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                               Matched ✓
                             </span>
                           ) : pmt.discrepancy_flag ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/10 text-amber-450 border border-amber-500/20 animate-pulse">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/10 text-amber-450 border border-amber-500/20 animate-pulse">
                               Unmatched ⚠️
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-500/10 text-blue-400 border border-blue-500/20">
                               Pending Match
                             </span>
                           )}
                         </td>
                         <td className="px-5 py-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${cfg.color}`}>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black border ${cfg.color}`}>
                             <StatusIcon size={9} /> {cfg.label}
                           </span>
                           {pmt.verification_method && (
-                            <div className="text-[9px] text-slate-500 mt-0.5 font-semibold capitalize">
+                            <div className="text-xs text-slate-500 mt-0.5 font-semibold capitalize">
                               via {pmt.verification_method.replace(/_/g, ' ')}
                             </div>
                           )}
@@ -318,7 +318,7 @@ export default function PaymentsPage() {
                               month: 'short', day: 'numeric', year: 'numeric'
                             })}
                           </div>
-                          <div className="text-[10px] text-slate-500 font-mono">
+                          <div className="text-xs text-slate-500 font-mono">
                             {new Date(pmt.created_at).toLocaleTimeString('en-KE', {
                               hour: '2-digit', minute: '2-digit'
                             })}
@@ -335,7 +335,7 @@ export default function PaymentsPage() {
                                 <Ban size={14} />
                               </button>
                             ) : (
-                              <span className="text-[9px] text-slate-500 font-extrabold uppercase">Voided</span>
+                              <span className="text-xs text-slate-500 font-extrabold uppercase">Voided</span>
                             )}
                           </td>
                         )}
@@ -380,7 +380,7 @@ export default function PaymentsPage() {
                   </div>
                   <div>
                     <h2 className="text-sm font-black text-white">Void Payment Transaction</h2>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-400 mt-0.5">
                       {voidingPmt.mpesa_receipt || voidingPmt.transaction_id || 'Internal'} · KES {voidingPmt.amount_kes?.toLocaleString()}
                     </p>
                   </div>
@@ -388,7 +388,7 @@ export default function PaymentsPage() {
 
                 <form onSubmit={handleVoidSubmit} className="space-y-4">
                   <div>
-                    <label htmlFor="void-reason" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    <label htmlFor="void-reason" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                       Reason for Voiding <span className="text-red-500">*</span>
                     </label>
                     <textarea

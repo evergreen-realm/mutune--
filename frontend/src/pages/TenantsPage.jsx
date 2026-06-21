@@ -25,7 +25,7 @@ const STATUS_CONFIG = {
 
 const FIELD = ({ label, id, children, required }) => (
   <div>
-    <label htmlFor={id} className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+    <label htmlFor={id} className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
       {label} {required && <span className="text-red-400">*</span>}
     </label>
     {children}
@@ -124,7 +124,7 @@ function AddTenantModal({ onClose, onCreated }) {
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Personal Details */}
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">Personal Details</div>
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Personal Details</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FIELD label="Full Name" id="tf-full-name" required>
                 <input id="tf-full-name" type="text" value={form.full_name}
@@ -151,7 +151,7 @@ function AddTenantModal({ onClose, onCreated }) {
 
           {/* Property & Lease */}
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">Property & Lease</div>
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Property & Lease</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FIELD label="Property" id="tf-property" required>
                 <select id="tf-property" value={form.current_property_id}
@@ -172,7 +172,7 @@ function AddTenantModal({ onClose, onCreated }) {
                   ))}
                 </select>
                 {selectedProperty && availableUnits.length === 0 && (
-                  <p className="text-[11px] text-amber-500 mt-1">No vacant units in this property</p>
+                  <p className="text-xs text-amber-500 mt-1">No vacant units in this property</p>
                 )}
               </FIELD>
               <FIELD label="Monthly Rent (KES)" id="tf-rent" required>
@@ -198,7 +198,7 @@ function AddTenantModal({ onClose, onCreated }) {
 
           {/* Link to Clerk User (optional) */}
           <div className="bg-slate-950/30 border border-slate-800 p-4 rounded-2xl">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
               <Link2 size={11} className="text-slate-450" /> Link to Registered User Account (Optional)
             </div>
             <FIELD label="System User (if tenant already has a login)" id="tf-user-id">
@@ -210,7 +210,7 @@ function AddTenantModal({ onClose, onCreated }) {
                 ))}
               </select>
             </FIELD>
-            <p className="text-[11px] text-slate-400 mt-1.5">
+            <p className="text-xs text-slate-400 mt-1.5">
               Linking will set their role to <strong>tenant</strong> and grant access to the tenant portal.
             </p>
           </div>
@@ -384,8 +384,8 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
           <div className="flex-1 min-w-0">
             <div className="font-black text-white truncate text-xs sm:text-sm">{tenant.full_name}</div>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-slate-500 font-bold font-mono">{tenant.tenant_code}</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black border ${statusCfg.color}`}>
+              <span className="text-xs text-slate-500 font-bold font-mono">{tenant.tenant_code}</span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black border ${statusCfg.color}`}>
                 {statusCfg.label}
               </span>
             </div>
@@ -488,12 +488,12 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                     <CheckCircle2 size={18} className="text-emerald-400 flex-shrink-0" />
                     <div>
                       <div className="text-xs font-black text-emerald-350">Tenant Account Synced</div>
-                      <div className="text-[10px] text-emerald-400 font-mono mt-0.5">{typeof tenant.user_id === 'object' ? tenant.user_id.email || tenant.user_id._id : tenant.user_id}</div>
+                      <div className="text-xs text-emerald-400 font-mono mt-0.5">{typeof tenant.user_id === 'object' ? tenant.user_id.email || tenant.user_id._id : tenant.user_id}</div>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-3 p-4 bg-slate-950/40 border border-slate-800 rounded-2xl">
-                    <div className="text-[11px] text-slate-400 leading-relaxed">No registered system login has been linked to this tenant record yet.</div>
+                    <div className="text-xs text-slate-400 leading-relaxed">No registered system login has been linked to this tenant record yet.</div>
                     {!showLinkUser ? (
                       <button onClick={() => setShowLinkUser(true)} id={`btn-link-user-${tenantId}`}
                         className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-green-400 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-xl transition cursor-pointer">
@@ -523,7 +523,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
 
               <Section title={`Payment History Ledger (${history.length} records)`}>
                 {history.length === 0 ? (
-                  <p className="text-[11px] text-slate-500 italic py-2">No bills/receipts logged in ledger.</p>
+                  <p className="text-xs text-slate-500 italic py-2">No bills/receipts logged in ledger.</p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto border border-slate-800 rounded-2xl p-3 bg-slate-950/20">
                     {history.slice().reverse().map((p, i) => (
@@ -536,7 +536,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-black text-white">KES {p.amount_kes?.toLocaleString()}</span>
-                          <span className={`capitalize text-[10px] font-black ${p.status === 'paid' ? 'text-emerald-450' : p.status === 'overdue' ? 'text-red-450' : 'text-amber-450'}`}>
+                          <span className={`capitalize text-xs font-black ${p.status === 'paid' ? 'text-emerald-450' : p.status === 'overdue' ? 'text-red-450' : 'text-amber-450'}`}>
                             {p.status}
                           </span>
                         </div>
@@ -588,7 +588,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                 <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400"><UserX size={20} /></div>
                 <div>
                   <h2 className="text-sm font-black text-white">Terminate Tenancy</h2>
-                  <p className="text-[11px] text-slate-450">{tenant.full_name} · {tenant.tenant_code}</p>
+                  <p className="text-xs text-slate-450">{tenant.full_name} · {tenant.tenant_code}</p>
                 </div>
               </div>
               <div className="space-y-4">
@@ -626,10 +626,10 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
 function InfoBox({ icon, label, value, valueClass = '', mono = false }) {
   return (
     <div className="bg-slate-950/40 border border-slate-800 rounded-xl px-4 py-3">
-      <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
         {icon} {label}
       </div>
-      <div className={`text-xs font-bold text-slate-200 truncate ${mono ? 'font-mono text-[10px]' : ''} ${valueClass}`}>
+      <div className={`text-xs font-bold text-slate-200 truncate ${mono ? 'font-mono text-xs' : ''} ${valueClass}`}>
         {value || '—'}
       </div>
     </div>
@@ -639,7 +639,7 @@ function InfoBox({ icon, label, value, valueClass = '', mono = false }) {
 function Section({ title, children }) {
   return (
     <div className="space-y-2 px-6">
-      <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-800 pb-1">{title}</div>
+      <div className="text-xs font-extrabold uppercase tracking-wider text-slate-500 border-b border-slate-800 pb-1">{title}</div>
       {children}
     </div>
   );
@@ -848,12 +848,12 @@ export default function TenantsPage() {
           <table className="w-full text-xs text-left">
             <thead>
               <tr className="bg-slate-950/40 border-b border-slate-800">
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Tenant Info</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Details</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Property / Unit</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Lease Dates</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Rent (KES)</th>
-                <th className="px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Tenant Info</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Contact Details</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Property / Unit</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Lease Dates</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Rent (KES)</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
                 <th className="px-5 py-4 text-right w-24">Actions</th>
               </tr>
             </thead>
@@ -884,27 +884,27 @@ export default function TenantsPage() {
                       >
                         <td className="px-5 py-4">
                           <div className="font-bold text-slate-100 text-xs sm:text-sm">{t.full_name}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5 font-mono font-bold tracking-wider">{t.tenant_code}</div>
+                          <div className="text-xs text-slate-500 mt-0.5 font-mono font-bold tracking-wider">{t.tenant_code}</div>
                         </td>
                         <td className="px-5 py-4 space-y-0.5">
-                          <div className="flex items-center gap-1 text-[11px] text-slate-350 font-mono font-medium">
-                            <Phone size={10} className="text-slate-500" /> {t.phone}
+                          <div className="flex items-center gap-1 text-xs text-slate-355 font-mono font-medium">
+                            <Phone size={10} className="text-slate-505" /> {t.phone}
                           </div>
                           {t.email && (
-                            <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                            <div className="flex items-center gap-1 text-xs text-slate-400">
                               <Mail size={10} className="text-slate-505" /> {t.email}
                             </div>
                           )}
                         </td>
                         <td className="px-5 py-4">
                           <div className="font-semibold text-slate-300">{t.current_property_id?.name || '—'}</div>
-                          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider font-mono">Unit {t.current_unit_id || '—'}</div>
+                          <div className="text-xs text-slate-500 font-bold uppercase tracking-wider font-mono">Unit {t.current_unit_id || '—'}</div>
                         </td>
                         <td className="px-5 py-4">
                           <div className="font-medium text-slate-300">
                             {new Date(t.lease_start).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: '2-digit' })}
                           </div>
-                          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                          <div className="text-xs text-slate-500 font-semibold mt-0.5">
                             to {new Date(t.lease_end).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: '2-digit' })}
                           </div>
                         </td>
@@ -912,10 +912,10 @@ export default function TenantsPage() {
                           <div className="font-black text-white text-xs sm:text-sm">
                             {t.rent_amount_kes?.toLocaleString()}
                           </div>
-                          <div className="text-[9px] text-slate-500 font-bold uppercase">KES / MO</div>
+                          <div className="text-xs text-slate-500 font-bold uppercase">KES / MO</div>
                         </td>
                         <td className="px-5 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-black border ${statusCfg.color}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black border ${statusCfg.color}`}>
                             {statusCfg.label}
                           </span>
                         </td>
@@ -923,7 +923,7 @@ export default function TenantsPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleOpenDetails(t._id)}
-                              className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold transition cursor-pointer border border-slate-700"
+                              className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition cursor-pointer border border-slate-700"
                               title="View Details"
                             >
                               <Eye size={12} /> <span className="hidden xl:inline">Details</span>
@@ -932,14 +932,14 @@ export default function TenantsPage() {
                               <>
                                 <button
                                   onClick={() => handleOpenEdit(t._id)}
-                                  className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold transition cursor-pointer border border-slate-700"
+                                  className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-bold transition cursor-pointer border border-slate-700"
                                   title="Edit Lease"
                                 >
                                   <Edit2 size={12} /> <span className="hidden xl:inline">Edit</span>
                                 </button>
                                 <button
                                   onClick={() => { setEvictingTenant(t); setEvictReason(''); setEvictDate(''); }}
-                                  className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-red-650 hover:bg-red-500 text-white rounded-lg text-[10px] font-bold transition cursor-pointer border border-transparent"
+                                  className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-red-650 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition cursor-pointer border border-transparent"
                                   title="Evict Tenant"
                                 >
                                   <UserX size={12} /> <span className="hidden xl:inline">Evict</span>
@@ -991,12 +991,12 @@ export default function TenantsPage() {
                 <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400"><UserX size={20} /></div>
                 <div>
                   <h2 className="text-sm font-black text-white">Evict / Terminate Tenancy</h2>
-                  <p className="text-[11px] text-slate-400">{evictingTenant.full_name} · {evictingTenant.tenant_code}</p>
+                  <p className="text-xs text-slate-400">{evictingTenant.full_name} · {evictingTenant.tenant_code}</p>
                 </div>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="evict-reason" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  <label htmlFor="evict-reason" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                     Reason for Eviction / Termination <span className="text-red-550">*</span>
                   </label>
                   <textarea 
@@ -1010,7 +1010,7 @@ export default function TenantsPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="evict-date" className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  <label htmlFor="evict-date" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                     Vacate Date <span className="text-red-550">*</span>
                   </label>
                   <input 

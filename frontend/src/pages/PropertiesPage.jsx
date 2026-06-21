@@ -171,7 +171,7 @@ export default function PropertiesPage({ dbUser }) {
           <div key={i} className={`p-4 rounded-xl border ${kpi.bg} flex items-center gap-3`}>
             <div className="p-2 bg-white rounded-lg shadow-xs">{kpi.icon}</div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{kpi.label}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">{kpi.label}</p>
               <p className="text-base font-black text-gray-900">{kpi.value}</p>
             </div>
           </div>
@@ -260,16 +260,16 @@ export default function PropertiesPage({ dbUser }) {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-gray-900 group-hover:text-green-700 transition-colors">{prop.name}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">{prop.property_code}</p>
+                      <p className="text-xs text-gray-400 font-mono">{prop.property_code}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: badge.bg, color: badge.color }}>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: badge.bg, color: badge.color }}>
                     {badge.label}
                   </span>
                 </div>
 
                 {/* Location */}
-                <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-4">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-4">
                   <MapPin size={11} className="text-red-400" />
                   {prop.address?.area}, {prop.address?.city} · {prop.type?.replace('_', ' ')}
                 </div>
@@ -278,17 +278,17 @@ export default function PropertiesPage({ dbUser }) {
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   <div className="text-center p-2 bg-gray-50 rounded-lg border border-gray-100">
                     <p className="text-xs font-black text-gray-800">{propUnits}</p>
-                    <p className="text-[9px] text-gray-400 uppercase font-semibold mt-0.5">Units</p>
+                    <p className="text-xs text-gray-400 uppercase font-semibold mt-0.5">Units</p>
                   </div>
                   <div className="text-center p-2 bg-gray-50 rounded-lg border border-gray-100">
                     <p className="text-xs font-black text-green-700">{occRate}%</p>
-                    <p className="text-[9px] text-gray-400 uppercase font-semibold mt-0.5">Occupied</p>
+                    <p className="text-xs text-gray-400 uppercase font-semibold mt-0.5">Occupied</p>
                   </div>
                   <div className="text-center p-2 bg-gray-50 rounded-lg border border-gray-100">
                     <p className="text-xs font-black text-emerald-700 truncate">
                       {monthlyRev > 0 ? `${(monthlyRev / 1000).toFixed(0)}k` : '—'}
                     </p>
-                    <p className="text-[9px] text-gray-400 uppercase font-semibold mt-0.5">Rev/mo</p>
+                    <p className="text-xs text-gray-400 uppercase font-semibold mt-0.5">Rev/mo</p>
                   </div>
                 </div>
 
@@ -304,7 +304,7 @@ export default function PropertiesPage({ dbUser }) {
                 <div className="flex justify-between items-center">
                   <button
                     onClick={e => { e.stopPropagation(); navigate(`/properties/${prop._id}`); }}
-                    className="flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-green-600 transition-colors"
+                    className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-green-600 transition-colors"
                   >
                     <Eye size={12} /> View Details
                   </button>
@@ -314,14 +314,14 @@ export default function PropertiesPage({ dbUser }) {
                       <button
                         onClick={e => handleApprove(prop._id, e)}
                         disabled={!!working[prop._id]}
-                        className="text-[10px] font-bold px-2.5 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition disabled:opacity-50 flex items-center gap-1"
+                        className="text-xs font-bold px-2.5 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition disabled:opacity-50 flex items-center gap-1"
                       >
                         <CheckCircle2 size={11} /> {working[prop._id] === 'approve' ? '…' : 'Approve'}
                       </button>
                       <button
                         onClick={e => handleReject(prop._id, e)}
                         disabled={!!working[prop._id]}
-                        className="text-[10px] font-bold px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg transition disabled:opacity-50"
+                        className="text-xs font-bold px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg transition disabled:opacity-50"
                       >
                         {working[prop._id] === 'reject' ? '…' : 'Reject'}
                       </button>
@@ -339,7 +339,7 @@ export default function PropertiesPage({ dbUser }) {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 {['Property', 'Area', 'Type', 'Units', 'Occupancy', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">{h}</th>
+                  <th key={h} className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-500">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -357,7 +357,7 @@ export default function PropertiesPage({ dbUser }) {
                   >
                     <td className="px-4 py-3">
                       <p className="font-bold text-gray-900 text-xs">{prop.name}</p>
-                      <p className="text-[10px] text-gray-400 font-mono">{prop.property_code}</p>
+                      <p className="text-xs text-gray-400 font-mono">{prop.property_code}</p>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600">
                       <span className="flex items-center gap-1"><MapPin size={10} className="text-red-400" />{prop.address?.area}</span>
@@ -373,7 +373,7 @@ export default function PropertiesPage({ dbUser }) {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: badge.bg, color: badge.color }}>
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: badge.bg, color: badge.color }}>
                         {badge.label}
                       </span>
                     </td>
@@ -381,16 +381,16 @@ export default function PropertiesPage({ dbUser }) {
                       <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
                         <button
                           onClick={() => navigate(`/properties/${prop._id}`)}
-                          className="text-[10px] font-bold px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition flex items-center gap-1"
+                          className="text-xs font-bold px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition flex items-center gap-1"
                         >
                           <Eye size={10} /> View
                         </button>
                         {canApprove && prop.status === 'pending_admin_approval' && (
                           <>
-                            <button onClick={e => handleApprove(prop._id, e)} disabled={!!working[prop._id]} className="text-[10px] font-bold px-2 py-1 bg-green-600 text-white rounded-lg transition disabled:opacity-50">
+                            <button onClick={e => handleApprove(prop._id, e)} disabled={!!working[prop._id]} className="text-xs font-bold px-2 py-1 bg-green-600 text-white rounded-lg transition disabled:opacity-50">
                               {working[prop._id] === 'approve' ? '…' : '✓'}
                             </button>
-                            <button onClick={e => handleReject(prop._id, e)} disabled={!!working[prop._id]} className="text-[10px] font-bold px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg transition disabled:opacity-50">
+                            <button onClick={e => handleReject(prop._id, e)} disabled={!!working[prop._id]} className="text-xs font-bold px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded-lg transition disabled:opacity-50">
                               ✕
                             </button>
                           </>

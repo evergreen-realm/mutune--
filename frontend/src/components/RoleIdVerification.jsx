@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, ShieldAlert, KeyRound } from 'lucide-react';
+import { LogOut, ShieldAlert, KeyRound, Loader2 } from 'lucide-react';
 import { useClerk } from '@clerk/clerk-react';
+import { fetchMyProfile } from '../lib/api';
 
 
 export default function RoleIdVerification({ dbUser, user, onVerified }) {
@@ -8,18 +9,47 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tenantProfile, setTenantProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const currentUser = dbUser || user;
   const isLandlord = currentUser?.role === 'landlord';
   const isAgent = currentUser?.role === 'agent';
+  const isTenant = currentUser?.role === 'tenant';
 
-  // If user is neither, or if they are already verified, we shouldn't show this
-  if (!isLandlord && !isAgent) {
+  useEffect(() => {
+    if (isTenant) {
+      setProfileLoading(true);
+      fetchMyProfile()
+        .then(res => {
+          setTenantProfile(res?.data || null);
+        })
+        .catch(err => {
+          console.error('Failed to fetch tenant profile:', err);
+        })
+        .finally(() => {
+          setProfileLoading(false);
+        });
+    }
+  }, [isTenant]);
+
+  // If user is none of these, or if they are already verified, we shouldn't show this
+  if (!isLandlord && !isAgent && !isTenant) {
     return null;
   }
 
-  const expectedId = isLandlord ? currentUser?.landlord_id : currentUser?.user_code;
-  const label = isLandlord ? '6-Digit Landlord ID' : 'Agent ID (e.g., AGT-MOM-XXX)';
+  const expectedId = isLandlord
+    ? currentUser?.landlord_id
+    : isAgent
+    ? currentUser?.user_code
+    : tenantProfile?.tenant_code;
+
+  const label = isLandlord
+    ? '6-Digit Landlord ID'
+    : isAgent
+    ? 'Agent ID (e.g., AGT-MOM-XXX)'
+    : 'Tenant ID (e.g., TEN-MOM-XXX)';
+
   const storageKey = `mutunerent_verified_id_${currentUser?._id}`;
 
   const handleSubmit = (e) => {
@@ -35,13 +65,19 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
         return;
       }
 
+      if (!expectedId && isTenant && profileLoading) {
+        setError('Loading profile details. Please try again in a moment.');
+        setLoading(false);
+        return;
+      }
+
       if (cleanInput.toLowerCase() === expectedId?.toLowerCase()) {
         localStorage.setItem(storageKey, 'true');
         sessionStorage.setItem(`role_verified_${currentUser?._id}`, 'true');
         setLoading(false);
         onVerified();
       } else {
-        setError(`Incorrect ${isLandlord ? 'Landlord ID' : 'Agent ID'}. Please try again or contact administration.`);
+        setError(`Incorrect ${isLandlord ? 'Landlord ID' : isAgent ? 'Agent ID' : 'Tenant ID'}. Please try again or contact administration.`);
         setLoading(false);
       }
     }, 600);
@@ -74,7 +110,7 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder={isLandlord ? "e.g. 100001" : "e.g. AGT-MOM-001"}
+              placeholder={isLandlord ? "e.g. 100001" : isAgent ? "e.g. AGT-MOM-001" : "e.g. TEN-MOM-001"}
               className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 rounded-xl px-4 py-3 text-sm font-mono text-slate-200 outline-none transition-all placeholder-slate-600"
               required
             />
@@ -89,10 +125,14 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:bg-green-700 active:bg-green-700 rounded-xl text-xs font-bold transition-all text-white uppercase tracking-wider shadow-lg shadow-green-900/20"
+            disabled={loading || (isTenant && profileLoading)}
+            className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:bg-green-700 active:bg-green-700 rounded-xl text-xs font-bold transition-all text-white uppercase tracking-wider shadow-lg shadow-green-900/20 flex items-center justify-center gap-1.5"
           >
-            {loading ? 'Verifying...' : 'Verify Identity'}
+            {loading || (isTenant && profileLoading) ? (
+              <><Loader2 size={14} className="animate-spin" /> Verifying...</>
+            ) : (
+              'Verify Identity'
+            )}
           </button>
         </form>
 

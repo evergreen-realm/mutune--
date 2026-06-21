@@ -137,56 +137,95 @@ export default function AdminInventoryPage() {
     (p.items||[]).some(i => i.name?.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const tab$ = t => ({ padding:'8px 20px', borderRadius:10, border:'none', cursor:'pointer', fontSize:13, fontWeight:700, transition:'all 0.2s',
-    background: tab===t ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.06)', color: tab===t ? '#fff' : 'rgba(255,255,255,0.45)' });
-  const inp$ = err => ({ width:'100%', background:'rgba(255,255,255,0.08)', border:`1px solid ${err?'rgba(239,68,68,0.5)':'rgba(255,255,255,0.15)'}`,
-    borderRadius:12, padding:'12px 16px', color:'#fff', fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit' });
-  const lbl$ = { color:'rgba(255,255,255,0.55)', fontSize:11, fontWeight:700, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' };
-  const btn$ = (bg, extra={}) => ({ padding:'12px', background:bg, color:'#fff', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', flex:1, ...extra });
-  const overlay$ = { position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:200, backdropFilter:'blur(4px)' };
-  const modal$ = (bc='rgba(255,255,255,0.12)') => ({ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
-    width:'90%', maxWidth:460, zIndex:201, background:'linear-gradient(135deg,#1a1a3e,#0f0c29)', border:`1px solid ${bc}`,
-    borderRadius:24, padding:32, boxShadow:'0 32px 64px rgba(0,0,0,0.6)', maxHeight:'90vh', overflowY:'auto' });
-  const mHead$ = { display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 };
-  const closeBtn$ = { background:'rgba(255,255,255,0.08)', border:'none', borderRadius:8, padding:'6px 8px', cursor:'pointer', color:'rgba(255,255,255,0.6)' };
+  const tab$ = t => ({
+    padding: '8px 20px',
+    borderRadius: 10,
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 700,
+    transition: 'all 0.2s',
+    background: tab === t ? '#2563EB' : 'rgba(156,163,175,0.15)',
+    color: '#fff'
+  });
+
+  const inp$ = err => ({
+    width: '100%',
+    background: 'transparent',
+    border: `1px solid ${err ? 'rgba(239,68,68,0.5)' : 'rgba(156,163,175,0.3)'}`,
+    borderRadius: 12,
+    padding: '12px 16px',
+    color: 'inherit',
+    fontSize: 14,
+    outline: 'none',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit'
+  });
+
+  const lbl$ = {
+    color: 'inherit',
+    opacity: 0.7,
+    fontSize: 12,
+    fontWeight: 700,
+    display: 'block',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em'
+  };
+
+  const btn$ = (bg, extra = {}) => ({
+    padding: '12px',
+    background: bg,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 12,
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+    flex: 1,
+    ...extra
+  });
 
   if (loading) return (
-    <div style={{ minHeight:'80vh', display:'flex', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,#0f0c29,#24243e)' }}>
-      <div style={{ textAlign:'center' }}>
-        <div style={{ width:48, height:48, borderRadius:'50%', border:'3px solid rgba(16,185,129,0.3)', borderTop:'3px solid #10b981', animation:'spin 1s linear infinite', margin:'0 auto 12px' }} />
-        <p style={{ color:'rgba(255,255,255,0.4)', fontSize:13 }}>Loading inventory…</p>
+    <div className="min-h-[80vh] flex items-center justify-center bg-background text-foreground">
+      <div className="text-center">
+        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(37,99,235,0.3)', borderTop: '3px solid #2563EB', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+        <p className="text-slate-500 dark:text-slate-400 text-xs">Loading inventory…</p>
       </div>
     </div>
   );
 
   return (
-    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)', padding:'28px', color:'#fff' }}>
-      <div style={{ position:'relative', zIndex:1, maxWidth:1200, margin:'0 auto' }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100 p-7 relative">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-[10%] -right-[5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[40px]" />
+      </div>
 
+      <div className="relative z-10 max-w-7xl mx-auto">
         {/* Breadcrumb */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:16, fontSize:12, color:'rgba(255,255,255,0.35)' }}>
-          <span>Admin</span><ChevronRight size={12} /><span style={{ color:'rgba(255,255,255,0.7)' }}>Inventory &amp; Auction</span>
+        <div className="flex items-center gap-1.5 mb-4 text-xs text-slate-500 dark:text-slate-400">
+          <span>Admin</span><ChevronRight size={12} /><span className="text-slate-800 dark:text-slate-200">Inventory &amp; Auction</span>
         </div>
 
         {/* Header */}
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
+        <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
           <div>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
-              <h1 style={{ color:'#fff', fontSize:26, fontWeight:900, margin:0 }}>Inventory &amp; Auction Control</h1>
-              <button onClick={() => setShowInfo(v=>!v)} title="How it works"
-                style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:8, padding:'4px 8px', cursor:'pointer', color:'rgba(255,255,255,0.5)', display:'flex', alignItems:'center' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-slate-900 dark:text-slate-100 text-2xl sm:text-3xl font-black tracking-tight margin-0">Inventory &amp; Auction Control</h1>
+              <button onClick={() => setShowInfo(v => !v)} title="How it works"
+                className="bg-slate-250 dark:bg-slate-800 border-none rounded-lg p-1.5 cursor-pointer text-slate-500 dark:text-slate-400 flex items-center transition">
                 <Info size={14} />
               </button>
             </div>
-            <p style={{ color:'rgba(255,255,255,0.4)', fontSize:14, margin:0 }}>Track assets &middot; flag for auction &middot; reclaim items &middot; log public sales</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Track assets &middot; flag for auction &middot; reclaim items &middot; log public sales</p>
           </div>
-          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-            <button onClick={() => { setAdd(E_ADD); setAddErrs({}); }}
-              style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 18px', background:'linear-gradient(135deg,#6366f1,#4f46e5)', color:'#fff', border:'none', borderRadius:12, fontSize:13, fontWeight:700, cursor:'pointer', boxShadow:'0 6px 20px rgba(99,102,241,0.35)' }}>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={() => { setAdd({ ...E_ADD, open: true }); setAddErrs({}); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', background: 'linear-gradient(135deg,#2563EB,#1D4ED8)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 6px 20px rgba(37,99,235,0.35)' }}>
               <Plus size={15} /> Add Item
             </button>
             <button onClick={handleDownload} disabled={downloading}
-              style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 18px', background: downloading ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg,#10b981,#059669)', color:'#fff', border:'none', borderRadius:12, fontSize:13, fontWeight:700, cursor: downloading ? 'not-allowed' : 'pointer', boxShadow:'0 6px 20px rgba(16,185,129,0.3)' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', background: downloading ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: downloading ? 'not-allowed' : 'pointer', boxShadow: '0 6px 20px rgba(16,185,129,0.3)' }}>
               <Download size={15} /> {downloading ? 'Downloading…' : 'Export CSV'}
             </button>
           </div>
@@ -194,8 +233,8 @@ export default function AdminInventoryPage() {
 
         {/* Info panel */}
         {showInfo && (
-          <div style={{ background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:16, padding:'16px 20px', marginBottom:24, fontSize:13, color:'rgba(255,255,255,0.7)', lineHeight:1.8 }}>
-            <strong style={{ color:'#a5b4fc' }}>How Inventory Works:</strong><br />
+          <div className="bg-blue-500/10 dark:bg-blue-950/20 border border-blue-500/25 rounded-2xl p-5 mb-6 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+            <strong className="text-blue-600 dark:text-blue-400">How Inventory Works:</strong><br />
             1. <strong>Add Item</strong> — register any physical asset against a property (furniture, appliance, equipment).<br />
             2. <strong>Flag for Auction</strong> — mark auctionable when a tenant vacates with arrears.<br />
             3. <strong>Reclaim</strong> — if tenant pays, reclaim using the Payment Receipt ID.<br />
@@ -205,78 +244,79 @@ export default function AdminInventoryPage() {
         )}
 
         {/* Stats */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:16, marginBottom:28 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
           {[
-            { label:'Auctionable Items',      value:auctionable.length,     icon:<Gavel size={18}/>,      color:'#fbbf24' },
-            { label:'Est. Auction Value',     value:FMT_KES(auctionValue),  icon:<DollarSign size={18}/>, color:'#10b981' },
-            { label:'Properties with Assets', value:allInventory.length,    icon:<Package size={18}/>,    color:'#6366f1' },
-            { label:'Total Assets',           value:totalItems,             icon:<TrendingUp size={18}/>, color:'#ec4899' },
-          ].map((s,i) => (
-            <div key={i} style={{ background:'rgba(255,255,255,0.06)', backdropFilter:'blur(20px)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:18, padding:20 }}>
-              <div style={{ width:38, height:38, borderRadius:10, background:`${s.color}22`, border:`1px solid ${s.color}44`, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:12 }}>
-                <span style={{ color:s.color }}>{s.icon}</span>
+            { label: 'Auctionable Items', value: auctionable.length, icon: <Gavel size={18} />, color: '#fbbf24' },
+            { label: 'Est. Auction Value', value: FMT_KES(auctionValue), icon: <DollarSign size={18} />, color: '#10b981' },
+            { label: 'Properties with Assets', value: allInventory.length, icon: <Package size={18} />, color: '#2563EB' },
+            { label: 'Total Assets', value: totalItems, icon: <TrendingUp size={18} />, color: '#ec4899' },
+          ].map((s, i) => (
+            <div key={i} className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: `${s.color}22`, border: `1px solid ${s.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <span style={{ color: s.color }}>{s.icon}</span>
               </div>
-              <p style={{ color:'rgba(255,255,255,0.4)', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>{s.label}</p>
-              <p style={{ color:'#fff', fontSize:20, fontWeight:900 }}>{s.value}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">{s.label}</p>
+              <p className="text-slate-900 dark:text-slate-100 text-xl font-black">{s.value}</p>
             </div>
           ))}
         </div>
 
         {/* Tabs + search */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:20, flexWrap:'wrap' }}>
-          <div style={{ display:'flex', gap:8 }}>
+        <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+          <div className="flex gap-2">
             <button style={tab$('auctionable')} onClick={() => setTab('auctionable')}>
-              {String.fromCodePoint(0x1F528)} Auctionable ({auctionable.length})
+              🔨 Auctionable ({auctionable.length})
             </button>
             <button style={tab$('all')} onClick={() => setTab('all')}>
-              {String.fromCodePoint(0x1F4E6)} All Inventory ({totalItems})
+              📦 All Inventory ({totalItems})
             </button>
           </div>
           {tab === 'all' && (
-            <div style={{ position:'relative', minWidth:220 }}>
-              <Search size={14} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'rgba(255,255,255,0.3)', pointerEvents:'none' }} />
+            <div className="relative min-w-[220px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search items or properties…"
-                style={{ width:'100%', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:10, padding:'8px 12px 8px 34px', color:'#fff', fontSize:13, outline:'none', boxSizing:'border-box' }} />
+                className="w-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2 pl-9 pr-3 text-slate-900 dark:text-slate-100 text-xs outline-none" />
             </div>
           )}
         </div>
 
         {/* AUCTIONABLE TAB */}
         {tab === 'auctionable' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <div className="flex flex-col gap-3">
             {auctionable.length === 0 ? (
-              <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:48, textAlign:'center' }}>
-                <Gavel size={40} style={{ color:'rgba(255,255,255,0.15)', margin:'0 auto 12px' }} />
-                <p style={{ color:'rgba(255,255,255,0.35)', fontSize:14 }}>No items flagged for auction</p>
-                <p style={{ color:'rgba(255,255,255,0.2)', fontSize:12, marginTop:8 }}>Flag items from the All Inventory tab</p>
+              <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center">
+                <Gavel size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400 text-xs">No items flagged for auction</p>
+                <p className="text-slate-400 dark:text-slate-500 text-xs mt-2">Flag items from the All Inventory tab</p>
               </div>
             ) : auctionable.map(item => {
               const days = daysSince(item.auctionable_marked_at);
               const urgent = days >= 30;
               return (
-                <div key={`${item.property_id}-${item._id}`} style={{ background: urgent ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.05)', backdropFilter:'blur(20px)', border:`1px solid ${urgent ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.08)'}`, borderRadius:20, padding:'20px 24px', display:'flex', alignItems:'center', gap:20, flexWrap:'wrap' }}>
-                  <div style={{ width:44, height:44, borderRadius:12, background:'rgba(251,191,36,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <Gavel size={20} style={{ color:'#fbbf24' }} />
+                <div key={`${item.property_id}-${item._id}`} className={`bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border rounded-2xl p-5 sm:px-6 flex items-center gap-5 flex-wrap ${urgent ? 'border-red-400/40 shadow-red-500/5' : 'border-slate-200 dark:border-slate-800'}`}>
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/10 dark:bg-amber-950/20 flex items-center justify-center flex-shrink-0">
+                    <Gavel size={20} className="text-amber-600 dark:text-amber-400" />
                   </div>
-                  <div style={{ flex:1, minWidth:200 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                      <p style={{ color:'#fff', fontSize:15, fontWeight:800 }}>{item.name}</p>
-                      {urgent && <span style={{ fontSize:9, fontWeight:800, padding:'2px 6px', borderRadius:100, background:'rgba(239,68,68,0.2)', color:'#f87171', textTransform:'uppercase' }}>URGENT</span>}
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold">{item.name}</p>
+                      {urgent && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-650 uppercase">URGENT</span>}
                     </div>
-                    <p style={{ color:'rgba(255,255,255,0.45)', fontSize:12, marginBottom:2 }}>{item.property_name} ({item.property_code})</p>
-                    <p style={{ color:'rgba(255,255,255,0.35)', fontSize:12 }}>Reason: {item.auctionable_reason} &middot; Flagged {days} day{days!==1?'s':''} ago</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs mb-0.5">{item.property_name} ({item.property_code})</p>
+                    <p className="text-slate-400 dark:text-slate-550 text-xs">Reason: {item.auctionable_reason} &middot; Flagged {days} day{days !== 1 ? 's' : ''} ago</p>
                   </div>
-                  <div style={{ textAlign:'right', flexShrink:0 }}>
-                    <p style={{ color:'#fbbf24', fontSize:16, fontWeight:800 }}>{FMT_KES(item.estimated_value_kes)}</p>
-                    <p style={{ color:'rgba(255,255,255,0.35)', fontSize:11 }}>Est. value</p>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-amber-600 dark:text-amber-405 text-base font-black">{FMT_KES(item.estimated_value_kes)}</p>
+                    <p className="text-slate-400 dark:text-slate-500 text-xs">Est. value</p>
                   </div>
-                  <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-                    <button onClick={() => setSale({ open:true, propId:item.property_id, itemId:item._id, buyer:'', amount:'' })}
-                      style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 16px', background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#fff', border:'none', borderRadius:12, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                  <div className="flex gap-2 flex-shrink-0 ml-auto">
+                    <button onClick={() => setSale({ open: true, propId: item.property_id, itemId: item._id, buyer: '', amount: '' })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                       <Gavel size={14} /> Record Sale
                     </button>
-                    <button onClick={() => setRecl({ open:true, propId:item.property_id, itemId:item._id, receiptId:'' })}
-                      style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 16px', background:'rgba(16,185,129,0.2)', color:'#34d399', border:'1px solid rgba(16,185,129,0.3)', borderRadius:12, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                    <button onClick={() => setRecl({ open: true, propId: item.property_id, itemId: item._id, receiptId: '' })}
+                      className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-bold cursor-pointer transition"
+                    >
                       <Undo size={14} /> Reclaim
                     </button>
                   </div>
@@ -288,58 +328,62 @@ export default function AdminInventoryPage() {
 
         {/* ALL INVENTORY TAB */}
         {tab === 'all' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div className="flex flex-col gap-4">
             {filtered.length === 0 ? (
-              <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:48, textAlign:'center' }}>
-                <Package size={40} style={{ color:'rgba(255,255,255,0.15)', margin:'0 auto 12px' }} />
-                <p style={{ color:'rgba(255,255,255,0.35)', fontSize:14 }}>{search ? `No items matching "${search}"` : 'No inventory records found'}</p>
+              <div className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center">
+                <Package size={40} className="text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400 text-xs">{search ? `No items matching "${search}"` : 'No inventory records found'}</p>
                 {!search && <button onClick={() => { setAdd(E_ADD); setAddErrs({}); }}
-                  style={{ marginTop:16, display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', background:'linear-gradient(135deg,#6366f1,#4f46e5)', color:'#fff', border:'none', borderRadius:12, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                  style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', background: 'linear-gradient(135deg,#2563EB,#1D4ED8)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                   <Plus size={14} /> Add your first item
                 </button>}
               </div>
             ) : filtered.map(prop => (
-              <div key={prop.property_id} style={{ background:'rgba(255,255,255,0.05)', backdropFilter:'blur(20px)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:20, overflow:'hidden' }}>
-                <div style={{ padding:'14px 24px', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <Package size={18} style={{ color:'#6366f1' }} />
+              <div key={prop.property_id} className="bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden text-slate-900 dark:text-slate-100">
+                <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <Package size={18} className="text-blue-600 dark:text-blue-500" />
                     <div>
-                      <p style={{ color:'#fff', fontSize:14, fontWeight:800 }}>{prop.property_name}</p>
-                      <p style={{ color:'rgba(255,255,255,0.35)', fontSize:11 }}>{prop.property_code} &middot; {(prop.items||[]).length} item{(prop.items||[]).length!==1?'s':''}</p>
+                      <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold">{prop.property_name}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">{prop.property_code} &middot; {(prop.items || []).length} item{(prop.items || []).length !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
-                  <button onClick={() => { setAdd({ ...E_ADD, open:true, propId:prop.property_id }); setAddErrs({}); }}
-                    style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 14px', background:'rgba(99,102,241,0.2)', border:'1px solid rgba(99,102,241,0.3)', color:'#a5b4fc', borderRadius:10, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                  <button onClick={() => { setAdd({ ...E_ADD, open: true, propId: prop.property_id }); setAddErrs({}); }}
+                    className="flex items-center gap-1 px-3.5 py-1.5 bg-blue-500/10 dark:bg-blue-950/20 border border-blue-500/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold cursor-pointer transition"
+                  >
                     <Plus size={12} /> Add Item
                   </button>
                 </div>
-                {(prop.items||[]).map(item => (
-                  <div key={item._id} style={{ padding:'14px 24px', borderBottom:'1px solid rgba(255,255,255,0.04)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
-                    <div style={{ flex:1, minWidth:160 }}>
-                      <p style={{ color:'#fff', fontSize:13, fontWeight:600 }}>{item.name}</p>
-                      <p style={{ color:'rgba(255,255,255,0.35)', fontSize:11 }}>{item.description||'No description'} &middot; Condition: {item.condition||'unknown'}</p>
+                {(prop.items || []).map(item => (
+                  <div key={item._id} className="px-6 py-3.5 border-b border-slate-100 dark:border-slate-800/40 last:border-b-0 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[160px]">
+                      <p className="text-slate-900 dark:text-slate-100 text-xs font-bold">{item.name}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs">{item.description || 'No description'} &middot; Condition: {item.condition || 'unknown'}</p>
                     </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <span style={{ fontSize:13, fontWeight:700, color:'#fbbf24' }}>{FMT_KES(item.estimated_value_kes)}</span>
-                      {item.auction_status==='sold'      && <span style={{ fontSize:10, fontWeight:800, padding:'3px 8px', borderRadius:100, background:'rgba(16,185,129,0.15)', color:'#34d399' }}>SOLD {FMT_KES(item.auction_sale_amount)}</span>}
-                      {item.auction_status==='reclaimed' && <span style={{ fontSize:10, fontWeight:800, padding:'3px 8px', borderRadius:100, background:'rgba(16,185,129,0.15)', color:'#34d399' }}>RECLAIMED</span>}
-                      {item.auction_status==='pending'&&item.auctionable_marked_at && <span style={{ fontSize:10, fontWeight:800, padding:'3px 8px', borderRadius:100, background:'rgba(251,191,36,0.15)', color:'#fbbf24' }}>PENDING AUCTION</span>}
-                      {!item.auctionable_marked_at && item.auction_status!=='sold' && (
-                        <button onClick={() => setFlag({ open:true, propId:prop.property_id, itemId:item._id, reason:'' })}
-                          style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', background:'rgba(251,191,36,0.15)', border:'1px solid rgba(251,191,36,0.3)', color:'#fbbf24', borderRadius:8, fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                    <div className="flex items-center gap-3.5 flex-wrap">
+                      <span className="text-xs font-black text-amber-600 dark:text-amber-405">{FMT_KES(item.estimated_value_kes)}</span>
+                      {item.auction_status === 'sold' && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/20 text-emerald-650">SOLD {FMT_KES(item.auction_sale_amount)}</span>}
+                      {item.auction_status === 'reclaimed' && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/20 text-emerald-650">RECLAIMED</span>}
+                      {item.auction_status === 'pending' && item.auctionable_marked_at && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/20 text-amber-650">PENDING AUCTION</span>}
+                      {!item.auctionable_marked_at && item.auction_status !== 'sold' && (
+                        <button onClick={() => setFlag({ open: true, propId: prop.property_id, itemId: item._id, reason: '' })}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-lg text-xs font-bold cursor-pointer transition"
+                        >
                           <AlertTriangle size={12} /> Flag Auction
                         </button>
                       )}
-                      {item.auction_status==='pending'&&item.auctionable_marked_at && (
-                        <button onClick={() => setRecl({ open:true, propId:prop.property_id, itemId:item._id, receiptId:'' })}
-                          style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', borderRadius:8, fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                      {item.auction_status === 'pending' && item.auctionable_marked_at && (
+                        <button onClick={() => setRecl({ open: true, propId: prop.property_id, itemId: item._id, receiptId: '' })}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-lg text-xs font-bold cursor-pointer transition"
+                        >
                           <Undo size={12} /> Reclaim
                         </button>
                       )}
-                      {item.auction_status!=='pending' && (
-                        <button onClick={() => setDel({ open:true, propId:prop.property_id, itemId:item._id, itemName:item.name })}
+                      {item.auction_status !== 'pending' && (
+                        <button onClick={() => setDel({ open: true, propId: prop.property_id, itemId: item._id, itemName: item.name })}
                           title="Delete item"
-                          style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 10px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)', color:'#f87171', borderRadius:8, fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                          className="flex items-center gap-1 p-1.5 bg-red-100 dark:bg-red-950/40 border border-red-200 dark:border-red-900/30 text-red-650 rounded-lg cursor-pointer transition"
+                        >
                           <Trash2 size={12} />
                         </button>
                       )}
@@ -353,178 +397,205 @@ export default function AdminInventoryPage() {
       </div>
 
       {/* ADD ITEM MODAL */}
-      {addModal.open && (<>
-        <div onClick={() => { setAdd(E_ADD); setAddErrs({}); }} style={overlay$} />
-        <div style={modal$()}>
-          <div style={mHead$}>
-            <h3 style={{ color:'#fff', fontSize:18, fontWeight:800, margin:0 }}>Add Inventory Item</h3>
-            <button onClick={() => { setAdd(E_ADD); setAddErrs({}); }} style={closeBtn$}><X size={16} /></button>
-          </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-            <div>
-              <label style={lbl$}>Property *</label>
-              <select value={addModal.propId}
-                onChange={e => { setAdd(a => ({ ...a, propId:e.target.value })); setAddErrs(er => ({ ...er, propId:undefined })); }}
-                style={{ ...inp$(addErrs.propId), appearance:'none' }}>
-                <option value="">Select a property</option>
-                {properties.map(p => <option key={p._id} value={p._id} style={{ background:'#1a1a3e' }}>{p.name}{p.property_code?` (${p.property_code})`:''}</option>)}
-              </select>
-              {addErrs.propId && <p style={{ color:'#f87171', fontSize:11, marginTop:4 }}>{addErrs.propId}</p>}
-            </div>
-            <div>
-              <label style={lbl$}>Item Name *</label>
-              <input value={addModal.name}
-                onChange={e => { setAdd(a => ({ ...a, name:e.target.value })); setAddErrs(er => ({ ...er, name:undefined })); }}
-                onBlur={() => { if (!addModal.name.trim()) setAddErrs(er => ({ ...er, name:'Item name is required' })); }}
-                placeholder="e.g. Sofa Set, Water Heater, Generator" style={inp$(addErrs.name)} />
-              {addErrs.name && <p style={{ color:'#f87171', fontSize:11, marginTop:4 }}>{addErrs.name}</p>}
-            </div>
-            <div>
-              <label style={lbl$}>Description (optional)</label>
-              <input value={addModal.description} onChange={e => setAdd(a => ({ ...a, description:e.target.value }))} placeholder="Brand, model, colour, serial number" style={inp$(false)} />
-            </div>
-            <div>
-              <label style={lbl$}>Condition</label>
-              <select value={addModal.condition} onChange={e => setAdd(a => ({ ...a, condition:e.target.value }))} style={{ ...inp$(false), appearance:'none' }}>
-                <option value="good"    style={{ background:'#1a1a3e' }}>Good</option>
-                <option value="fair"    style={{ background:'#1a1a3e' }}>Fair</option>
-                <option value="poor"    style={{ background:'#1a1a3e' }}>Poor</option>
-                <option value="damaged" style={{ background:'#1a1a3e' }}>Damaged</option>
-              </select>
-            </div>
-            <div>
-              <label style={lbl$}>Estimated Value (KES, optional)</label>
-              <input type="number" min="0" value={addModal.estimated_value_kes}
-                onChange={e => { setAdd(a => ({ ...a, estimated_value_kes:e.target.value })); setAddErrs(er => ({ ...er, estimated_value_kes:undefined })); }}
-                placeholder="0" style={inp$(addErrs.estimated_value_kes)} />
-              {addErrs.estimated_value_kes && <p style={{ color:'#f87171', fontSize:11, marginTop:4 }}>{addErrs.estimated_value_kes}</p>}
-            </div>
-            <div style={{ display:'flex', gap:10, marginTop:4 }}>
-              <button onClick={handleAdd} disabled={working.add}
-                style={btn$(working.add ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg,#6366f1,#4f46e5)', { cursor: working.add ? 'not-allowed' : 'pointer' })}>
-                {working.add ? 'Adding...' : 'Add Item'}
-              </button>
-              <button onClick={() => { setAdd(E_ADD); setAddErrs({}); }}
-                style={btn$('rgba(255,255,255,0.08)', { border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.7)' })}>
-                Cancel
+      {addModal.open && (
+        <>
+          <div onClick={() => { setAdd(E_ADD); setAddErrs({}); }} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Add Inventory Item</h3>
+              <button onClick={() => { setAdd(E_ADD); setAddErrs({}); }} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
+                <X size={16} />
               </button>
             </div>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Property *</label>
+                <select value={addModal.propId}
+                  onChange={e => { setAdd(a => ({ ...a, propId: e.target.value })); setAddErrs(er => ({ ...er, propId: undefined })); }}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none">
+                  <option value="">Select a property</option>
+                  {properties.map(p => <option key={p._id} value={p._id}>{p.name}{p.property_code ? ` (${p.property_code})` : ''}</option>)}
+                </select>
+                {addErrs.propId && <p className="text-red-500 text-xs mt-1.5">{addErrs.propId}</p>}
+              </div>
+              <div>
+                <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Item Name *</label>
+                <input value={addModal.name}
+                  onChange={e => { setAdd(a => ({ ...a, name: e.target.value })); setAddErrs(er => ({ ...er, name: undefined })); }}
+                  onBlur={() => { if (!addModal.name.trim()) setAddErrs(er => ({ ...er, name: 'Item name is required' })); }}
+                  placeholder="e.g. Sofa Set, Water Heater, Generator"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none" />
+                {addErrs.name && <p className="text-red-500 text-xs mt-1.5">{addErrs.name}</p>}
+              </div>
+              <div>
+                <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Description (optional)</label>
+                <input value={addModal.description} onChange={e => setAdd(a => ({ ...a, description: e.target.value }))} placeholder="Brand, model, colour, serial number"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none" />
+              </div>
+              <div>
+                <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Condition</label>
+                <select value={addModal.condition} onChange={e => setAdd(a => ({ ...a, condition: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none">
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                  <option value="poor">Poor</option>
+                  <option value="damaged">Damaged</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Estimated Value (KES, optional)</label>
+                <input type="number" min="0" value={addModal.estimated_value_kes}
+                  onChange={e => { setAdd(a => ({ ...a, estimated_value_kes: e.target.value })); setAddErrs(er => ({ ...er, estimated_value_kes: undefined })); }}
+                  placeholder="0"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none" />
+                {addErrs.estimated_value_kes && <p className="text-red-500 text-xs mt-1.5">{addErrs.estimated_value_kes}</p>}
+              </div>
+              <div className="flex gap-2.5 mt-4">
+                <button onClick={handleAdd} disabled={working.add}
+                  style={{ padding: '12px', background: working.add ? 'rgba(37,99,235,0.4)' : 'linear-gradient(135deg,#2563EB,#1D4ED8)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: working.add ? 'not-allowed' : 'pointer', flex: 1 }}>
+                  {working.add ? 'Adding...' : 'Add Item'}
+                </button>
+                <button onClick={() => { setAdd(E_ADD); setAddErrs({}); }}
+                  className="flex-1 p-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-none rounded-xl text-xs cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </>)}
+        </>
+      )}
 
       {/* DELETE CONFIRM */}
-      {delModal.open && (<>
-        <div onClick={() => setDel(E_DEL)} style={overlay$} />
-        <div style={modal$('rgba(239,68,68,0.25)')}>
-          <div style={{ width:52, height:52, borderRadius:14, background:'rgba(239,68,68,0.15)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
-            <Trash2 size={24} style={{ color:'#f87171' }} />
-          </div>
-          <h3 style={{ color:'#fff', fontSize:17, fontWeight:800, textAlign:'center', marginBottom:8 }}>Delete Inventory Item?</h3>
-          <p style={{ color:'rgba(255,255,255,0.5)', fontSize:13, textAlign:'center', marginBottom:24 }}>
-            Permanently remove <strong style={{ color:'#fff' }}>"{delModal.itemName}"</strong>. This cannot be undone.
-          </p>
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={handleDelete} disabled={working.del}
-              style={btn$(working.del ? 'rgba(239,68,68,0.3)' : 'linear-gradient(135deg,#ef4444,#dc2626)', { cursor: working.del ? 'not-allowed' : 'pointer' })}>
-              {working.del ? 'Deleting...' : 'Yes, Delete'}
-            </button>
-            <button onClick={() => setDel(E_DEL)}
-              style={btn$('rgba(255,255,255,0.08)', { border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.7)' })}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </>)}
-
-      {/* FLAG MODAL */}
-      {flagModal.open && (<>
-        <div onClick={() => setFlag(E_FLAG)} style={overlay$} />
-        <div style={modal$()}>
-          <div style={mHead$}>
-            <h3 style={{ color:'#fff', fontSize:18, fontWeight:800, margin:0 }}>Flag Item for Auction</h3>
-            <button onClick={() => setFlag(E_FLAG)} style={closeBtn$}><X size={16} /></button>
-          </div>
-          <label style={lbl$}>Reason *</label>
-          <textarea value={flagModal.reason} onChange={e => setFlag(f => ({ ...f, reason:e.target.value }))} rows={3}
-            placeholder="e.g. Tenant vacated with 3 months unpaid rent"
-            style={{ width:'100%', background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:12, padding:'12px 16px', color:'#fff', fontSize:14, outline:'none', resize:'vertical', boxSizing:'border-box', fontFamily:'inherit', marginBottom:16 }} />
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={handleFlag} disabled={working.flag}
-              style={btn$(working.flag ? 'rgba(245,158,11,0.3)' : 'linear-gradient(135deg,#f59e0b,#d97706)', { cursor: working.flag ? 'not-allowed' : 'pointer' })}>
-              {working.flag ? 'Flagging...' : 'Flag for Auction'}
-            </button>
-            <button onClick={() => setFlag(E_FLAG)}
-              style={btn$('rgba(255,255,255,0.08)', { border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.7)' })}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </>)}
-
-      {/* SALE MODAL */}
-      {saleModal.open && (<>
-        <div onClick={() => setSale(E_SALE)} style={overlay$} />
-        <div style={modal$()}>
-          <div style={mHead$}>
-            <h3 style={{ color:'#fff', fontSize:18, fontWeight:800, margin:0 }}>Record Auction Sale</h3>
-            <button onClick={() => setSale(E_SALE)} style={closeBtn$}><X size={16} /></button>
-          </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            <div>
-              <label style={lbl$}>Buyer Full Name *</label>
-              <input value={saleModal.buyer} onChange={e => setSale(s => ({ ...s, buyer:e.target.value }))} placeholder="Full name of buyer" style={inp$(false)} />
+      {delModal.open && (
+        <>
+          <div onClick={() => setDel(E_DEL)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-red-200 dark:border-red-950/40 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} className="text-red-650" />
             </div>
-            <div>
-              <label style={lbl$}>Sale Amount (KES) *</label>
-              <input type="number" min="0" value={saleModal.amount} onChange={e => setSale(s => ({ ...s, amount:e.target.value }))} placeholder="0" style={inp$(false)} />
-            </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button onClick={handleSale} disabled={working.sale}
-                style={btn$(working.sale ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg,#10b981,#059669)', { cursor: working.sale ? 'not-allowed' : 'pointer' })}>
-                {working.sale ? 'Recording...' : 'Record Sale'}
+            <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold text-center mb-2">Delete Inventory Item?</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-xs text-center mb-6">
+              Permanently remove <strong className="text-slate-800 dark:text-slate-200">"{delModal.itemName}"</strong>. This cannot be undone.
+            </p>
+            <div className="flex gap-2.5">
+              <button onClick={handleDelete} disabled={working.del}
+                style={{ padding: '12px', background: working.del ? 'rgba(239,68,68,0.3)' : 'linear-gradient(135deg,#ef4444,#dc2626)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: working.del ? 'not-allowed' : 'pointer', flex: 1 }}>
+                {working.del ? 'Deleting...' : 'Yes, Delete'}
               </button>
-              <button onClick={() => setSale(E_SALE)}
-                style={btn$('rgba(255,255,255,0.08)', { border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.7)' })}>
+              <button onClick={() => setDel(E_DEL)}
+                className="flex-1 p-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-none rounded-xl text-xs cursor-pointer transition"
+              >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
-      </>)}
+        </>
+      )}
+
+      {/* FLAG MODAL */}
+      {flagModal.open && (
+        <>
+          <div onClick={() => setFlag(E_FLAG)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Flag Item for Auction</h3>
+              <button onClick={() => setFlag(E_FLAG)} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
+                <X size={16} />
+              </button>
+            </div>
+            <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Reason *</label>
+            <textarea value={flagModal.reason} onChange={e => setFlag(f => ({ ...f, reason: e.target.value }))} rows={3}
+              placeholder="e.g. Tenant vacated with 3 months unpaid rent"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none resize-vertical fontFamily-inherit mb-4" />
+            <div className="flex gap-2.5">
+              <button onClick={handleFlag} disabled={working.flag}
+                style={{ padding: '12px', background: working.flag ? 'rgba(245,158,11,0.3)' : 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: working.flag ? 'not-allowed' : 'pointer', flex: 1 }}>
+                {working.flag ? 'Flagging...' : 'Flag for Auction'}
+              </button>
+              <button onClick={() => setFlag(E_FLAG)}
+                className="flex-1 p-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-none rounded-xl text-xs cursor-pointer transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* SALE MODAL */}
+      {saleModal.open && (
+        <>
+          <div onClick={() => setSale(E_SALE)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Record Auction Sale</h3>
+              <button onClick={() => setSale(E_SALE)} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Buyer Full Name *</label>
+                <input value={saleModal.buyer} onChange={e => setSale(s => ({ ...s, buyer: e.target.value }))} placeholder="Full name of buyer"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none" />
+              </div>
+              <div>
+                <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Sale Amount (KES) *</label>
+                <input type="number" min="0" value={saleModal.amount} onChange={e => setSale(s => ({ ...s, amount: e.target.value }))} placeholder="0"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none" />
+              </div>
+              <div className="flex gap-2.5">
+                <button onClick={handleSale} disabled={working.sale}
+                  style={{ padding: '12px', background: working.sale ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: working.sale ? 'not-allowed' : 'pointer', flex: 1 }}>
+                  {working.sale ? 'Recording...' : 'Record Sale'}
+                </button>
+                <button onClick={() => setSale(E_SALE)}
+                  className="flex-1 p-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-none rounded-xl text-xs cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* RECLAIM MODAL */}
-      {reclModal.open && (<>
-        <div onClick={() => setRecl(E_RECL)} style={overlay$} />
-        <div style={modal$()}>
-          <div style={mHead$}>
-            <h3 style={{ color:'#fff', fontSize:18, fontWeight:800, margin:0 }}>Reclaim Flagged Item</h3>
-            <button onClick={() => setRecl(E_RECL)} style={closeBtn$}><X size={16} /></button>
+      {reclModal.open && (
+        <>
+          <div onClick={() => setRecl(E_RECL)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Reclaim Flagged Item</h3>
+              <button onClick={() => setRecl(E_RECL)} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-slate-550 dark:text-slate-400 text-xs mb-4">
+              Enter the M-Pesa or cash Payment Receipt Mongo ID generated when the tenant cleared their outstanding balance.
+            </p>
+            <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Payment Receipt ID *</label>
+            <input value={reclModal.receiptId} onChange={e => setRecl(s => ({ ...s, receiptId: e.target.value }))}
+              placeholder="e.g. 648fb907f12e84128f9ac124"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-slate-900 dark:text-slate-100 text-xs outline-none font-mono mb-4" />
+            <div className="flex gap-2.5">
+              <button onClick={handleReclaim} disabled={working.recl}
+                style={{ padding: '12px', background: working.recl ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: working.recl ? 'not-allowed' : 'pointer', flex: 1 }}>
+                {working.recl ? 'Reclaiming...' : 'Reclaim Item'}
+              </button>
+              <button onClick={() => setRecl(E_RECL)}
+                className="flex-1 p-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-none rounded-xl text-xs cursor-pointer transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-          <p style={{ color:'rgba(255,255,255,0.5)', fontSize:12, marginBottom:16 }}>
-            Enter the M-Pesa or cash Payment Receipt Mongo ID generated when the tenant cleared their outstanding balance.
-          </p>
-          <label style={lbl$}>Payment Receipt ID *</label>
-          <input value={reclModal.receiptId} onChange={e => setRecl(s => ({ ...s, receiptId:e.target.value }))}
-            placeholder="e.g. 648fb907f12e84128f9ac124"
-            style={{ ...inp$(false), fontFamily:'monospace', marginBottom:16 }} />
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={handleReclaim} disabled={working.recl}
-              style={btn$(working.recl ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg,#10b981,#059669)', { cursor: working.recl ? 'not-allowed' : 'pointer' })}>
-              {working.recl ? 'Reclaiming...' : 'Reclaim Item'}
-            </button>
-            <button onClick={() => setRecl(E_RECL)}
-              style={btn$('rgba(255,255,255,0.08)', { border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.7)' })}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      </>)}
+        </>
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
-        select option { background: #1a1a3e; color: #fff; }
       `}</style>
     </div>
   );

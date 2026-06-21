@@ -129,14 +129,14 @@ function AppShell() {
 
   useEffect(() => {
     if (derivedRole) {
-      const isAgentOrLandlord = ['agent', 'landlord'].includes(derivedRole);
+      const isVerifiableRole = ['agent', 'landlord', 'tenant'].includes(derivedRole);
       const isAdmin = ['admin', 'super_admin'].includes(derivedRole);
-      if (isAgentOrLandlord && dbUser) {
+      if (isVerifiableRole && dbUser) {
         const key = `mutunerent_verified_id_${dbUser._id}`;
         setIsRoleVerified(localStorage.getItem(key) === 'true' || sessionStorage.getItem(`role_verified_${dbUser._id}`) === 'true');
       } else if (isAdmin) {
         setIsRoleVerified(sessionStorage.getItem('mutunet_admin_verified') === 'true');
-      } else if (!isAgentOrLandlord && !isAdmin) {
+      } else {
         setIsRoleVerified(true);
       }
     } else {
@@ -457,7 +457,7 @@ function AppShell() {
 
   // 🔐 Role‑specific verification gate
   if (!isRoleVerified) {
-    if (derivedRole === 'agent' || derivedRole === 'landlord') {
+    if (['agent', 'landlord', 'tenant'].includes(derivedRole)) {
       if (dbUser) {
         return (
           <>
@@ -510,7 +510,7 @@ function AppShell() {
           <Route path="/tenants"        element={<TenantsPage />} />
           <Route path="/payments"       element={<PaymentsPage />} />
           <Route path="/maintenance"    element={<MaintenancePage />} />
-          <Route path="/admin"          element={<AdminDashboardPage />} />
+          <Route path="/admin"          element={<Navigate to="/" replace />} />
           <Route path="/admin/users"    element={<AdminUserManagementPage />} />
           <Route path="/admin/inventory" element={<AdminInventoryPage />} />
           <Route path="/tenant"         element={<TenantPortalPage />} />

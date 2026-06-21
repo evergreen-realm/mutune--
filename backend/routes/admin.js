@@ -634,15 +634,25 @@ router.post('/verify-password',
       
       const bcrypt = require('bcryptjs');
       const { getAdminPassword } = require('../utils/security');
-      if (!user.admin_hardcoded_hash) {
-        const defaultPassword = getAdminPassword();
-        user.admin_hardcoded_hash = await bcrypt.hash(defaultPassword, 10);
-        await user.save();
+      const currentAdminPass = getAdminPassword();
+
+      // Check against current environment variable password directly first to allow self-healing
+      let isMatch = (password === currentAdminPass);
+      if (!isMatch) {
+        // Fallback to checking the stored hash just in case
+        const isHashMatch = user.admin_hardcoded_hash ? await bcrypt.compare(password, user.admin_hardcoded_hash) : false;
+        if (!isHashMatch) {
+          return res.status(401).json({ success: false, error: { message: 'Incorrect password' } });
+        }
+        isMatch = true;
       }
 
-      const isMatch = await bcrypt.compare(password, user.admin_hardcoded_hash);
-      if (!isMatch) {
-        return res.status(401).json({ success: false, error: { message: 'Incorrect password' } });
+      // Self-healing: if database hash is missing or outdated, update it with the verified password's hash
+      const isHashUpToDate = user.admin_hardcoded_hash ? await bcrypt.compare(currentAdminPass, user.admin_hardcoded_hash) : false;
+      if (!isHashUpToDate) {
+        user.admin_hardcoded_hash = await bcrypt.hash(currentAdminPass, 10);
+        await user.save();
+        logger.info('Self-healed admin_hardcoded_hash for user', { userId: req.user._id });
       }
 
       logger.info('Admin hardcoded password verified successfully', { userId: req.user._id });
