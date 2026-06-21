@@ -196,12 +196,12 @@ export default function AdminInventoryPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100 p-7 relative">
+    <div className="relative text-slate-900 dark:text-slate-100">
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-[10%] -right-[5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[40px]" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto">
+      <div className="relative z-10 max-w-[1600px] mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 mb-4 text-xs text-slate-500 dark:text-slate-400">
           <span>Admin</span><ChevronRight size={12} /><span className="text-slate-800 dark:text-slate-200">Inventory &amp; Auction</span>

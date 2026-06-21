@@ -177,7 +177,7 @@ export default function PropertyDetailPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-[1600px] mx-auto">
       {/* Back link */}
       <button 
         onClick={() => navigate('/properties')}

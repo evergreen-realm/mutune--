@@ -650,8 +650,8 @@ router.post('/verify-password',
       // Self-healing: if database hash is missing or outdated, update it with the verified password's hash
       const isHashUpToDate = user.admin_hardcoded_hash ? await bcrypt.compare(currentAdminPass, user.admin_hardcoded_hash) : false;
       if (!isHashUpToDate) {
-        user.admin_hardcoded_hash = await bcrypt.hash(currentAdminPass, 10);
-        await user.save();
+        const newHash = await bcrypt.hash(currentAdminPass, 10);
+        await User.updateOne({ _id: user._id }, { $set: { admin_hardcoded_hash: newHash } });
         logger.info('Self-healed admin_hardcoded_hash for user', { userId: req.user._id });
       }
 

@@ -141,12 +141,12 @@ export default function AgentPerformancePage({ dbUser }) {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/20 dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100 p-7 relative">
+    <div className="relative text-slate-900 dark:text-slate-100">
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-[10%] -right-[5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[40px]" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto">
+      <div className="relative z-10 max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-7 flex-wrap gap-3">
           <div>

@@ -453,7 +453,7 @@ export default function TenantPortalPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-hidden pb-12">
+    <div className="relative overflow-hidden pb-12">
       {/* Background orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <motion.div 
@@ -476,7 +476,7 @@ export default function TenantPortalPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-6">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-2 sm:px-4 pt-2">
         
         {/* Top Header Row */}
         <header className="flex items-center justify-between border-b border-border pb-4 mb-6">
