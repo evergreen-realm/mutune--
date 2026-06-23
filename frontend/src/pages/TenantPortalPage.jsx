@@ -16,7 +16,8 @@ import {
   Home, Wallet, Wrench, FileText, Bell, ChevronRight,
   CheckCircle2, AlertTriangle, Clock, TrendingUp, Star,
   Phone, Mail, MapPin, Calendar, CreditCard, Activity,
-  ArrowUpRight, Plus, X, ZoomIn, Receipt, Edit2, Ban, Loader2, LogOut
+  ArrowUpRight, Plus, X, ZoomIn, Receipt, Edit2, Ban, Loader2, LogOut,
+  Users
 } from 'lucide-react';
 
 delete L.Icon.Default.prototype._getIconUrl;
