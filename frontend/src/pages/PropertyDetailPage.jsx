@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-react';
 import { toast } from 'react-toastify';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { 
   Building2, MapPin, Plus, Trash2, Lock, Unlock, 
   UserCheck, Key, Compass, Navigation, Loader2, ArrowLeft,
@@ -13,6 +16,28 @@ import {
   lockPropertyUnit, checkInAgent 
 } from '../lib/api';
 import { TableSkeleton } from '../components/SkeletonLoader';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const estimateLocation = (property) => {
+  if (property?.location?.coordinates?.length === 2) {
+    return [property.location.coordinates[1], property.location.coordinates[0]];
+  }
+  const area = property?.address?.area?.toLowerCase() || '';
+  if (area.includes('nyali')) return [-4.0298, 39.7118];
+  if (area.includes('bamburi')) return [-4.0041, 39.7289];
+  if (area.includes('tudor')) return [-4.0458, 39.6645];
+  if (area.includes('ganjoni')) return [-4.0667, 39.6631];
+  if (area.includes('likoni')) return [-4.0863, 39.6617];
+  if (area.includes('shanzu')) return [-3.9749, 39.7547];
+  if (area.includes('mombasa island') || area.includes('cbd')) return [-4.0547, 39.6636];
+  return [-4.0435, 39.6682]; // Mombasa
+};
 
 export default function PropertyDetailPage() {
   const { id } = useParams();
@@ -124,7 +149,11 @@ export default function PropertyDetailPage() {
             setIsCheckedIn(true);
             // Expire in 30 minutes
             setCheckinExpiry(new Date(Date.now() + 30 * 60 * 1000));
-            toast.success(`Verified check-in! Location within ${res.distance_m}m of entrance ✓`);
+            if (res.location_warning) {
+              toast.warning(`Check-in successful with warning: ${res.location_warning} ⚠️`);
+            } else {
+              toast.success(`Verified check-in! Location within ${res.distance_m}m of entrance ✓`);
+            }
           }
         } catch (err) {
           toast.error(err.response?.data?.error?.message || err.message || 'Check-in failed');
@@ -142,13 +171,6 @@ export default function PropertyDetailPage() {
 
   const handleLockToggle = (unitId, currentStatus) => {
     const action = currentStatus === 'locked' ? 'unlock' : 'lock';
-    
-    // For agents, prompt checkin if they haven't verified or session expired
-    if (isAgent && (!isCheckedIn || new Date() > checkinExpiry)) {
-      toast.warning('Agent check-in verification required. Tap "Check In to Property" first.');
-      return;
-    }
-    
     lockUnitMutation.mutate({ unitId, action });
   };
 
@@ -186,58 +208,132 @@ export default function PropertyDetailPage() {
         <ArrowLeft size={14} /> Back to Directory
       </button>
 
-      {/* Property Details Banner */}
-      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-green-600 bg-green-50 px-2.5 py-1 rounded">
-              {property.property_code}
-            </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded capitalize">
-              {property.type.replace('_', ' ')}
-            </span>
-          </div>
-          <h1 className="text-2xl font-black text-slate-800">{property.name}</h1>
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            <MapPin size={13} className="text-red-500" />
-            {property.address.street}, {property.address.area}, {property.address.city}
-            {property.address.plus_code && (
-              <span className="font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-xs">
-                Plus Code: {property.address.plus_code}
+      {/* Property Details Banner - Zillow Style */}
+      <div className="bg-white border border-gray-150 rounded-[28px] shadow-md p-4 sm:p-5 flex flex-col xl:flex-row gap-5 items-stretch">
+        {/* Left Column: Info and Check-in */}
+        <div className="flex-1 flex flex-col justify-between p-2 space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-green-700 bg-green-50 px-2.5 py-1 rounded-lg border border-green-200">
+                {property.property_code}
               </span>
-            )}
-          </p>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 capitalize">
+                {property.type.replace('_', ' ')}
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight leading-none">{property.name}</h1>
+            <p className="text-xs text-gray-500 flex items-center gap-1 leading-normal">
+              <MapPin size={13} className="text-red-500 flex-shrink-0" />
+              <span>{property.address.street}, {property.address.area}, {property.address.city}</span>
+              {property.address.plus_code && (
+                <span className="font-mono text-slate-500 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded text-[10px] font-bold">
+                  Plus Code: {property.address.plus_code}
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* Check-in Actions for Agent/Admin */}
+          {(isAgent || isAdmin) && (
+            <div className="pt-2">
+              {isCheckedIn && new Date() < checkinExpiry ? (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex items-center gap-2.5 text-xs text-emerald-800 font-semibold max-w-xs shadow-sm">
+                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  <div>
+                    <p className="font-bold">Verified On-Site Check-in</p>
+                    <p className="text-[10px] text-emerald-600 font-normal mt-0.5">
+                      Expires: {checkinExpiry.toLocaleTimeString()} ({Math.round((checkinExpiry - Date.now()) / 60000)}m left)
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCheckin}
+                  disabled={checkinLoading}
+                  className="flex items-center justify-center gap-1.5 px-5 py-3 bg-green-600 hover:bg-green-500 active:scale-95 text-white rounded-xl text-xs font-black transition duration-200 disabled:opacity-50 shadow-sm uppercase tracking-wider cursor-pointer"
+                >
+                  {checkinLoading ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Compass size={14} />
+                  )}
+                  Check In to Property
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Check-in Actions for Agent/Admin */}
-        {(isAgent || isAdmin) && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-            {isCheckedIn && new Date() < checkinExpiry ? (
-              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex items-center gap-2 text-xs text-emerald-800 font-semibold">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <div>
-                  <p>Verified On-Site Check-in</p>
-                  <p className="text-xs text-emerald-600 font-normal">
-                    Expires: {checkinExpiry.toLocaleTimeString()} ({Math.round((checkinExpiry - Date.now()) / 60000)}m left)
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={handleCheckin}
-                disabled={checkinLoading}
-                className="flex items-center justify-center gap-1.5 px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-bold transition duration-200 disabled:opacity-50 shadow-sm shadow-green-200"
-              >
-                {checkinLoading ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Compass size={14} />
-                )}
-                Check In to Property
-              </button>
-            )}
+        {/* Middle Column: Property Photo */}
+        <div className="w-full xl:w-80 h-48 xl:h-auto rounded-2xl overflow-hidden relative border border-gray-150 shadow-sm bg-slate-100 flex-shrink-0">
+          {property.photos && property.photos[0] ? (
+            <img 
+              src={property.photos[0]} 
+              alt={property.name} 
+              className="w-full h-full object-cover" 
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-tr from-indigo-900/10 to-emerald-900/10 flex flex-col items-center justify-center text-slate-400 gap-1.5 p-4 text-center">
+              <Building2 size={28} className="text-slate-400 animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-wider">No Photo Registered</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent pointer-events-none" />
+        </div>
+
+        {/* Right Column: Mini Mombasa Map Widget */}
+        <div className="w-full xl:w-80 h-48 xl:h-auto rounded-2xl overflow-hidden relative border border-gray-150 shadow-sm bg-slate-950 flex-shrink-0">
+          <div className="absolute top-2.5 left-2.5 z-[1000] bg-slate-950/80 backdrop-blur-md border border-slate-800 rounded-md px-2 py-0.5 flex items-center gap-1 text-[9px] font-bold text-white uppercase tracking-wider pointer-events-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+            <span>Mombasa Widget</span>
           </div>
-        )}
+
+          {(() => {
+            const mapCenter = estimateLocation(property);
+            return (
+              <div className="w-full h-full relative" style={{ zIndex: 1 }}>
+                <MapContainer 
+                  center={mapCenter} 
+                  zoom={14} 
+                  style={{ height: '100%', width: '100%' }} 
+                  zoomControl={false}
+                  scrollWheelZoom={false}
+                  doubleClickZoom={false}
+                  dragging={false}
+                >
+                  <TileLayer 
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' 
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png"
+                  />
+                  
+                  <Circle 
+                    center={mapCenter}
+                    radius={150}
+                    pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1, dashArray: '3, 3' }}
+                  />
+                  
+                  <Marker 
+                    position={mapCenter}
+                    icon={L.divIcon({
+                      className: 'custom-detail-marker',
+                      html: `
+                        <div class="relative flex items-center justify-center" style="transform: translate(-10px, -10px)">
+                          <div class="absolute w-7 h-7 rounded-full bg-blue-500/30 animate-ping"></div>
+                          <div class="absolute w-5 h-5 rounded-full bg-blue-500/50 animate-pulse"></div>
+                          <div class="w-4 h-4 rounded-full bg-gradient-to-tr from-blue-400 to-blue-600 border border-white flex items-center justify-center shadow-md">
+                            <div class="w-1 h-1 rounded-full bg-white"></div>
+                          </div>
+                        </div>
+                      `,
+                      iconSize: [20, 20],
+                      iconAnchor: [10, 10]
+                    })}
+                  />
+                </MapContainer>
+              </div>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Grid: Units List and Management */}

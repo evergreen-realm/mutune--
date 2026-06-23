@@ -614,8 +614,9 @@ describe('Tier 3: Cross-Feature Combinations', () => {
           photo_url: 'https://r2.cloudflare.com/agent-selfie-307.jpg'
         });
 
-      expect(checkinRes.status).toBe(403);
-      expect(checkinRes.body.error.code).toBe('CHECKIN_TOO_FAR');
+      expect(checkinRes.status).toBe(200);
+      expect(checkinRes.body.success).toBe(true);
+      expect(checkinRes.body.location_warning).toBeDefined();
     });
   });
 

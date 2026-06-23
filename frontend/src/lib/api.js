@@ -157,7 +157,7 @@ export const checkTenantEmail  = (email)   => api.get(`/users/check-tenant-email
 // ── Units Lock & Geo-checkin (Phase 4) ────────────────────────────────────────
 export const deletePropertyUnit    = (id, unitId) => api.delete(`/properties/${id}/units/${unitId}`);
 export const lockPropertyUnit      = (id, unitId, action) => api.post(`/properties/${id}/units/${unitId}/lock`, { action });
-export const checkInAgent          = (data) => api.post('/agents/checkin', data);
+export const checkInAgent          = agentCheckIn;
 
 // ── Admin User Management (Phase 4) ──────────────────────────────────────────
 export const disableUser  = (id)       => api.patch(`/users/${id}/disable`);

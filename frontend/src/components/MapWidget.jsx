@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from 'react-leaflet';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -271,7 +271,7 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
 }
 
 // ── MapWidget Main Component ────────────────────────────────────────────────
-export default function MapWidget({ properties = [], agentLocation = null, onPropertySelect }) {
+export default function MapWidget({ properties = [], agentLocation = null, onPropertySelect, isAdmin = false }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filtered, setFiltered] = useState(properties);
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -279,6 +279,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [activeTab, setActiveTab] = useState('properties'); // 'properties' | 'units' | '3d'
   const [loadingUnits, setLoadingUnits] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!searchQuery) { setFiltered(properties); return; }
@@ -322,46 +323,86 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
     { id: '3d', label: '3D Building Preview' }
   ];
 
-  return (
-    <div className="bg-white rounded-lg border overflow-hidden shadow-sm">
+  const mapContent = (
+    <div className={`flex flex-col overflow-hidden transition-all duration-350 ${
+      isFullscreen 
+        ? 'fixed inset-6 z-[9999] rounded-[24px] shadow-2xl bg-slate-900 border border-slate-800' 
+        : 'bg-white rounded-lg border shadow-sm'
+    }`}>
       {/* Header and Search */}
-      <div className="px-4 py-3 border-b bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+      <div className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-3 ${
+        isFullscreen ? 'bg-slate-950/85 border-slate-850' : 'bg-gray-50'
+      }`}>
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-gray-900 text-sm">Property Map</h3>
+          <h3 className={`font-semibold text-sm ${isFullscreen ? 'text-white' : 'text-gray-900'}`}>Property Map</h3>
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search Plus Code or property..."
-              className="pl-8 pr-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`pl-8 pr-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isFullscreen 
+                  ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-505' 
+                  : 'bg-white border-gray-250 text-gray-800'
+              }`}
             />
           </div>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex gap-1">
-          {tabs.map(tab => (
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                disabled={tab.id === '3d' && !selectedProperty}
+                className={`px-3 py-1 text-xs rounded-md font-medium transition ${activeTab === tab.id
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : isFullscreen
+                      ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-750 disabled:opacity-40'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {isAdmin && (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              disabled={tab.id === '3d' && !selectedProperty}
-              className={`px-3 py-1 text-xs rounded-md font-medium transition ${activeTab === tab.id
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
-                }`}
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className={`p-1.5 rounded-lg border transition ${
+                isFullscreen
+                  ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Map"}
             >
-              {tab.label}
+              {isFullscreen ? <X size={14} /> : <Search size={14} />}
             </button>
-          ))}
+          )}
         </div>
       </div>
 
       {/* Map Views */}
       {activeTab !== '3d' && (
-        <div className="relative">
-          <MapContainer center={center} zoom={13} style={{ height: '500px', width: '100%' }} scrollWheelZoom={false}>
-            <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <div className="relative flex-1">
+          <MapContainer 
+            center={center} 
+            zoom={13} 
+            style={{ 
+              height: isFullscreen ? 'calc(100vh - 140px)' : '500px', 
+              width: '100%',
+              minHeight: isFullscreen ? 'calc(100vh - 140px)' : '500px'
+            }} 
+            scrollWheelZoom={false}
+          >
+            <TileLayer 
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' 
+              url={isFullscreen ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} 
+            />
 
             {activeTab === 'properties' && (
               <PropertyClusterLayer
@@ -463,7 +504,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
 
       {/* 3D Preview Canvas */}
       {activeTab === '3d' && (
-        <div className="p-4">
+        <div className="p-4 bg-slate-950 flex-1">
           <BuildingPreview3D
             property={selectedProperty}
             selectedUnit={selectedUnit}
@@ -474,9 +515,11 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
       )}
 
       {/* Legend Footer */}
-      <div className="px-4 py-2 border-t bg-gray-50 flex gap-4 text-xs flex-wrap items-center">
+      <div className={`px-4 py-2 border-t flex gap-4 text-xs flex-wrap items-center ${
+        isFullscreen ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-gray-50'
+      }`}>
         {Object.entries(statusColors).map(([status, color]) => (
-          <span key={status} className="flex items-center gap-1.5 text-gray-600">
+          <span key={status} className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
             {status}
           </span>
@@ -486,5 +529,14 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
         </span>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {isFullscreen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9998]" onClick={() => setIsFullscreen(false)} />
+      )}
+      {mapContent}
+    </>
   );
 }

@@ -16,8 +16,10 @@ import { toast } from 'react-toastify';
 import {
   fetchAdminStats, downloadKRAReport,
   fetchPendingAgents, fetchPendingLandlords, fetchPendingProperties,
-  fetchLateFeeRules, createLateFeeRule, updateLateFeeRule, deleteLateFeeRule
+  fetchLateFeeRules, createLateFeeRule, updateLateFeeRule, deleteLateFeeRule,
+  fetchProperties
 } from '../lib/api';
+import MapWidget from '../components/MapWidget';
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -291,6 +293,13 @@ export default function AdminDashboardPage() {
     queryFn: fetchPendingProperties
   });
 
+  const { data: propData } = useQuery({
+    queryKey: ['properties'],
+    queryFn: fetchProperties
+  });
+
+  const properties = propData?.data || [];
+
   const stats = data?.data;
 
   const pendingAgentsCount = pendingAgentsData?.data?.length || 0;
@@ -426,6 +435,11 @@ export default function AdminDashboardPage() {
           </motion.div>
         );
       })()}
+
+      {/* Property Map Section for Admins */}
+      <div className="bg-surface border border-border rounded-[24px] overflow-hidden shadow-sm p-4 relative" style={{ zIndex: 10 }}>
+        <MapWidget properties={properties} isAdmin={true} />
+      </div>
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

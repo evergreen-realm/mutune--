@@ -951,8 +951,9 @@ describe('Tier 2 Boundary & Corner Cases Tests', () => {
           photo_url: 'https://r2.cloudflare.com/agent-checkin-selfie.jpg'
         });
 
-      expect(res.status).toBe(403);
-      expect(res.body.error.code).toBe('CHECKIN_TOO_FAR');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.location_warning).toBeDefined();
     });
 
     test('TC-2.6.2: Check-in Low Accuracy GPS', async () => {

@@ -12,6 +12,9 @@ initSentry();
 
 const app = express();
 
+const compression = require('compression');
+app.use(compression());
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {

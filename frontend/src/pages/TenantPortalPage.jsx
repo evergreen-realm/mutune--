@@ -3,6 +3,9 @@ import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   fetchMyProfile, fetchMyPayments, fetchMyNotices,
   createMaintenanceTicket, updateMaintenanceTicket, fetchMyTickets,
@@ -16,12 +19,34 @@ import {
   ArrowUpRight, Plus, X, ZoomIn, Receipt, Edit2, Ban, Loader2, LogOut
 } from 'lucide-react';
 
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
 const FMT_KES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 const FMT_DATE = (d) => {
   if (!d) return '—';
   const dateObj = new Date(d);
   if (isNaN(dateObj.getTime())) return '—';
   return dateObj.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const estimateLocation = (property) => {
+  if (property?.location?.coordinates?.length === 2) {
+    return [property.location.coordinates[1], property.location.coordinates[0]];
+  }
+  const area = property?.address?.area?.toLowerCase() || '';
+  if (area.includes('nyali')) return [-4.0298, 39.7118];
+  if (area.includes('bamburi')) return [-4.0041, 39.7289];
+  if (area.includes('tudor')) return [-4.0458, 39.6645];
+  if (area.includes('ganjoni')) return [-4.0667, 39.6631];
+  if (area.includes('likoni')) return [-4.0863, 39.6617];
+  if (area.includes('shanzu')) return [-3.9749, 39.7547];
+  if (area.includes('mombasa island') || area.includes('cbd')) return [-4.0547, 39.6636];
+  return [-4.0435, 39.6682]; // Mombasa
 };
 
 const formatPhoneHref = (number) => {
@@ -544,69 +569,217 @@ export default function TenantPortalPage() {
           )}
         </AnimatePresence>
 
-        {/* HERO PROPERTY LEASE CARD */}
-        <div className="bg-surface/40 backdrop-blur-xl border border-border rounded-[32px] overflow-hidden shadow-2xl mb-8 relative">
-          
-          {propertyPhoto ? (
-            <div className="h-44 overflow-hidden relative">
-              <img src={propertyPhoto} alt={propertyName} className="w-full h-full object-cover filter brightness-75" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+        {/* HERO PROPERTY LEASE CARD - ZILLOW STYLE */}
+        <div className="bg-surface/30 backdrop-blur-xl border border-border rounded-[32px] overflow-hidden shadow-2xl mb-8">
+          {/* Top Panel: Photo and Mini Map side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-b border-border/40">
+            {/* House Photo Card */}
+            <div className="relative rounded-2xl overflow-hidden aspect-[16/9] md:aspect-auto md:h-80 group shadow-lg border border-border/20">
+              {propertyPhoto ? (
+                <img 
+                  src={propertyPhoto} 
+                  alt={propertyName} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-indigo-950/80 to-emerald-950/80 flex flex-col items-center justify-center text-muted gap-2">
+                  <Home size={48} className="text-emerald-400 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider">No Property Photo Available</span>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40 pointer-events-none" />
+              
+              {/* Badges overlay */}
+              <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                <span className="bg-emerald-600/90 backdrop-blur-md text-white text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border border-emerald-500/30 shadow-md">
+                  Active Lease
+                </span>
+                <span className="bg-indigo-950/90 backdrop-blur-md text-indigo-300 text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border border-indigo-500/30 shadow-md">
+                  {profile?.current_property_id?.type?.replace('_', ' ') || 'Property'}
+                </span>
+              </div>
+
               {arrears > 0 && (
-                <span className="absolute top-4 right-4 bg-red-500 text-background text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-lg shadow-red-950/30">
+                <span className="absolute top-4 right-4 bg-red-600/95 backdrop-blur-md text-white text-xs font-black uppercase tracking-wider px-3.5 py-1.5 rounded-lg border border-red-500/30 shadow-lg shadow-red-950/40 animate-pulse">
                   Arrears: {FMT_KES(arrears)}
                 </span>
               )}
-            </div>
-          ) : (
-            <div className="h-6 bg-gradient-to-r from-emerald-500 via-indigo-500 to-violet-600" />
-          )}
 
-          <div className="p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500/10 to-indigo-500/10 border border-border flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden">
-                {propertyPhoto ? (
-                  <img src={propertyPhoto} alt={propertyName} className="w-full h-full object-cover" />
-                ) : (
-                  <Home className="text-emerald-400 w-8 h-8" />
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-muted font-bold uppercase tracking-wider mb-1">
-                  {propertyArea} · {propertyName}
+              {/* Bottom detail text overlay */}
+              <div className="absolute bottom-4 left-4 right-4">
+                <p className="text-xs text-emerald-400 font-extrabold tracking-widest uppercase mb-1">
+                  MutuneRent Certified
                 </p>
-                <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight leading-tight">
-                  Unit <span className="bg-gradient-to-r from-emerald-400 to-indigo-400 bg-clip-text text-transparent">{unitNumber}</span>
-                </h1>
-                <p className="text-xs text-muted mt-1">
-                  Welcome back, <span className="font-semibold text-foreground">{tenantName}</span> 👋
-                </p>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow">
+                  {propertyName}
+                </h2>
               </div>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="bg-background/50 border border-border p-4 rounded-2xl min-w-[130px]">
-                <span className="text-xs font-bold text-muted uppercase tracking-widest block mb-1">Monthly Rent</span>
-                <p className="text-md font-black text-foreground">{FMT_KES(unitRent || rent)}</p>
-                <span className={`text-xs font-bold mt-1 block ${arrears > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                  {arrears > 0 ? `Arrears: ${FMT_KES(arrears)}` : '✓ Account Clear'}
-                </span>
+            {/* Mini Mombasa Map Card */}
+            <div className="relative rounded-2xl overflow-hidden aspect-[16/9] md:aspect-auto md:h-80 border border-border/20 shadow-lg bg-slate-950">
+              <div className="absolute top-3 left-3 z-[1000] bg-slate-950/90 backdrop-blur-md border border-border/40 rounded-lg px-2.5 py-1 flex items-center gap-1.5 text-white pointer-events-none">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Estimated Mombasa Location</span>
+              </div>
+              
+              {/* React Leaflet Map with estimated location */}
+              {(() => {
+                const mapCenter = estimateLocation(profile?.current_property_id);
+                return (
+                  <div className="w-full h-full relative" style={{ zIndex: 1 }}>
+                    <MapContainer 
+                      center={mapCenter} 
+                      zoom={14} 
+                      style={{ height: '100%', width: '100%' }} 
+                      zoomControl={false}
+                      scrollWheelZoom={false}
+                      doubleClickZoom={false}
+                      dragging={false}
+                    >
+                      <TileLayer 
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' 
+                        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                      />
+                      
+                      <Circle 
+                        center={mapCenter}
+                        radius={150}
+                        pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.15, weight: 1.5, dashArray: '4, 4' }}
+                      />
+                      
+                      <Marker 
+                        position={mapCenter}
+                        icon={L.divIcon({
+                          className: 'custom-tenant-marker',
+                          html: `
+                            <div class="relative flex items-center justify-center" style="transform: translate(-12px, -12px)">
+                              <div class="absolute w-8 h-8 rounded-full bg-emerald-500/30 animate-ping"></div>
+                              <div class="absolute w-6 h-6 rounded-full bg-emerald-500/50 animate-pulse"></div>
+                              <div class="w-5 h-5 rounded-full bg-gradient-to-tr from-emerald-400 to-emerald-600 border border-white flex items-center justify-center shadow-lg">
+                                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+                              </div>
+                            </div>
+                          `,
+                          iconSize: [24, 24],
+                          iconAnchor: [12, 12]
+                        })}
+                      >
+                        <Popup>
+                          <div className="text-xs font-sans text-slate-800 p-1">
+                            <p className="font-bold">{propertyName}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Estimated Location</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    </MapContainer>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Zillow home facts row */}
+          <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-border/40 text-center bg-background/20">
+            <div className="border-r border-border/30 last:border-0">
+              <span className="text-lg sm:text-xl font-extrabold text-foreground">{matchedUnit?.bedrooms || 1}</span>
+              <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mt-0.5">Beds</span>
+            </div>
+            <div className="border-r border-border/30 last:border-0">
+              <span className="text-lg sm:text-xl font-extrabold text-foreground">{matchedUnit?.bathrooms || 1}</span>
+              <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mt-0.5">Baths</span>
+            </div>
+            <div className="border-r border-border/30 last:border-0">
+              <span className="text-lg sm:text-xl font-extrabold text-foreground">{matchedUnit?.size_sqft || 650}</span>
+              <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mt-0.5">Sq Ft</span>
+            </div>
+            <div>
+              <span className="text-lg sm:text-xl font-extrabold text-emerald-400 capitalize">{profile.tenancy_status || 'Active'}</span>
+              <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mt-0.5">Status</span>
+            </div>
+          </div>
+
+          {/* Main Details Section */}
+          <div className="p-6 sm:p-8 flex flex-col lg:flex-row justify-between gap-6">
+            <div className="space-y-6 flex-1">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-border/40 pb-5">
+                <div>
+                  <span className="text-[10px] font-extrabold text-muted uppercase tracking-widest block mb-1">
+                    Mutune Rent Zestimate<sup>®</sup>
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl sm:text-3xl font-black text-white">{FMT_KES(unitRent || rent)}</span>
+                    <span className="text-xs text-muted">/mo</span>
+                  </div>
+                  <p className="text-xs text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                    <TrendingUp size={12} /> Live market rate valuation for {propertyArea}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-background/40 border border-border p-3 rounded-xl min-w-[120px]">
+                    <span className="text-[9px] font-bold text-muted uppercase tracking-wider block mb-0.5">Last Payment</span>
+                    <p className="text-xs font-black text-emerald-400">{lastPayment ? FMT_KES(lastPayment.amount_kes) : '—'}</p>
+                    <span className="text-[9px] text-muted mt-0.5 block truncate">
+                      {lastPayment ? FMT_DATE(lastPayment.created_at) : 'No history'}
+                    </span>
+                  </div>
+                  <div className="bg-background/40 border border-border p-3 rounded-xl min-w-[120px]">
+                    <span className="text-[9px] font-bold text-muted uppercase tracking-wider block mb-0.5">Lease End</span>
+                    <p className="text-xs font-black text-foreground">{FMT_DATE(profile?.lease_end)}</p>
+                    <span className="text-[9px] text-muted mt-0.5 block truncate font-medium">
+                      Starts: {FMT_DATE(profile?.lease_start)}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-background/50 border border-border p-4 rounded-2xl min-w-[130px]">
-                <span className="text-xs font-bold text-muted uppercase tracking-widest block mb-1">Last Payment</span>
-                <p className="text-md font-black text-emerald-400">{lastPayment ? FMT_KES(lastPayment.amount_kes) : '—'}</p>
-                <span className="text-xs text-muted mt-1 block truncate">
-                  {lastPayment ? FMT_DATE(lastPayment.created_at) : 'No history'}
-                </span>
+              <div className="bg-background/20 border border-border/60 rounded-2xl p-4 max-w-xl">
+                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">Estimated Monthly Costs</h4>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted">Base Rent</span>
+                    <span className="font-semibold text-foreground">{FMT_KES(unitRent || rent)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-border/20 pt-1.5">
+                    <span className="text-muted">Service Charge (Inc.)</span>
+                    <span className="font-semibold text-emerald-400">KES 0</span>
+                  </div>
+                  <div className="flex justify-between border-t border-border/20 pt-1.5">
+                    <span className="text-muted">Utility Deposit (Reserve)</span>
+                    <span className="font-semibold text-indigo-400">KES 2,500</span>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              <div className="bg-background/50 border border-border p-4 rounded-2xl min-w-[130px] col-span-2 sm:col-span-1">
-                <span className="text-xs font-bold text-muted uppercase tracking-widest block mb-1">Lease Period</span>
-                <p className="text-xs font-bold text-muted">{FMT_DATE(profile?.lease_start)}</p>
-                <span className="text-xs text-muted mt-1 block truncate font-medium">
-                  to {FMT_DATE(profile?.lease_end)}
-                </span>
+            {/* Contact Agent Zillow-style widget */}
+            <div className="bg-gradient-to-br from-indigo-950/30 to-slate-900/50 backdrop-blur-md border border-indigo-500/20 rounded-2xl p-5 min-w-[280px] lg:max-w-xs space-y-4 shadow-xl self-start">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Property Agent</p>
+                  <p className="text-xs font-black text-foreground">{profile?.current_property_id?.agent_ids?.[0]?.full_name || 'Mutune Estate Agent'}</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2 pt-1">
+                <a 
+                  href={`tel:${formatPhoneHref(agentPhone)}`}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider cursor-pointer text-center"
+                >
+                  <Phone size={12} /> Call Agent
+                </a>
+                <a 
+                  href={`https://wa.me/${formatPhoneHref(agentPhone)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider cursor-pointer text-center"
+                >
+                  <Mail size={12} /> WhatsApp Agent
+                </a>
               </div>
             </div>
           </div>

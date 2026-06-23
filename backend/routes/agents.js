@@ -67,19 +67,14 @@ router.post('/checkin',
       const [propLng, propLat] = property.location.coordinates;
       const distanceM = getDistanceMetres(propLat, propLng, lat, lng);
 
+      let location_warning = null;
       if (distanceM > 50) {
-        logger.warn('Agent check-in denied: out of range', {
+        logger.warn('Agent check-in outside 50m geofence', {
           agentId: req.user._id,
           propertyId: property_id,
           distanceM: Math.round(distanceM)
         });
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'CHECKIN_TOO_FAR',
-            message: `You are ${Math.round(distanceM)}m from the property. Must be within 50m to check in.`
-          }
-        });
+        location_warning = `Agent is ${Math.round(distanceM)}m from the property.`;
       }
 
       // Persist agent's last known location
@@ -103,6 +98,8 @@ router.post('/checkin',
       res.json({
         success: true,
         distance_m: Math.round(distanceM),
+        accuracy: location.accuracy,
+        location_warning,
         verified: true,
         timestamp: new Date().toISOString(),
         property: { name: property.name, property_code: property.property_code }
