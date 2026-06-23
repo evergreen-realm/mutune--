@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell, Settings, Menu, Sun, Moon, ShieldCheck, MapPin, LogOut,
+  Bell, Settings, Menu, Sun, Moon, ShieldCheck, MapPin, LogOut, X, Search, Trash2,
 } from 'lucide-react';
-import { markAllNotifsRead, markNotifRead } from '../lib/api';
+import { motion, AnimatePresence } from 'framer-motion';
+import { markAllNotifsRead, markNotifRead, deleteNotification, clearAllNotifications } from '../lib/api';
 import { toast } from 'react-toastify';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchNotifications } from '../lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -76,13 +77,30 @@ export default function Topbar({
   onLogout,
 }: TopbarProps) {
   const location  = useLocation();
+  const navigate   = useNavigate();
+  const queryClient = useQueryClient();
   const [notifOpen,    setNotifOpen]    = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchQuery,  setSearchQuery]  = useState('');
 
   const role     = dbUser?.role;
   const isAdmin  = role === 'admin' || role === 'super_admin';
   const fullName = dbUser?.full_name || 'Property Owner';
   const breadcrumb = getBreadcrumb(location.pathname);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    // Route to the most relevant page based on current location or default to properties
+    const dest = location.pathname.startsWith('/tenants') ? '/tenants'
+      : location.pathname.startsWith('/properties') ? '/properties'
+      : location.pathname.startsWith('/payments') ? '/payments'
+      : location.pathname.startsWith('/maintenance') ? '/maintenance'
+      : '/properties';
+    navigate(`${dest}?q=${encodeURIComponent(q)}`);
+    setSearchQuery('');
+  };
 
   // Notifications
   const { data: notifData, refetch: refetchNotifs } = useQuery<{ data: Notification[]; unreadCount: number }>({
@@ -125,7 +143,7 @@ export default function Topbar({
         <span
           className={`hidden sm:inline text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
             import.meta.env.VITE_MPESA_ENV === 'production'
-              ? 'text-emerald-700 bg-emerald-500/10'
+              ? 'text-blue-700 bg-blue-500/10'
               : 'text-amber-700 bg-amber-500/10'
           }`}
         >
@@ -135,15 +153,18 @@ export default function Topbar({
 
       {/* ── Right: actions ────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
-        {/* Search input (visual only) */}
-        <div className="hidden md:flex items-center">
+        {/* Search input */}
+        <form onSubmit={handleSearch} className="hidden md:flex items-center relative">
+          <Search size={13} className="absolute left-2.5 text-muted pointer-events-none" />
           <input
             type="search"
             placeholder="Search…"
-            readOnly
-            className="h-8 w-40 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted px-3 outline-none cursor-default select-none"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch(e as unknown as React.FormEvent)}
+            className="h-8 w-44 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted pl-7 pr-3 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
           />
-        </div>
+        </form>
 
         {/* Admin verification queue shortcut */}
         {isAdmin && (
@@ -173,91 +194,144 @@ export default function Topbar({
             )}
           </button>
 
-          {notifOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-              <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-2xl shadow-xl z-50 p-4 max-h-96 overflow-y-auto page-enter animate-fade-in">
-                <div className="flex items-center justify-between border-b border-border pb-2 mb-3">
-                  <span className="text-xs font-bold text-foreground">
-                    Notifications ({unreadCount} unread)
-                  </span>
-                  {unreadCount > 0 && (
-                    <button
-                      onClick={async () => {
-                        try {
-                          await markAllNotifsRead();
-                          refetchNotifs();
-                          toast.success('All notifications marked as read');
-                        } catch (err: unknown) {
-                          const e = err as { error?: { message?: string } };
-                          toast.error(e?.error?.message || 'Failed to update notifications');
-                        }
-                      }}
-                      className="text-xs text-green-600 hover:text-green-500 font-bold uppercase tracking-wider transition-colors"
-                    >
-                      Mark all read
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="text-center py-8 text-xs text-muted font-medium">
-                      All caught up! 🎉
-                    </div>
-                  ) : (
-                    notifications.map((n) => {
-                      const isRead = dbUser?._id
-                        ? (n.read_by ?? []).some(
-                            (uid) => uid?.toString() === dbUser._id.toString()
-                          )
-                        : false;
-                      return (
-                        <div
-                          key={n._id}
+          <AnimatePresence>
+            {notifOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-2xl shadow-xl z-50 p-4 max-h-96 overflow-y-auto"
+                >
+                  <div className="flex items-center justify-between border-b border-border pb-2 mb-3">
+                    <span className="text-xs font-bold text-foreground">
+                      Notifications ({unreadCount} unread)
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <button
                           onClick={async () => {
-                            if (!isRead) {
-                              try {
-                                await markNotifRead(n._id);
-                                refetchNotifs();
-                              } catch (err) {
-                                console.error(err);
-                              }
+                            try {
+                              await markAllNotifsRead();
+                              refetchNotifs();
+                              toast.success('All notifications marked as read');
+                            } catch (err: unknown) {
+                              const e = err as { error?: { message?: string } };
+                              toast.error(e?.error?.message || 'Failed to update notifications');
                             }
                           }}
-                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                            isRead
-                              ? 'bg-surface border-border/50 hover:bg-background'
-                              : 'bg-green-500/5 border-green-500/10 hover:bg-green-500/10'
-                          }`}
+                          className="text-xs text-blue-600 hover:text-blue-500 font-bold uppercase tracking-wider transition-colors"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span
-                              className={`text-xs font-semibold ${
-                                isRead ? 'text-foreground font-medium' : 'text-foreground font-bold'
-                              }`}
-                            >
-                              {n.title}
+                          Mark all read
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await clearAllNotifications();
+                              queryClient.setQueryData(['notifications'], { data: [], unreadCount: 0 });
+                              toast.success('All notifications cleared');
+                              setNotifOpen(false);
+                            } catch (err: unknown) {
+                              const e = err as { error?: { message?: string } };
+                              toast.error(e?.error?.message || 'Failed to clear notifications');
+                            }
+                          }}
+                          className="p-1 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                          title="Clear all notifications"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="text-center py-8 text-xs text-muted font-medium">
+                        All caught up! 🎉
+                      </div>
+                    ) : (
+                      notifications.map((n) => {
+                        const isRead = dbUser?._id
+                          ? (n.read_by ?? []).some(
+                              (uid) => uid?.toString() === dbUser._id.toString()
+                            )
+                          : false;
+                        return (
+                          <div
+                            key={n._id}
+                            onClick={async () => {
+                              if (!isRead) {
+                                try {
+                                  await markNotifRead(n._id);
+                                  refetchNotifs();
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                              isRead
+                                ? 'bg-surface border-border/50 hover:bg-background'
+                                : 'bg-blue-500/5 border-blue-500/10 hover:bg-blue-500/10'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span
+                                className={`text-xs font-semibold ${
+                                  isRead ? 'text-foreground font-medium' : 'text-foreground font-bold'
+                                }`}
+                              >
+                                {n.title}
+                              </span>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {!isRead && (
+                                  <span className="h-2 w-2 rounded-full bg-blue-500 mt-1" />
+                                )}
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await deleteNotification(n._id);
+                                      // Optimistically remove from cache
+                                      queryClient.setQueryData(['notifications'], (old: typeof notifData) => {
+                                        if (!old) return old;
+                                        const newData = old.data.filter((x) => x._id !== n._id);
+                                        return { ...old, data: newData, unreadCount: newData.filter((x) => !(x.read_by ?? []).some((uid) => uid?.toString() === dbUser?._id?.toString())).length };
+                                      });
+                                      toast.success('Notification dismissed');
+                                    } catch (err) {
+                                      console.error(err);
+                                      toast.error('Failed to dismiss notification');
+                                    }
+                                  }}
+                                  className="p-1 hover:bg-red-500/10 rounded text-muted hover:text-red-500 transition-colors"
+                                  title="Dismiss notification"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted mt-1 line-clamp-2">{n.message}</p>
+                            <span className="text-xs text-muted font-mono block mt-1.5">
+                              {new Date(n.created_at).toLocaleTimeString('en-KE', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
                             </span>
-                            {!isRead && (
-                              <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0 mt-1" />
-                            )}
                           </div>
-                          <p className="text-xs text-muted mt-1 line-clamp-2">{n.message}</p>
-                          <span className="text-xs text-muted font-mono block mt-1.5">
-                            {new Date(n.created_at).toLocaleTimeString('en-KE', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+                        );
+                      })
+                    )}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ── Theme toggle ───────────────────────────────────────────────── */}
@@ -280,52 +354,60 @@ export default function Topbar({
             <Settings size={18} />
           </button>
 
-          {settingsOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
-              <div className="absolute right-0 mt-2 w-64 bg-surface border border-border rounded-2xl shadow-xl z-50 p-4 page-enter animate-fade-in">
-                <h3 className="text-xs font-bold text-foreground border-b border-border pb-2 mb-3">
-                  System Settings
-                </h3>
-                <div className="space-y-3">
-                  <div className="bg-background p-3 rounded-xl border border-border">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted">User Profile</p>
-                    <p className="text-xs font-bold text-foreground mt-1 truncate">{fullName}</p>
-                    <p className="text-xs text-muted capitalize">{role}</p>
-                    {dbUser?.phone && (
-                      <p className="text-xs text-muted font-mono mt-1">{dbUser.phone}</p>
-                    )}
-                  </div>
+          <AnimatePresence>
+            {settingsOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                  className="absolute right-0 mt-2 w-64 bg-surface border border-border rounded-2xl shadow-xl z-50 p-4"
+                >
+                  <h3 className="text-xs font-bold text-foreground border-b border-border pb-2 mb-3">
+                    System Settings
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="bg-background p-3 rounded-xl border border-border">
+                      <p className="text-xs font-bold uppercase tracking-wider text-muted">User Profile</p>
+                      <p className="text-xs font-bold text-foreground mt-1 truncate">{fullName}</p>
+                      <p className="text-xs text-muted capitalize">{role}</p>
+                      {dbUser?.phone && (
+                        <p className="text-xs text-muted font-mono mt-1">{dbUser.phone}</p>
+                      )}
+                    </div>
 
-                  <div className="space-y-1.5 text-xs font-medium text-muted">
-                    <div className="flex justify-between">
-                      <span>Billing Currency:</span>
-                      <span className="font-bold text-foreground">KES (Shilling)</span>
+                    <div className="space-y-1.5 text-xs font-medium text-muted">
+                      <div className="flex justify-between">
+                        <span>Billing Currency:</span>
+                        <span className="font-bold text-foreground">KES (Shilling)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>M-Pesa Sandbox:</span>
+                        <span className="font-bold text-green-600">Active</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>System Location:</span>
+                        <span className="font-bold text-foreground">Mombasa, KE</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>API Status:</span>
+                        <span className="font-bold text-green-600">Connected</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>M-Pesa Sandbox:</span>
-                      <span className="font-bold text-green-600">Active</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>System Location:</span>
-                      <span className="font-bold text-foreground">Mombasa, KE</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>API Status:</span>
-                      <span className="font-bold text-green-600">Connected</span>
-                    </div>
-                  </div>
 
-                  <button
-                    onClick={() => onLogout()}
-                    className="w-full mt-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider"
-                  >
-                    <LogOut size={12} /> Sign Out
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+                    <button
+                      onClick={() => onLogout()}
+                      className="w-full mt-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                    >
+                      <LogOut size={12} /> Sign Out
+                    </button>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Date chip */}

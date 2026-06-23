@@ -24,7 +24,7 @@ const runTenantLeaseCleanup = async () => {
     // ── Step 1: Mark newly expired tenants ─────────────────────────────────
     const newlyExpired = await Tenant.find({
       tenancy_status: 'active',
-      lease_end_date: { $lt: now }
+      lease_end: { $lt: now }
     }).lean();
 
     if (newlyExpired.length > 0) {
@@ -50,7 +50,7 @@ const runTenantLeaseCleanup = async () => {
     // ── Step 2: Depart tenants expired for over 6 months ───────────────────
     const longExpired = await Tenant.find({
       tenancy_status: 'expired',
-      lease_end_date: { $lt: sixMonthsAgo }
+      lease_end: { $lt: sixMonthsAgo }
     }).lean();
 
     for (const tenant of longExpired) {

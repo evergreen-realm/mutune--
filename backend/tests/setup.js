@@ -39,6 +39,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  const cron = require('node-cron');
+  cron.getTasks().forEach(task => {
+    task.stop();
+  });
   if (mongoose.connection.readyState !== 0) {
     await mongoose.connection.close();
   }

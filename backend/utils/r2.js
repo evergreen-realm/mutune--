@@ -8,14 +8,21 @@
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const logger = require('./logger');
 
-const r2 = new S3Client({
-  region: 'auto',
-  endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+let _r2Client = null;
+
+function getR2Client() {
+  if (!_r2Client) {
+    _r2Client = new S3Client({
+      region: 'auto',
+      endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
+      credentials: {
+        accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+        secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+      }
+    });
   }
-});
+  return _r2Client;
+}
 
 /**
  * Upload a Buffer to Cloudflare R2.
@@ -26,7 +33,8 @@ const r2 = new S3Client({
  */
 async function uploadImage(buffer, key, contentType = 'image/jpeg') {
   try {
-    await r2.send(new PutObjectCommand({
+    const client = getR2Client();
+    await client.send(new PutObjectCommand({
       Bucket: process.env.CLOUDFLARE_R2_BUCKET,
       Key: key,
       Body: buffer,
@@ -47,7 +55,8 @@ async function uploadImage(buffer, key, contentType = 'image/jpeg') {
  */
 async function deleteImage(key) {
   try {
-    await r2.send(new DeleteObjectCommand({
+    const client = getR2Client();
+    await client.send(new DeleteObjectCommand({
       Bucket: process.env.CLOUDFLARE_R2_BUCKET,
       Key: key
     }));
@@ -59,4 +68,22 @@ async function deleteImage(key) {
   }
 }
 
-module.exports = { uploadImage, deleteImage, r2 };
+const r2Proxy = new Proxy({}, {
+  get(target, prop, receiver) {
+    const client = getR2Client();
+    const value = Reflect.get(client, prop, receiver);
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
+  }
+});
+
+module.exports = {
+  uploadImage,
+  deleteImage,
+  getR2Client,
+  get r2() {
+    return r2Proxy;
+  }
+};

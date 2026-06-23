@@ -187,7 +187,7 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
         <p className="text-xs text-slate-400 font-mono">{property.property_code}</p>
         <div className="mt-2 flex gap-2">
           <span className="text-xs bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/50 flex items-center gap-1 text-slate-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Interactive 3D Model
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Interactive 3D Model
           </span>
         </div>
       </div>
@@ -334,7 +334,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search Plus Code or property..."
-              className="pl-8 pr-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="pl-8 pr-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>

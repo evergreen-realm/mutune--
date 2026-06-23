@@ -86,11 +86,11 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 px-4 text-white">
       {/* Background radial glow */}
-      <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
+      <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
       <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
 
       <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 animate-fade-in">
-        <div className="h-16 w-16 mx-auto bg-green-500/10 rounded-2xl flex items-center justify-center border border-green-500/20 text-green-400 mb-6">
+        <div className="h-16 w-16 mx-auto bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 text-blue-400 mb-6">
           <KeyRound size={32} />
         </div>
 
@@ -111,7 +111,7 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={isLandlord ? "e.g. 100001" : isAgent ? "e.g. AGT-MOM-001" : "e.g. TEN-MOM-001"}
-              className="w-full bg-slate-950/50 border border-slate-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 rounded-xl px-4 py-3 text-sm font-mono text-slate-200 outline-none transition-all placeholder-slate-600"
+              className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-sm font-mono text-slate-200 outline-none transition-all placeholder-slate-600"
               required
             />
           </div>
@@ -126,7 +126,7 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
           <button
             type="submit"
             disabled={loading || (isTenant && profileLoading)}
-            className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:bg-green-700 active:bg-green-700 rounded-xl text-xs font-bold transition-all text-white uppercase tracking-wider shadow-lg shadow-green-900/20 flex items-center justify-center gap-1.5"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-700 active:bg-blue-700 rounded-xl text-xs font-bold transition-all text-white uppercase tracking-wider shadow-lg shadow-blue-900/20 flex items-center justify-center gap-1.5"
           >
             {loading || (isTenant && profileLoading) ? (
               <><Loader2 size={14} className="animate-spin" /> Verifying...</>

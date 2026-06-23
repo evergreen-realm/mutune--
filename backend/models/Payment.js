@@ -42,6 +42,11 @@ paymentSchema.index({ mpesa_receipt: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ created_at: -1 });
 paymentSchema.index({ 'verification_location.coordinates': '2dsphere' }, { sparse: true });
+paymentSchema.index({ tenant_id: 1, created_at: -1 });
+paymentSchema.index({ property_id: 1, status: 1 });
+paymentSchema.index({ channel: 1 });
+paymentSchema.index({ payment_type: 1 });
+paymentSchema.index({ updated_at: -1 });
 
 paymentSchema.pre('save', function(next) {
   this.updated_at = Date.now();

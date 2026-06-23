@@ -42,7 +42,7 @@ const Input = forwardRef(
     const inputClasses = [
       'w-full bg-white text-gray-900 text-sm',
       'border border-gray-200 rounded-lg',
-      'placeholder:text-gray-400',
+      'placeholder:text-gray-500',
       'transition-all duration-150 ease-out',
       'focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500',
       'hover:border-gray-300',
@@ -73,7 +73,7 @@ const Input = forwardRef(
 
         <div className="relative">
           {leftAddon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
               {leftAddon}
             </div>
           )}
@@ -94,7 +94,7 @@ const Input = forwardRef(
           </motion.div>
 
           {rightAddon && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
               {rightAddon}
             </div>
           )}
@@ -121,7 +121,7 @@ const Input = forwardRef(
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="text-xs text-gray-400"
+              className="text-xs text-gray-500"
             >
               {helperText}
             </motion.p>

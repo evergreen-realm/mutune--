@@ -70,13 +70,13 @@ export default function CheckInButton({ propertyId, onSuccess }) {
 
   if (checkedIn) {
     return (
-      <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-1.5">
+      <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-green-100 rounded-lg px-3 py-1.5">
         <CheckCircle2 size={13} />
         <span className="font-semibold">Checked in</span>
-        <span className="text-green-500">{checkedIn.distance_m}m away</span>
+        <span className="text-blue-500">{checkedIn.distance_m}m away</span>
         <button
           onClick={() => setCheckedIn(null)}
-          className="ml-auto text-xs text-green-500 hover:text-green-700 underline"
+          className="ml-auto text-xs text-blue-500 hover:text-blue-700 underline"
         >
           Reset
         </button>
@@ -90,7 +90,7 @@ export default function CheckInButton({ propertyId, onSuccess }) {
         id={`btn-checkin-${propertyId}`}
         onClick={handleCheckIn}
         disabled={loading}
-        className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
+        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
       >
         {loading
           ? <Loader2 size={13} className="animate-spin" />
@@ -104,7 +104,7 @@ export default function CheckInButton({ propertyId, onSuccess }) {
         title="Attach photo (optional)"
         className={`p-1.5 rounded-lg border cursor-pointer transition ${
           photoFile
-            ? 'border-green-300 text-green-600 bg-green-50'
+            ? 'border-blue-300 text-blue-600 bg-blue-50'
             : 'border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-50'
         }`}
       >

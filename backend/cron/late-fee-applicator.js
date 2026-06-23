@@ -68,15 +68,18 @@ const runLateFeeApplicator = async () => {
         continue;
       }
 
-      // Check if tenant has paid rent for this month
-      const rentPayment = await Payment.findOne({
+      // Check if tenant has paid enough rent for this month
+      const rentPayments = await Payment.find({
         tenant_id: tenant._id,
         payment_type: 'rent',
         status: 'confirmed',
         created_at: { $gte: startOfMonth, $lte: endOfMonth }
       }).lean();
 
-      if (rentPayment) {
+      const totalPaidRent = rentPayments.reduce((sum, p) => sum + (p.amount_kes || 0), 0);
+      const rentRequired = tenant.rent_amount_kes || 0;
+
+      if (totalPaidRent >= rentRequired) {
         continue;
       }
 
@@ -181,7 +184,7 @@ const runLateFeeApplicator = async () => {
   }
 };
 
-const lateFeeApplicator = cron.schedule('10 21 * * *', runLateFeeApplicator, {
+const lateFeeApplicator = cron.schedule('10 00 * * *', runLateFeeApplicator, {
   scheduled: false,
   timezone: 'Africa/Nairobi'
 });

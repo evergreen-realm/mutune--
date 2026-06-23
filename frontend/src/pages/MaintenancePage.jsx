@@ -246,7 +246,7 @@ export default function MaintenancePage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Wrench className="text-green-600 animate-spin-slow" size={24} /> Maintenance Desk
+            <Wrench className="text-blue-600 animate-spin-slow" size={24} /> Maintenance Desk
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             Log tickets, assign agents, and monitor repair status.
@@ -254,7 +254,7 @@ export default function MaintenancePage() {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-lg cursor-pointer"
+          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition duration-150 shadow-lg cursor-pointer"
         >
           <Plus size={16} /> Log Ticket
         </button>
@@ -263,7 +263,7 @@ export default function MaintenancePage() {
       {/* Filters Bar */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center gap-4 shadow-md">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          <Filter size={14} className="text-green-500" /> Filters:
+          <Filter size={14} className="text-blue-500" /> Filters:
         </div>
         
         {/* Status Filter */}
@@ -272,7 +272,7 @@ export default function MaintenancePage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-green-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
+            className="bg-slate-950 border border-slate-800 focus:border-blue-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
           >
             <option value="all">All Statuses</option>
             <option value="open">Open</option>
@@ -291,7 +291,7 @@ export default function MaintenancePage() {
             <select
               value={filterProperty}
               onChange={(e) => setFilterProperty(e.target.value)}
-              className="bg-slate-950 border border-slate-800 focus:border-green-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
+              className="bg-slate-950 border border-slate-800 focus:border-blue-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
             >
               <option value="all">All Properties</option>
               {properties.map(p => (
@@ -308,7 +308,7 @@ export default function MaintenancePage() {
             type="date"
             value={filterStartDate}
             onChange={(e) => setFilterStartDate(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-green-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
+            className="bg-slate-950 border border-slate-800 focus:border-blue-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
           />
         </div>
 
@@ -318,7 +318,7 @@ export default function MaintenancePage() {
             type="date"
             value={filterEndDate}
             onChange={(e) => setFilterEndDate(e.target.value)}
-            className="bg-slate-950 border border-slate-800 focus:border-green-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
+            className="bg-slate-950 border border-slate-800 focus:border-blue-500/50 rounded-xl text-white text-xs px-2.5 py-1.5 focus:outline-none cursor-pointer"
           />
         </div>
 
@@ -395,18 +395,18 @@ export default function MaintenancePage() {
                     <div className="mt-4 pt-3 border-t border-slate-900/80 flex flex-wrap items-center justify-between text-xs text-slate-500 font-semibold gap-2">
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 text-slate-400">
-                          <Building size={13} className="text-green-600" /> {t.property_id?.name || 'Assigned Property'} (Unit {t.unit_id})
+                          <Building size={13} className="text-blue-600" /> {t.property_id?.name || 'Assigned Property'} (Unit {t.unit_id})
                         </span>
                         {t.tenant_id?.full_name && (
                           <span className="flex items-center gap-1 text-slate-400">
-                            <User size={13} className="text-green-600" /> {t.tenant_id.full_name}
+                            <User size={13} className="text-blue-600" /> {t.tenant_id.full_name}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-3">
                         <span className="flex items-center gap-1 text-slate-400">
-                          <Calendar size={13} className="text-green-600" /> {new Date(t.created_at).toLocaleDateString('en-KE', { dateStyle: 'medium' })}
+                          <Calendar size={13} className="text-blue-600" /> {new Date(t.created_at).toLocaleDateString('en-KE', { dateStyle: 'medium' })}
                         </span>
                         
                         {/* Manage/Edit Actions for Agents/Admins/Landlords */}
@@ -420,7 +420,7 @@ export default function MaintenancePage() {
                               setEditPriority(t.priority || 'medium');
                               setEditDescription(t.description || '');
                             }}
-                            className="text-green-400 hover:text-green-300 font-bold transition duration-150 cursor-pointer"
+                            className="text-blue-400 hover:text-blue-300 font-bold transition duration-150 cursor-pointer"
                           >
                             Update &amp; Edit
                           </button>
@@ -431,7 +431,7 @@ export default function MaintenancePage() {
                     {/* Agent Notes display */}
                     {t.agent_notes && (
                       <div className="mt-3 p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-start gap-2 text-xs text-slate-300">
-                        <MessageSquare size={14} className="text-green-600 mt-0.5 shrink-0" />
+                        <MessageSquare size={14} className="text-blue-600 mt-0.5 shrink-0" />
                         <div>
                           <p className="font-bold text-slate-200">Notes / Resolution Details:</p>
                           <p className="mt-0.5 text-slate-400">{t.agent_notes}</p>
@@ -453,7 +453,7 @@ export default function MaintenancePage() {
         {/* Info block */}
         <div className="space-y-6">
           <div className="bg-slate-900 border border-slate-800 text-slate-200 rounded-2xl p-5 space-y-4 shadow-lg">
-            <h3 className="text-xs font-bold text-green-500 uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1.5">
               <ShieldAlert size={15} /> Help &amp; Guidelines
             </h3>
             <div className="space-y-3 text-xs leading-relaxed text-slate-400">
@@ -464,7 +464,7 @@ export default function MaintenancePage() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <CheckCircle size={16} className="text-green-500 shrink-0 mt-0.5" />
+                <CheckCircle size={16} className="text-blue-500 shrink-0 mt-0.5" />
                 <p>
                   <strong>Resolution:</strong> Service staff will log action reports. Tenants will see updates instantly on their web portal dashboard.
                 </p>
@@ -489,7 +489,7 @@ export default function MaintenancePage() {
             </button>
 
             <div className="flex items-center gap-2 px-6 pt-5 pb-4 border-b border-slate-800">
-              <Wrench size={18} className="text-green-500" />
+              <Wrench size={18} className="text-blue-500" />
               <h3 className="text-base font-bold text-white">Log Maintenance Ticket</h3>
             </div>
 
@@ -506,7 +506,7 @@ export default function MaintenancePage() {
                         setSelectedPropertyId(e.target.value);
                         setSelectedUnitId('');
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 cursor-pointer"
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 cursor-pointer"
                       required
                     >
                       <option value="">-- Choose Property --</option>
@@ -524,7 +524,7 @@ export default function MaintenancePage() {
                       <select
                         value={selectedUnitId}
                         onChange={(e) => setSelectedUnitId(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 cursor-pointer"
+                        className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 cursor-pointer"
                         required
                       >
                         <option value="">-- Choose Unit --</option>
@@ -549,7 +549,7 @@ export default function MaintenancePage() {
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 cursor-pointer"
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 cursor-pointer"
                 >
                   {CATEGORIES.map(c => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -564,7 +564,7 @@ export default function MaintenancePage() {
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 cursor-pointer"
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 cursor-pointer"
                 >
                   {PRIORITIES.map(p => (
                     <option key={p.value} value={p.value}>{p.label}</option>
@@ -582,7 +582,7 @@ export default function MaintenancePage() {
                   placeholder="Detail the location and severity of the issue..."
                   rows={4}
                   maxLength={2000}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 resize-none transition duration-150"
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 resize-none transition duration-150"
                   required
                 />
               </div>
@@ -598,7 +598,7 @@ export default function MaintenancePage() {
                 <button
                   type="submit"
                   disabled={createTicketMutation.isPending}
-                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition cursor-pointer"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition cursor-pointer"
                 >
                   {createTicketMutation.isPending ? 'Logging...' : 'Submit Ticket'}
                 </button>
@@ -623,7 +623,7 @@ export default function MaintenancePage() {
             </button>
 
             <div className="flex items-center gap-2 px-6 pt-5 pb-4 border-b border-slate-800">
-              <CheckSquare size={18} className="text-green-500" />
+              <CheckSquare size={18} className="text-blue-500" />
               <h3 className="text-base font-bold text-white">Update Maintenance Ticket: {updatingTicket.ticket_code}</h3>
             </div>
 
@@ -634,7 +634,7 @@ export default function MaintenancePage() {
                   <select
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 cursor-pointer"
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 cursor-pointer"
                   >
                     {CATEGORIES.map(c => (
                       <option key={c.value} value={c.value}>{c.label}</option>
@@ -647,7 +647,7 @@ export default function MaintenancePage() {
                   <select
                     value={editPriority}
                     onChange={(e) => setEditPriority(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 cursor-pointer"
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 cursor-pointer"
                   >
                     {PRIORITIES.map(p => (
                       <option key={p.value} value={p.value}>{p.label}</option>
@@ -663,7 +663,7 @@ export default function MaintenancePage() {
                   onChange={(e) => setEditDescription(e.target.value)}
                   rows={3}
                   maxLength={2000}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 resize-none"
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 resize-none"
                   required
                 />
               </div>
@@ -675,7 +675,7 @@ export default function MaintenancePage() {
                     <select
                       value={statusUpdate}
                       onChange={(e) => setStatusUpdate(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50 cursor-pointer"
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50 cursor-pointer"
                     >
                       <option value="open">Open</option>
                       <option value="assigned">Assigned</option>
@@ -695,7 +695,7 @@ export default function MaintenancePage() {
                       value={agentNotes}
                       onChange={(e) => setAgentNotes(e.target.value)}
                       placeholder="Explain work performed..."
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500/50"
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500/50"
                     />
                   </div>
                 </div>
@@ -712,7 +712,7 @@ export default function MaintenancePage() {
                 <button
                   type="submit"
                   disabled={updateTicketMutation.isPending}
-                  className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-semibold transition cursor-pointer"
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition cursor-pointer"
                 >
                   {updateTicketMutation.isPending ? 'Updating...' : 'Save Updates'}
                 </button>

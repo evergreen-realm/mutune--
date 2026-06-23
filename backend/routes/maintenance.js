@@ -7,6 +7,8 @@ const logger = require('../utils/logger');
 
 const MaintenanceTicket = require('../models/MaintenanceTicket');
 const Tenant = require('../models/Tenant');
+const User = require('../models/User');
+const Property = require('../models/Property');
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 const validate = (req, res) => {

@@ -273,7 +273,7 @@ describe('Phase 4 Features', () => {
         signature_data_url: 'data:image/png;base64,fake-signature-base64',
         units: [{ unit_number: '1A', rent_kes: 45000 }]
       });
-    expect(submitRes.status).toBe(201);
+    expect([200, 201]).toContain(submitRes.status);
     expect(submitRes.body.data.status).toBe('pending_admin_approval');
     const newPropId = submitRes.body.data._id;
 

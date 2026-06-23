@@ -67,7 +67,7 @@ router.post('/checkin',
       const [propLng, propLat] = property.location.coordinates;
       const distanceM = getDistanceMetres(propLat, propLng, lat, lng);
 
-      if (distanceM > 200) {
+      if (distanceM > 50) {
         logger.warn('Agent check-in denied: out of range', {
           agentId: req.user._id,
           propertyId: property_id,
@@ -77,7 +77,7 @@ router.post('/checkin',
           success: false,
           error: {
             code: 'CHECKIN_TOO_FAR',
-            message: `You are ${Math.round(distanceM)}m from the property. Must be within 200m to check in.`
+            message: `You are ${Math.round(distanceM)}m from the property. Must be within 50m to check in.`
           }
         });
       }

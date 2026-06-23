@@ -54,7 +54,7 @@ export default function DataTable({
 
   const SortIcon = ({ colKey }) => {
     if (sortConfig.key !== colKey) {
-      return <ChevronsUpDown size={12} className="text-gray-300" />;
+      return <ChevronsUpDown size={12} className="text-gray-500" />;
     }
     return sortConfig.direction === 'asc' ? (
       <ChevronUp size={12} className="text-emerald-600" />

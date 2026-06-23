@@ -18,12 +18,14 @@ router.get('/', requireAuth, async (req, res, next) => {
 
     // Match notifications where either:
     // - recipient_role matches user's role AND (recipient_ids is empty OR contains this user)
+    // - AND the user has NOT dismissed this notification
     const notifications = await Notification.find({
       recipient_role: role,
       $or: [
         { recipient_ids: { $size: 0 } },
         { recipient_ids: userId }
-      ]
+      ],
+      dismissed_by: { $ne: userId }
     })
       .sort({ created_at: -1 })
       .limit(50)
@@ -106,6 +108,63 @@ router.post('/', requireAuth, async (req, res, next) => {
     });
     logger.info('Notification created', { notifId: notification._id, by: req.user._id });
     res.status(201).json({ success: true, data: notification });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/v1/notifications/:id
+ * Permanently dismiss (delete) a specific notification for the current user.
+ * The notification is removed from the DB only if it targets this user specifically,
+ * otherwise it is soft-dismissed by adding the user to a dismissed_by array.
+ */
+router.delete('/:id',
+  requireAuth,
+  param('id').isMongoId().withMessage('Invalid notification ID'),
+  async (req, res, next) => {
+    try {
+      const notification = await Notification.findById(req.params.id);
+      if (!notification) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Notification not found' } });
+      }
+      // Add user to dismissed_by so it's filtered out on subsequent fetches
+      await Notification.findByIdAndUpdate(
+        req.params.id,
+        {
+          $addToSet: {
+            read_by: req.user._id,
+            dismissed_by: req.user._id
+          }
+        }
+      );
+      logger.info('Notification dismissed', { notifId: req.params.id, userId: req.user._id });
+      res.json({ success: true, message: 'Notification dismissed' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /api/v1/notifications
+ * Clear (dismiss) ALL notifications for the current user.
+ */
+router.delete('/', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const role = req.user.role;
+
+    await Notification.updateMany(
+      {
+        recipient_role: role,
+        $or: [{ recipient_ids: { $size: 0 } }, { recipient_ids: userId }]
+      },
+      { $addToSet: { read_by: userId, dismissed_by: userId } }
+    );
+
+    logger.info('All notifications cleared', { userId });
+    res.json({ success: true, message: 'All notifications cleared' });
   } catch (error) {
     next(error);
   }

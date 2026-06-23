@@ -11,4 +11,7 @@ const propertyTierSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 });
 
+propertyTierSchema.index({ is_active: 1 });
+propertyTierSchema.index({ min_rent_kes: 1, max_rent_kes: 1 });
+
 module.exports = mongoose.model('PropertyTier', propertyTierSchema);

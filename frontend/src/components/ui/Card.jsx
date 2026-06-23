@@ -80,7 +80,7 @@ function CardHeader({ title, subtitle, badge, action, className = '', children }
           </h3>
         )}
         {subtitle && (
-          <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -145,7 +145,7 @@ function StatCard({ icon, label, value, subtext, color = 'brand', trend }) {
     >
       <div className="flex justify-between items-start">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
             {label}
           </span>
           <div className={`text-2xl font-black ${statValueColor[color]}`}>
@@ -159,11 +159,11 @@ function StatCard({ icon, label, value, subtext, color = 'brand', trend }) {
         </div>
       </div>
       {(subtext || trend) && (
-        <div className="text-xs text-gray-400 font-medium mt-3 border-t border-gray-100/50 pt-2 flex items-center gap-1.5">
+        <div className="text-xs text-gray-500 font-medium mt-3 border-t border-gray-100/50 pt-2 flex items-center gap-1.5">
           {trend && (
             <span
               className={`font-bold ${
-                trend > 0 ? 'text-emerald-500' : trend < 0 ? 'text-red-500' : 'text-gray-400'
+                trend > 0 ? 'text-emerald-500' : trend < 0 ? 'text-red-500' : 'text-gray-500'
               }`}
             >
               {trend > 0 ? '↑' : trend < 0 ? '↓' : '→'} {Math.abs(trend)}%

@@ -48,7 +48,7 @@ export default function PropertyList({ properties = [] }) {
               placeholder="Search properties..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-green-500 focus:bg-white transition-all text-gray-800"
+              className="w-full pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all text-gray-800"
             />
           </div>
         </div>
@@ -63,7 +63,7 @@ export default function PropertyList({ properties = [] }) {
           onClick={() => setFilter('all')}
           className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
             filter === 'all'
-              ? 'bg-green-600 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
           }`}
         >
@@ -75,7 +75,7 @@ export default function PropertyList({ properties = [] }) {
             onClick={() => setFilter(a)}
             className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
               filter === a
-                ? 'bg-green-600 text-white shadow-sm'
+                ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
             }`}
           >

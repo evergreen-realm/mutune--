@@ -35,6 +35,9 @@ const noticeSchema = new mongoose.Schema({
 noticeSchema.index({ tenant_id: 1, created_at: -1 });
 noticeSchema.index({ notice_type: 1 });
 noticeSchema.index({ 'delivery_status.status': 1 });
+noticeSchema.index({ created_by: 1 });
+noticeSchema.index({ status: 1 });
+noticeSchema.index({ created_at: -1 });
 
 noticeSchema.pre('save', function (next) {
   this.updated_at = Date.now();

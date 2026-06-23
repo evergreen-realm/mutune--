@@ -22,6 +22,10 @@ const requireAuth = async (req, res, next) => {
         logger.warn('Inactive account access attempt', { userId: user._id });
         return res.status(403).json({ success: false, error: { code: 'ACCOUNT_INACTIVE', message: 'Account deactivated' } });
       }
+      if (user.is_deleted) {
+        logger.warn('Deleted account access attempt', { userId: user._id });
+        return res.status(403).json({ success: false, error: { code: 'ACCOUNT_DELETED', message: 'Account has been deleted' } });
+      }
       req.user = user;
       next();
     });

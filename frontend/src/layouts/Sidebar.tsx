@@ -69,7 +69,7 @@ function SidebarPanel({
       {/* ── Brand ───────────────────────────────────────────────────────────── */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-slate-800 flex-shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="p-2 bg-green-600 rounded-lg text-white font-black flex-shrink-0 text-xs select-none">
+          <div className="p-2 bg-blue-600 rounded-lg text-white font-black flex-shrink-0 text-xs select-none">
             MR
           </div>
           <AnimatePresence initial={false}>
@@ -83,7 +83,7 @@ function SidebarPanel({
                 className="font-extrabold text-sm tracking-wider uppercase whitespace-nowrap"
               >
                 MutuneRent{' '}
-                <span className="text-green-500 font-medium normal-case">Pro</span>
+                <span className="text-blue-500 font-medium normal-case">Pro</span>
               </motion.span>
             )}
           </AnimatePresence>
@@ -146,13 +146,13 @@ function SidebarPanel({
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all relative',
                 isActive
-                  ? 'bg-green-600 text-white shadow-sm'
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white',
               ].join(' ')}
             >
               {/* Active left-border indicator */}
               {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-green-300 rounded-r-full" />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-blue-300 rounded-r-full" />
               )}
               <span className="flex-shrink-0">{item.icon}</span>
               <AnimatePresence initial={false}>
@@ -177,7 +177,7 @@ function SidebarPanel({
       {/* ── User footer ─────────────────────────────────────────────────────── */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/40 flex-shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-green-500 border border-slate-700 uppercase flex-shrink-0 text-sm select-none">
+          <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-blue-500 border border-slate-700 uppercase flex-shrink-0 text-sm select-none">
             {fullName.charAt(0)}
           </div>
           <AnimatePresence initial={false}>

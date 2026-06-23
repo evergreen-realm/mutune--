@@ -31,12 +31,26 @@ const userSchema = new mongoose.Schema({
   },
   last_checkin_photo: String,
   is_active: { type: Boolean, default: true },
+  is_deleted: { type: Boolean, default: false },
   clerk_id:  { type: String, unique: true, sparse: true },
   created_at:{ type: Date, default: Date.now }
 });
 
 // Single centralized index definitions — no duplicates with field-level options
 userSchema.index({ 'last_location.coordinates': '2dsphere' }, { sparse: true });
+userSchema.index({ role: 1, is_active: 1 });
+userSchema.index({ agent_approval_status: 1 });
+userSchema.index({ is_deleted: 1 }, { sparse: true });
+userSchema.index({ created_at: -1 });
+
+userSchema.pre('validate', function (next) {
+  if (!this.user_code) {
+    const timestamp = Date.now().toString().slice(-4);
+    const rand = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    this.user_code = `USR-AUTO-${timestamp}-${rand}`;
+  }
+  next();
+});
 
 const bcrypt = require('bcryptjs');
 const { getAdminPassword } = require('../utils/security');

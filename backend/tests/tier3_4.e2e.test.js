@@ -68,16 +68,22 @@ jest.mock('resend', () => {
   };
 });
 
-jest.mock('../services/mpesa', () => ({
-  initiateSTKPush: jest.fn().mockResolvedValue({
-    checkoutRequestId: 'ws_CO_MOCK123456',
-    merchantRequestId: 'MRID_MOCK123',
-    responseCode: '0',
-    responseDescription: 'Success. Request accepted for processing',
-    customerMessage: 'STK Push sent to tenant phone'
-  }),
-  formatPhone: jest.fn(p => p.replace(/\D/g, '').replace(/^0/, '254'))
-}));
+jest.mock('../services/mpesa', () => {
+  let counter = 0;
+  return {
+    initiateSTKPush: jest.fn().mockImplementation(() => {
+      counter++;
+      return Promise.resolve({
+        checkoutRequestId: `ws_CO_MOCK_${counter}_` + Math.random().toString(36).substr(2, 5),
+        merchantRequestId: `MRID_MOCK_${counter}`,
+        responseCode: '0',
+        responseDescription: 'Success. Request accepted for processing',
+        customerMessage: 'STK Push sent to tenant phone'
+      });
+    }),
+    formatPhone: jest.fn(p => p.replace(/\D/g, '').replace(/^0/, '254'))
+  };
+});
 
 jest.mock('../services/email', () => ({
   sendEmail: jest.fn().mockResolvedValue({ success: true })
@@ -540,7 +546,7 @@ describe('Tier 3: Cross-Feature Combinations', () => {
 
       // Update tenant lease to past
       await Tenant.findByIdAndUpdate(nTenant._id, {
-        $set: { lease_end_date: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        $set: { lease_end: new Date(Date.now() - 24 * 60 * 60 * 1000) }
       });
 
       await tenantLeaseCleanup.run();
@@ -814,10 +820,10 @@ describe('Tier 4: Real-world Application Scenarios', () => {
         }));
       }
 
-      // Step 3: Simulates Clerk signup and onboarding sync: POST /api/v1/users/sync
+      // Step 3: Simulates Clerk signup and onboarding sync: POST /api/v1/users/sync-clerk
       mockClerkId = 'clerk_tenant_4001';
       const syncRes = await request(app)
-        .post('/api/v1/users/sync')
+        .post('/api/v1/users/sync-clerk')
         .send({
           email: 'tenant@gmail.com',
           tenant_code: tenantCode
@@ -903,6 +909,7 @@ describe('Tier 4: Real-world Application Scenarios', () => {
     test('Onboards landlord, registers Shanzu Beach Villas, adds unit 1A, pre-registers tenant, completes onboarding', async () => {
       // Step 1: Landlord signs up and submits onboarding details including verification document URL
       const tempLandlordClerkId = 'clerk_landlord_temp_402';
+      mockClerkId = tempLandlordClerkId;
       const syncUserRes = await request(app)
         .post('/api/v1/users/sync-clerk')
         .send({
@@ -912,7 +919,6 @@ describe('Tier 4: Real-world Application Scenarios', () => {
         });
       expect([200, 201]).toContain(syncUserRes.status);
 
-      mockClerkId = tempLandlordClerkId;
       const landlordRoleRes = await request(app)
         .patch('/api/v1/users/me/role')
         .send({
@@ -967,6 +973,7 @@ describe('Tier 4: Real-world Application Scenarios', () => {
 
       // Step 5: Agent pre-registers a tenant
       const tenantUserClerkId = 'clerk_tenant_402';
+      mockClerkId = tenantUserClerkId;
       await request(app)
         .post('/api/v1/users/sync-clerk')
         .send({

@@ -238,8 +238,8 @@ function StepReview({ form }) {
   const totalRent = form.units.reduce((s, u) => s + (Number(u.rent_kes) || 0), 0);
   return (
     <div className="flex flex-col gap-5">
-      <div className="bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/25 rounded-2xl p-5">
-        <h3 className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm mb-3">📋 Property Summary</h3>
+      <div className="bg-blue-500/10 dark:bg-blue-950/20 border border-blue-500/25 rounded-2xl p-5">
+        <h3 className="text-blue-600 dark:text-blue-400 font-extrabold text-sm mb-3">📋 Property Summary</h3>
         <div className="grid grid-cols-2 gap-2.5">
           {[
             ['Name', form.name],
@@ -358,6 +358,8 @@ export default function AddPropertyPage() {
     if (step === 1) {
       const empty = form.units.find(u => !u.unit_number?.trim());
       if (empty) { toast.error('Every unit must have a unit number'); return false; }
+      const invalidRent = form.units.find(u => !u.rent_kes || Number(u.rent_kes) <= 0);
+      if (invalidRent) { toast.error('Every unit must have a valid rent amount greater than 0'); return false; }
     }
     if (step === 2) {
       if (!form.photos || form.photos.length === 0) {
@@ -472,7 +474,7 @@ export default function AddPropertyPage() {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', background: submitting ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 14, color: '#fff', fontWeight: 800, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: submitting ? 'none' : '0 8px 24px rgba(16,185,129,0.35)', fontFamily: 'inherit' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', background: submitting ? 'rgba(37,99,235,0.3)' : 'linear-gradient(135deg,#2563EB,#1D4ED8)', border: 'none', borderRadius: 14, color: '#fff', fontWeight: 800, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: submitting ? 'none' : '0 8px 24px rgba(37,99,235,0.35)', fontFamily: 'inherit' }}
             >
               {submitting ? '⏳ Submitting…' : '✅ Submit Property'}
             </button>

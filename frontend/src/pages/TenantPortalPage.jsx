@@ -49,7 +49,7 @@ const ticketStatusColor = (s) => ({
 // Skeleton loader component for portal
 function PortalSkeleton() {
   return (
-    <div className="min-h-screen bg-background p-6 flex flex-col items-center justify-start relative overflow-hidden">
+    <div className="flex flex-col items-center justify-start relative overflow-hidden">
       {/* Background blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/20 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-900/20 blur-[120px] pointer-events-none" />
@@ -272,7 +272,7 @@ export default function TenantPortalPage() {
   // No profile found — display input form for Tenant Code
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-background text-foreground relative overflow-hidden">
+      <div className="flex items-center justify-center text-foreground relative overflow-hidden">
         {/* Glowing background mesh */}
         <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-600/10 blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none" />
@@ -365,7 +365,7 @@ export default function TenantPortalPage() {
     const tierName = profile?.current_property_id?.tier_id?.name || 'Standard';
     
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-foreground bg-background relative overflow-hidden">
+      <div className="flex items-center justify-center text-foreground relative overflow-hidden">
         {/* Glowing background mesh */}
         <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-amber-500/5 blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-slate-500/5 blur-[120px] pointer-events-none" />
@@ -477,41 +477,6 @@ export default function TenantPortalPage() {
       </div>
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-2 sm:px-4 pt-2">
-        
-        {/* Top Header Row */}
-        <header className="flex items-center justify-between border-b border-border pb-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-foreground font-black text-lg shadow-lg shadow-emerald-500/15">
-              MR
-            </div>
-            <div>
-              <h2 className="text-md font-black tracking-tight text-foreground flex items-center gap-1">MutuneRent <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">PRO</span></h2>
-              <p className="text-xs text-muted tracking-wider uppercase font-semibold">Tenant Portal</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setNotifOpen(true)} 
-              className="relative p-2.5 bg-surface/80 hover:bg-background border border-border hover:border-border rounded-xl cursor-pointer text-muted transition"
-            >
-              <Bell size={18} />
-              {unread > 0 && (
-                <span className="absolute top-[-4px] right-[-4px] bg-emerald-500 text-background rounded-full w-5 h-5 text-xs font-black flex items-center justify-center border-2 border-background">
-                  {unread > 9 ? '9+' : unread}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => { if (clerkUser) { signOut(); } }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-surface/80 hover:bg-background text-xs font-bold text-muted border border-border rounded-xl transition cursor-pointer"
-            >
-              <LogOut size={13} />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
-          </div>
-        </header>
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs text-muted font-semibold tracking-wide uppercase mb-4">
@@ -554,6 +519,7 @@ export default function TenantPortalPage() {
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
               className="bg-gradient-to-r from-red-500/10 to-amber-500/5 backdrop-blur-xl border border-red-500/30 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between shadow-lg shadow-red-950/20"
             >
               <div className="flex items-center gap-3">

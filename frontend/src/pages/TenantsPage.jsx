@@ -344,7 +344,25 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
   };
 
   const handleSave = () => {
-    const payload = { ...editForm, rent_amount_kes: parseInt(editForm.rent_amount_kes, 10) };
+    let sanitizedPhone = editForm.phone ? editForm.phone.trim().replace(/\D/g, '') : '';
+    if (sanitizedPhone.startsWith('0')) {
+      sanitizedPhone = '254' + sanitizedPhone.slice(1);
+    } else if (sanitizedPhone.startsWith('7')) {
+      sanitizedPhone = '254' + sanitizedPhone;
+    } else if (sanitizedPhone.startsWith('2540')) {
+      sanitizedPhone = '254' + sanitizedPhone.slice(4);
+    }
+
+    if (!/^254\d{9}$/.test(sanitizedPhone)) {
+      toast.error('Phone number must be valid Kenyan format (e.g. 2547XXXXXXXX or 07XXXXXXXX)');
+      return;
+    }
+
+    const payload = { 
+      ...editForm, 
+      phone: sanitizedPhone,
+      rent_amount_kes: parseInt(editForm.rent_amount_kes, 10) 
+    };
     if (!editForm.email) delete payload.email;
     if (!editForm.notes) delete payload.notes;
     updateMutation.mutate(payload);
@@ -391,7 +409,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {!editing && tenant.tenancy_status === 'active' && (
+            {!editing && ['active', 'pending', 'notice'].includes(tenant.tenancy_status) && (
               <button 
                 id={`btn-edit-tenant-${tenantId}`} 
                 onClick={startEdit}
@@ -558,8 +576,18 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
         </div>
 
         {/* Drawer footer actions */}
-        {!editing && tenant.tenancy_status === 'active' && (
+        {!editing && ['active', 'pending', 'notice'].includes(tenant.tenancy_status) && (
           <div className="px-5 py-4 border-t border-slate-800 bg-slate-950/30">
+            {tenant.tenancy_status === 'pending' && (
+              <button 
+                id={`btn-approve-tenancy-${tenantId}`} 
+                onClick={() => updateMutation.mutate({ tenancy_status: 'active' })}
+                disabled={updateMutation.isPending}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-black transition cursor-pointer uppercase tracking-wider mb-2"
+              >
+                {updateMutation.isPending ? <><RefreshCw size={14} className="animate-spin" /> Approving…</> : <><CheckCircle2 size={14} /> Approve Tenancy</>}
+              </button>
+            )}
             <button id={`btn-terminate-drawer-${tenantId}`} onClick={() => setShowTermModal(true)}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-red-900/30 hover:border-red-600/50 text-red-400 hover:bg-red-950/10 rounded-xl text-xs font-black transition cursor-pointer uppercase tracking-wider">
               <UserX size={14} /> Terminate Tenancy Lease
@@ -928,7 +956,7 @@ export default function TenantsPage() {
                             >
                               <Eye size={12} /> <span className="hidden xl:inline">Details</span>
                             </button>
-                            {canAddTenant && t.tenancy_status === 'active' && (
+                            {canAddTenant && ['active', 'pending', 'notice'].includes(t.tenancy_status) && (
                               <>
                                 <button
                                   onClick={() => handleOpenEdit(t._id)}

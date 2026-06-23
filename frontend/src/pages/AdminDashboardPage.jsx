@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
@@ -9,15 +9,199 @@ import {
 } from 'recharts';
 import {
   TrendingUp, Users, Home, Building2, Download, RefreshCw,
-  ArrowUpRight, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Loader2
+  ArrowUpRight, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Loader2,
+  Plus, Trash2, Edit2, DollarSign, Save, X
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { 
-  fetchAdminStats, downloadKRAReport, 
-  fetchPendingAgents, fetchPendingLandlords, fetchPendingProperties 
+import {
+  fetchAdminStats, downloadKRAReport,
+  fetchPendingAgents, fetchPendingLandlords, fetchPendingProperties,
+  fetchLateFeeRules, createLateFeeRule, updateLateFeeRule, deleteLateFeeRule
 } from '../lib/api';
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+const EMPTY_RULE = { grace_period_days: 5, fee_type: 'flat', amount_kes: 500, cap_kes: '' };
+
+// ── Late Fee Rules Panel ──────────────────────────────────────────────────────
+function LateFeePanel() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm]     = useState(false);
+  const [editId,   setEditId]       = useState(null);
+  const [form,     setForm]         = useState(EMPTY_RULE);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['lateFeeRules'],
+    queryFn: fetchLateFeeRules
+  });
+  const rules = data?.data || [];
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['lateFeeRules'] });
+
+  const createMut = useMutation({
+    mutationFn: createLateFeeRule,
+    onSuccess: () => { toast.success('Late fee rule created'); invalidate(); setShowForm(false); setForm(EMPTY_RULE); },
+    onError: (e) => toast.error(e?.error?.message || 'Failed to create rule')
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, data }) => updateLateFeeRule(id, data),
+    onSuccess: () => { toast.success('Rule updated'); invalidate(); setEditId(null); },
+    onError: (e) => toast.error(e?.error?.message || 'Failed to update rule')
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: deleteLateFeeRule,
+    onSuccess: () => { toast.success('Rule deleted'); invalidate(); },
+    onError: (e) => toast.error(e?.error?.message || 'Failed to delete rule')
+  });
+
+  const handleSubmit = () => {
+    const payload = {
+      grace_period_days: Number(form.grace_period_days),
+      fee_type: form.fee_type,
+      amount_kes: Number(form.amount_kes),
+      ...(form.cap_kes !== '' ? { cap_kes: Number(form.cap_kes) } : {})
+    };
+    if (editId) {
+      updateMut.mutate({ id: editId, data: payload });
+    } else {
+      createMut.mutate(payload);
+    }
+  };
+
+  const startEdit = (rule) => {
+    setEditId(rule._id);
+    setForm({ grace_period_days: rule.grace_period_days, fee_type: rule.fee_type, amount_kes: rule.amount_kes, cap_kes: rule.cap_kes ?? '' });
+    setShowForm(true);
+  };
+
+  const cancelForm = () => { setShowForm(false); setEditId(null); setForm(EMPTY_RULE); };
+
+  const inputCls = 'w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-green-500/50 transition';
+  const labelCls = 'block text-xs font-bold uppercase tracking-wider text-muted mb-1';
+
+  return (
+    <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-extrabold text-foreground text-sm flex items-center gap-1.5">
+            <DollarSign size={16} className="text-amber-500" /> Late Fee Rules
+          </h3>
+          <p className="text-xs text-muted mt-0.5">Automatic penalties for late rent payments</p>
+        </div>
+        <button
+          onClick={() => { setEditId(null); setForm(EMPTY_RULE); setShowForm(s => !s); }}
+          className="flex items-center gap-1 text-xs font-bold bg-green-500/10 hover:bg-green-500/20 text-green-600 border border-green-500/20 px-3 py-1.5 rounded-xl transition"
+        >
+          <Plus size={13} /> Add Rule
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-background border border-border rounded-xl p-4 space-y-3">
+              <p className="text-xs font-black text-foreground uppercase tracking-wider">
+                {editId ? 'Edit Rule' : 'New Rule'}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Grace Period (days)</label>
+                  <input type="number" min={0} max={30} className={inputCls}
+                    value={form.grace_period_days}
+                    onChange={e => setForm(f => ({ ...f, grace_period_days: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Fee Type</label>
+                  <select className={inputCls} value={form.fee_type}
+                    onChange={e => setForm(f => ({ ...f, fee_type: e.target.value }))}>
+                    <option value="flat">Flat (KES)</option>
+                    <option value="percentage">Percentage (%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>{form.fee_type === 'flat' ? 'Amount (KES)' : 'Percentage (%)'}</label>
+                  <input type="number" min={0} className={inputCls}
+                    value={form.amount_kes}
+                    onChange={e => setForm(f => ({ ...f, amount_kes: e.target.value }))}
+                    placeholder={form.fee_type === 'flat' ? 'e.g. 500' : 'e.g. 5'}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Cap (KES, optional)</label>
+                  <input type="number" min={0} className={inputCls}
+                    value={form.cap_kes}
+                    onChange={e => setForm(f => ({ ...f, cap_kes: e.target.value }))}
+                    placeholder="e.g. 5000"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={handleSubmit}
+                  disabled={createMut.isPending || updateMut.isPending}
+                  className="flex items-center gap-1 text-xs font-bold bg-primary hover:opacity-90 text-white px-4 py-2 rounded-xl transition disabled:opacity-50"
+                >
+                  {(createMut.isPending || updateMut.isPending) ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  {editId ? 'Update' : 'Create'}
+                </button>
+                <button onClick={cancelForm} className="flex items-center gap-1 text-xs font-bold text-muted hover:text-foreground px-4 py-2 rounded-xl transition border border-border">
+                  <X size={12} /> Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="space-y-2 max-h-56 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-muted" /></div>
+        ) : rules.length === 0 ? (
+          <p className="text-xs text-muted text-center py-4">No late fee rules configured.</p>
+        ) : (
+          rules.map(rule => (
+            <div key={rule._id} className="flex items-center justify-between p-3 bg-background border border-border rounded-xl">
+              <div>
+                <p className="text-xs font-bold text-foreground">
+                  {rule.fee_type === 'flat' ? `KES ${Number(rule.amount_kes).toLocaleString()} flat` : `${rule.amount_kes}% of rent`}
+                  {rule.cap_kes ? ` (cap KES ${Number(rule.cap_kes).toLocaleString()})` : ''}
+                </p>
+                <p className="text-xs text-muted mt-0.5">{rule.grace_period_days} day grace period</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => startEdit(rule)}
+                  className="p-1.5 text-muted hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
+                  title="Edit rule"
+                >
+                  <Edit2 size={13} />
+                </button>
+                <button
+                  onClick={() => { if (window.confirm('Delete this late fee rule?')) deleteMut.mutate(rule._id); }}
+                  disabled={deleteMut.isPending}
+                  className="p-1.5 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition disabled:opacity-50"
+                  title="Delete rule"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 
 const MONTH_LABELS = {
   '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
@@ -459,6 +643,10 @@ export default function AdminDashboardPage() {
         </div>
 
       </div>
+
+      {/* Bottom row: KRA + Late Fees + Approvals */}
+      <LateFeePanel />
+
     </motion.div>
   );
 }

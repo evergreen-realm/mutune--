@@ -15,4 +15,9 @@ const taskSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 });
 
+taskSchema.index({ assigned_to: 1, status: 1 });
+taskSchema.index({ status: 1 });
+taskSchema.index({ created_at: -1 });
+taskSchema.index({ due_date: 1 });
+
 module.exports = mongoose.model('Task', taskSchema);

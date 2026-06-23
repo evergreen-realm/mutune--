@@ -107,7 +107,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
             onClick={() => setMode('dropzone')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${
               mode === 'dropzone'
-                ? 'bg-green-600 text-white shadow-sm shadow-green-900/10'
+                ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/10'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
             }`}
           >
@@ -118,7 +118,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
             onClick={() => setMode('camera')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1.5 ${
               mode === 'camera'
-                ? 'bg-green-600 text-white shadow-sm shadow-green-900/10'
+                ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/10'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
             }`}
           >
@@ -132,7 +132,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
           {...getRootProps()}
           className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
             isDragActive
-              ? 'border-green-500 bg-green-50/10'
+              ? 'border-blue-500 bg-blue-50/10'
               : 'border-slate-300 hover:border-green-400 bg-slate-50/50 hover:bg-slate-50'
           }`}
         >
@@ -174,7 +174,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
               type="button"
               disabled={uploading}
               onClick={captureSnapshot}
-              className="px-6 py-2.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 uppercase tracking-wider"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-green-700 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 uppercase tracking-wider"
             >
               {uploading ? (
                 <>

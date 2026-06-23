@@ -161,8 +161,8 @@ router.post(
           }
           await notice.save();
           
-          // TRIGGER SMS FALLBACK if email failed and tenant prefers both or has no email
-          if (sendError && (tenant.preferred_channel === 'both' || !tenant.email)) {
+          // TRIGGER SMS FALLBACK if email failed and tenant prefers both, email, or has no email
+          if (sendError && (tenant.preferred_channel === 'both' || tenant.preferred_channel === 'email' || !tenant.email)) {
             logger.info('Email failed, triggering SMS fallback', { noticeId: notice._id, tenantId: tenant._id });
             // SMS fallback already handled above via shouldSendSMS logic when preferred_channel === 'both'
             // If preferred_channel === 'email' only, we still send SMS as critical fallback for notices
@@ -294,13 +294,15 @@ router.post(
         return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'No active tenants found for this property' } });
       }
 
+      const targetTenants = await Tenant.find({ _id: { $in: targetTenantIds } }).lean();
       const notices = [];
-      for (const tId of targetTenantIds) {
+      for (const tenant of targetTenants) {
+        if (!tenant.current_unit_id) continue;
         const notice = await Notice.create({
           notice_type,
           property_id,
-          unit_id: 'bulk',
-          tenant_id: tId,
+          unit_id: tenant.current_unit_id,
+          tenant_id: tenant._id,
           issued_by: req.user._id,
           title,
           body,

@@ -83,7 +83,7 @@ class ErrorBoundary extends React.Component {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
           >
             Reload Page
           </button>
@@ -211,7 +211,7 @@ function AppShell() {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 bg-green-600 rounded-xl flex items-center justify-center animate-pulse">
+          <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center animate-pulse">
             <Building2 size={20} className="text-white" />
           </div>
           <p className="text-sm text-slate-400 font-medium">
@@ -264,11 +264,11 @@ function AppShell() {
       return (
         <>
           <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
-            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
+            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
             <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
             
             <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
-              <div className="h-16 w-16 mx-auto bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-6">
+              <div className="h-16 w-16 mx-auto bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 text-blue-400 mb-6">
                 <ShieldCheck size={32} className="animate-pulse" />
               </div>
               
@@ -362,11 +362,11 @@ function AppShell() {
       return (
         <>
           <div className="flex h-screen items-center justify-center bg-slate-950 px-4 text-white relative overflow-hidden">
-            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[120px]" />
+            <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
             <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-500/10 blur-[120px]" />
             
             <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-2xl relative z-10 text-center animate-fade-in">
-              <div className="h-16 w-16 mx-auto bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 mb-6">
+              <div className="h-16 w-16 mx-auto bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/20 text-blue-400 mb-6">
                 <ShieldCheck size={32} className="animate-pulse" />
               </div>
               

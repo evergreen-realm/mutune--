@@ -482,6 +482,7 @@ export default function AdminUserManagementPage() {
                       {u.email} · {u.phone}
                       {u.landlord_id && ` · Landlord ID: ${u.landlord_id}`}
                       {u.user_code && u.role === 'agent' && ` · Agent ID: ${u.user_code}`}
+                      {u.user_code && u.role === 'tenant' && ` · Tenant Code: ${u.user_code}`}
                     </p>
                   </div>
 

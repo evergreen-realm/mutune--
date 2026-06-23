@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  type: { type: String, enum: ['property_approval', 'maintenance_urgent', 'payment_alert', 'agent_approval', 'general'], required: true },
+  type: { type: String, enum: ['property_approval', 'maintenance_urgent', 'payment_alert', 'agent_approval', 'landlord_approval', 'general'], required: true },
   recipient_role: { type: String, enum: ['admin', 'agent', 'landlord', 'tenant'], required: true },
   recipient_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   title: { type: String, required: true },
@@ -12,7 +12,13 @@ const notificationSchema = new mongoose.Schema({
   property_tier_name: String,
   property_rent: Number,
   read_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  dismissed_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   created_at: { type: Date, default: Date.now }
 });
+
+notificationSchema.index({ recipient_ids: 1, created_at: -1 });
+notificationSchema.index({ recipient_role: 1, created_at: -1 });
+notificationSchema.index({ read_by: 1 }, { sparse: true });
+notificationSchema.index({ type: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

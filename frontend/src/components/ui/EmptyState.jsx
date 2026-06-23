@@ -28,13 +28,13 @@ export default function EmptyState({
       className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}
     >
       <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 mb-4">
-        {icon || <Inbox className="h-8 w-8 text-gray-300" />}
+        {icon || <Inbox className="h-8 w-8 text-gray-500" />}
       </div>
 
       <h3 className="text-base font-semibold text-gray-700 mb-1">{title}</h3>
 
       {description && (
-        <p className="text-sm text-gray-400 max-w-xs mb-4">{description}</p>
+        <p className="text-sm text-gray-500 max-w-xs mb-4">{description}</p>
       )}
 
       {actionLabel && onAction && (

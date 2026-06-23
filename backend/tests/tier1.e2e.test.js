@@ -1089,7 +1089,14 @@ describe('Tier 1 Feature Coverage Tests', () => {
       const savedProp = await Property.findById(property._id);
       const reclaimItem = savedProp.inventory.find(i => i.name === 'Reclaimable TV Set');
 
-      const reclaimReceiptId = new mongoose.Types.ObjectId();
+      const paymentObj = await Payment.create({
+        transaction_id: 'TXN_RECLAIM_TEST_' + Date.now(),
+        amount_kes: 15000,
+        payment_type: 'rent',
+        channel: 'mpesa_stk',
+        status: 'confirmed'
+      });
+      const reclaimReceiptId = paymentObj._id;
 
       mockClerkId = 'clerk_admin_001';
       const res = await request(app)

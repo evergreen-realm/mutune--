@@ -13,4 +13,7 @@ const lateFeeRuleSchema = new mongoose.Schema({
   updated_at: { type: Date, default: Date.now }
 });
 
+lateFeeRuleSchema.index({ is_active: 1 });
+lateFeeRuleSchema.index({ applies_to: 1 });
+
 module.exports = mongoose.model('LateFeeRule', lateFeeRuleSchema);

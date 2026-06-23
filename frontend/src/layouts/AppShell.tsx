@@ -98,36 +98,34 @@ export default function AppShellLayout({
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
         className="flex-1 flex flex-col h-screen overflow-hidden"
       >
-        <div className="flex flex-col h-screen overflow-hidden">
-          {/* ── Topbar ──────────────────────────────────────────────────── */}
-          <Topbar
-            theme={theme}
-            onToggleTheme={onToggleTheme}
-            dbUser={dbUser}
-            sidebarOpen={sidebarOpen}
-            onToggleSidebar={() => setMobileOpen(!mobileOpen)}
-            isSynced={isSynced}
-            clerkUserId={clerkUserId}
-            onLogout={onLogout}
-          />
+        {/* ── Topbar ──────────────────────────────────────────────────── */}
+        <Topbar
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+          dbUser={dbUser}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setMobileOpen(!mobileOpen)}
+          isSynced={isSynced}
+          clerkUserId={clerkUserId}
+          onLogout={onLogout}
+        />
 
-          {/* ── Animated page content ───────────────────────────────────── */}
-          <main className="flex-1 overflow-y-auto p-6">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={location.pathname}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={pageTransition}
-                className="h-full"
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
-          </main>
-        </div>
+        {/* ── Animated page content ───────────────────────────────────── */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={pageTransition}
+              className="h-full"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </motion.div>
     </div>
   );

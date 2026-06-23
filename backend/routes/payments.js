@@ -231,14 +231,14 @@ async function handleC2BCallback(data) {
     transaction_id: `C2B-${Date.now()}`,
     mpesa_receipt: receipt,
     amount_kes: data.TransAmount || data.Amount,
+    payment_type: 'rent',
     status: 'confirmed',
     workflow_state: 'MANUAL_REVIEW',
     channel: 'mpesa_c2b',
     discrepancy_flag: true,
     discrepancy_reason: 'Auto-matching failed: no pending payment found',
     tenant_id: null,
-    property_id: null,
-    unit_id: 'unknown'
+    property_id: null
   });
   logger.info('Unmatched C2B payment recorded', { receipt, amount: data.TransAmount });
 }
@@ -332,7 +332,7 @@ router.post('/test-sms', requireAuth, requireRole(['admin', 'super_admin']), asy
 router.post('/:id/override', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { reason, new_status } = req.body;
+    const { reason, new_status = 'confirmed' } = req.body;
     const payment = await Payment.findById(id);
     if (!payment) throw Object.assign(new Error('Payment not found'), { status: 404, code: 'PAYMENT_NOT_FOUND' });
     if (payment.amount_kes > 100000 && req.user.role !== 'super_admin') {

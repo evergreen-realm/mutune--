@@ -4,6 +4,10 @@ const unitSchema = new mongoose.Schema({
   unit_number: { type: String, required: true },
   unit_type: String,
   bedrooms: Number,
+  bathrooms: Number,
+  floor: Number,
+  size_sqft: Number,
+  size_sqm: Number,
   rent_kes: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ['vacant', 'occupied', 'maintenance', 'notice_issued'], default: 'vacant' },
   current_tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' },
@@ -39,7 +43,7 @@ const inventoryItemSchema = new mongoose.Schema({
 const propertySchema = new mongoose.Schema({
   property_code: { type: String, unique: true, required: true },
   name: { type: String, required: true },
-  type: { type: String, enum: ['apartment', 'single_family', 'commercial', 'mixed_use'], required: true },
+  type: { type: String, enum: ['apartment', 'single_family', 'commercial', 'mixed_use', 'bedsitter', 'studio', 'house', 'single'], required: true },
   address: {
     street: String,
     area: String,
@@ -77,6 +81,29 @@ propertySchema.index({ 'units.unit_geolocation': '2dsphere' }); // Phase 4: per-
 propertySchema.index({ property_code: 1 });
 propertySchema.index({ landlord_id: 1 });
 propertySchema.index({ 'units.current_tenant_id': 1 });
+propertySchema.index({ status: 1 });
+propertySchema.index({ review_status: 1 });
+propertySchema.index({ tier_id: 1 }, { sparse: true });
+propertySchema.index({ proposed_tier_id: 1 }, { sparse: true });
+propertySchema.index({ type: 1 });
+propertySchema.index({ 'address.area': 1 });
+propertySchema.index({ 'address.city': 1 });
+propertySchema.index({ created_at: -1 });
+propertySchema.index({ updated_at: -1 });
+
+propertySchema.pre('validate', function(next) {
+  if (this.location && (!this.location.coordinates || this.location.coordinates.length === 0)) {
+    this.location = undefined;
+  }
+  if (this.inventory && this.inventory.length > 0) {
+    this.inventory.forEach(item => {
+      if (!item.item_id) {
+        item.item_id = item._id ? item._id.toString() : new mongoose.Types.ObjectId().toString();
+      }
+    });
+  }
+  next();
+});
 
 propertySchema.pre('save', function(next) {
   this.updated_at = Date.now();

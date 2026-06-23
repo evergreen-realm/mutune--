@@ -174,14 +174,14 @@ export default function AgentPerformancePage({ dbUser }) {
 
         {/* Agent ID Banner */}
         {dbUser?.user_code && dbUser.role === 'agent' && (
-          <div className="bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 flex items-center gap-5 mb-6 flex-wrap">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
-              <Medal size={22} className="text-emerald-600 dark:text-emerald-400" />
+          <div className="bg-blue-500/10 dark:bg-blue-950/20 border border-blue-500/30 rounded-2xl p-4 flex items-center gap-5 mb-6 flex-wrap">
+            <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
+              <Medal size={22} className="text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold mb-0.5">{dbUser.full_name}</p>
               <div className="flex gap-4 flex-wrap mt-1">
-                <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold font-mono">ID: {dbUser.user_code}</span>
+                <span className="text-blue-600 dark:text-blue-400 text-xs font-bold font-mono">ID: {dbUser.user_code}</span>
                 {dbUser.earb_license && <span className="text-slate-500 dark:text-slate-400 text-xs">EARB: <strong className="text-blue-600 dark:text-blue-450">{dbUser.earb_license}</strong></span>}
                 {dbUser.phone && <span className="text-slate-500 dark:text-slate-400 text-xs">📞 {dbUser.phone}</span>}
                 {dbUser.assigned_areas?.length > 0 && (
@@ -189,8 +189,8 @@ export default function AgentPerformancePage({ dbUser }) {
                 )}
               </div>
             </div>
-            <div className="flex-shrink-0 bg-emerald-500/15 border border-emerald-500/25 rounded-lg px-3 py-1">
-              <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase">✓ Approved</span>
+            <div className="flex-shrink-0 bg-blue-500/15 border border-blue-500/25 rounded-lg px-3 py-1">
+              <span className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase">✓ Approved</span>
             </div>
           </div>
         )}
@@ -393,11 +393,11 @@ export default function AgentPerformancePage({ dbUser }) {
                     disabled={reviewingId === property._id || !selectedProposedTiers[property._id]}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px',
-                      background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff',
+                      background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: '#fff',
                       border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700,
                       cursor: (reviewingId === property._id || !selectedProposedTiers[property._id]) ? 'not-allowed' : 'pointer',
                       opacity: (reviewingId === property._id || !selectedProposedTiers[property._id]) ? 0.5 : 1,
-                      boxShadow: selectedProposedTiers[property._id] ? '0 4px 12px rgba(16,185,129,0.3)' : 'none'
+                      boxShadow: selectedProposedTiers[property._id] ? '0 4px 12px rgba(37,99,235,0.3)' : 'none'
                     }}
                   >
                     <Check size={14} /> {reviewingId === property._id ? 'Submitting…' : 'Submit Review'}
