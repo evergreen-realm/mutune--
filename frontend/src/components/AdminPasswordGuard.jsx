@@ -3,6 +3,7 @@ import { ShieldCheck, Lock, Eye, EyeOff, XCircle, LogOut } from 'lucide-react';
 import { verifyAdminPassword } from '../lib/api';
 import { toast } from 'react-toastify';
 import { useClerk } from '@clerk/clerk-react';
+import CinematicPreloader from './CinematicPreloader';
 
 
 export default function AdminPasswordGuard({ children, onVerified }) {
@@ -11,12 +12,21 @@ export default function AdminPasswordGuard({ children, onVerified }) {
   const [isVerified, setIsVerified] = useState(() => {
     return sessionStorage.getItem('mutunet_admin_verified') === 'true';
   });
+  const [showPreloader, setShowPreloader] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   if (isVerified) {
     return <>{children}</>;
+  }
+
+  if (showPreloader) {
+    return <CinematicPreloader onComplete={() => {
+      setIsVerified(true);
+      toast.success('Admin authorization approved');
+      if (onVerified) onVerified();
+    }} />;
   }
 
   const handleSubmit = async (e) => {
@@ -28,9 +38,7 @@ export default function AdminPasswordGuard({ children, onVerified }) {
       const res = await verifyAdminPassword(password);
       if (res?.success) {
         sessionStorage.setItem('mutunet_admin_verified', 'true');
-        setIsVerified(true);
-        toast.success('Admin authorization approved');
-        if (onVerified) onVerified();
+        setShowPreloader(true);
       } else {
         setError(res?.error?.message || 'Verification failed. Incorrect admin password.');
       }

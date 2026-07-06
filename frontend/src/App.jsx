@@ -45,6 +45,7 @@ import AppShellLayout from './layouts/AppShell';
 import ChatAssistant from './components/ChatAssistant';
 import AdminPasswordGuard from './components/AdminPasswordGuard';
 import RoleIdVerification from './components/RoleIdVerification';
+import CinematicPreloader from './components/CinematicPreloader';
 import { syncClerk } from './lib/api';
 import { Sentry } from './lib/sentry';
 
@@ -107,6 +108,7 @@ function AppShell() {
   const [isSynced,    setIsSynced]    = useState(false);
   const [dbUser,      setDbUser]      = useState(null);
   const [isRoleVerified, setIsRoleVerified] = useState(false);
+  const [preloaderDone, setPreloaderDone] = useState(false);
   // stabilising: true for 1.5s after sync completes to prevent flash-redirect
   // during the onboarding→dashboard transition
   const [stabilising, setStabilising] = useState(false);
@@ -114,6 +116,7 @@ function AppShell() {
   const location = useLocation();
 
   const handleLogout = (options = {}) => {
+    setPreloaderDone(false);
     // Clear all verification keys from both storages (OWASP A01 - clean logout)
     ['sessionStorage', 'localStorage'].forEach(storeName => {
       const store = window[storeName];
@@ -209,14 +212,18 @@ function AppShell() {
   }, [isLoaded, clerkUser?.id, clerkUser?.publicMetadata?.role]);
 
 
+  if (isLoaded && clerkUser && !preloaderDone) {
+    return <CinematicPreloader onComplete={() => setPreloaderDone(true)} duration={2000} />;
+  }
+
   if (!isLoaded || !isSynced || stabilising) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center animate-pulse">
-            <Building2 size={20} className="text-white" />
+          <div className="h-10 w-10 bg-primary/20 rounded-xl flex items-center justify-center animate-pulse">
+            <Building2 size={20} className="text-primary" />
           </div>
-          <p className="text-sm text-slate-400 font-medium">
+          <p className="text-xs text-muted font-medium">
             {stabilising ? 'Setting up your workspace…' : 'Verifying account…'}
           </p>
         </div>
