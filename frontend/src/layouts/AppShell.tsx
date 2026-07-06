@@ -68,6 +68,7 @@ export default function AppShellLayout({
   clerkUserId,
   onLogout,
 }: AppShellLayoutProps) {
+  const location = useLocation();
   const [isLarge, setIsLarge] = React.useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
 
   React.useEffect(() => {

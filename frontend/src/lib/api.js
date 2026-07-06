@@ -253,4 +253,21 @@ export const submitAgentReview        = (id, proposed_tier_id) => api.patch(`/pr
 export const autoInitiatePayment      = ()                => api.post('/payments/auto-initiate');
 export const voidPayment              = (id, reason)      => api.post(`/payments/${id}/void`, { reason });
 
+export const geocodeAddress = async (street, area, city = 'Mombasa') => {
+  const query = `${street ? street + ', ' : ''}${area}, ${city}, Kenya`;
+  const token = import.meta.env.VITE_MAPBOX_TOKEN || '';
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.features && data.features.length > 0) {
+      const [lng, lat] = data.features[0].center;
+      return { lng, lat };
+    }
+  } catch (err) {
+    console.error('Geocoding failed:', err);
+  }
+  return { lng: 39.6682, lat: -4.0435 };
+};
+
 export default api;

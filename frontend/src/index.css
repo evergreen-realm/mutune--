@@ -3,51 +3,72 @@
 @tailwind utilities;
 
 :root {
-  --primary: #2563EB;
-  --background: #F8FAFC;
-  --foreground: #0F172A;
-  --surface: #FFFFFF;
-  --success: #16A34A;
-  --success-bg: #F0FDF4;
-  --border: #E2E8F0;
-  --muted: #475569;
+  --background: #071325;
+  --foreground: #d7e3fc;
+  --surface: #142032;
+  --surface-bright: #2e394d;
+  --surface-tint: #cabeff;
+  --primary: #cabeff;
+  --secondary: #ffb68d;
+  --tertiary: #6ffbbd;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-focus: #cabeff;
+  --muted: #c9c4d0;
 
-  /* Blue-based brand palette */
-  --brand-50: #eff6ff;
-  --brand-100: #dbeafe;
-  --brand-200: #bfdbfe;
-  --brand-300: #93c5fd;
-  --brand-400: #60a5fa;
-  --brand-500: #3b82f6;
-  --brand-600: #2563eb;
-  --brand-700: #1d4ed8;
-  --brand-800: #1e40af;
-  --brand-900: #1e3a8a;
-  --brand-950: #172554;
+  /* Royal Lavender / Sunset Gold brand palette */
+  --brand-50: #f5f3ff;
+  --brand-100: #ede9fe;
+  --brand-200: #ddd6fe;
+  --brand-300: #c4b5fd;
+  --brand-400: #a78bfa;
+  --brand-500: #8b5cf6;
+  --brand-600: #7c3aed;
+  --brand-700: #6d28d9;
+  --brand-800: #5b21b6;
+  --brand-900: #4c1d95;
+  --brand-950: #2e1065;
 }
 
-.dark {
-  --primary: #3B82F6;
-  --background: #0F172A;
-  --foreground: #F8FAFC;
-  --surface: #1E293B;
-  --success: #22C55E;
-  --success-bg: #052E16;
-  --border: #334155;
-  --muted: #94A3B8;
+.light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-bright: #f1f5f9;
+  --surface-tint: #6366f1;
+  --primary: #6366f1;
+  --secondary: #f97316;
+  --tertiary: #10b981;
+  --border: #e2e8f0;
+  --border-focus: #6366f1;
+  --muted: #475569;
 
-  /* Blue-based brand palette */
-  --brand-50: #eff6ff;
-  --brand-100: #dbeafe;
-  --brand-200: #bfdbfe;
-  --brand-300: #93c5fd;
-  --brand-400: #60a5fa;
-  --brand-500: #3b82f6;
-  --brand-600: #2563eb;
-  --brand-700: #1d4ed8;
-  --brand-800: #1e40af;
-  --brand-900: #1e3a8a;
-  --brand-950: #172554;
+  /* Indigo brand palette for light mode */
+  --brand-50: #e0e7ff;
+  --brand-100: #c7d2fe;
+  --brand-200: #a5b4fc;
+  --brand-300: #818cf8;
+  --brand-400: #6366f1;
+  --brand-500: #4f46e5;
+  --brand-600: #4338ca;
+  --brand-700: #3730a3;
+  --brand-800: #312e81;
+  --brand-900: #1e1b4b;
+  --brand-950: #0f0f2b;
+}
+
+/* Backwards compatibility for .dark selector */
+.dark {
+  --background: #071325;
+  --foreground: #d7e3fc;
+  --surface: #142032;
+  --surface-bright: #2e394d;
+  --surface-tint: #cabeff;
+  --primary: #cabeff;
+  --secondary: #ffb68d;
+  --tertiary: #6ffbbd;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-focus: #cabeff;
+  --muted: #c9c4d0;
 }
 
 /* ── Global base ─────────────────────────────────────────────────────────── */
@@ -95,6 +116,35 @@
 
   .animate-fade-in {
     animation: fadeIn 0.2s ease-out forwards;
+  }
+
+  .glass-card {
+    background: rgba(20, 32, 50, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .light .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  .glass-border {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .light .glass-border {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  .glass-surface {
+    background: rgba(20, 32, 50, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .light .glass-surface {
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 }
 

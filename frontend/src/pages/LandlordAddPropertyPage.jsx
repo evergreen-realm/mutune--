@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { submitLandlordProperty } from '../lib/api';
+import { submitLandlordProperty, geocodeAddress } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 import { Building2, Home, ChevronRight, ChevronLeft, Check, Trash2, Plus } from 'lucide-react';
 
@@ -43,7 +43,9 @@ export default function LandlordAddPropertyPage() {
     units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', amenities: [] }],
     contract_terms: 'Standard 12-month management agreement. Mutune Estate Agency will manage the property and collect rent on behalf of the landlord. Agency fee: 10% of monthly rent. Agreement renewable annually.',
     signature_data_url: '',
-    photos: []
+    photos: [],
+    locationMethod: 'estimate',
+    location: { type: 'Point', coordinates: [39.6682, -4.0435] }
   });
 
   const setField = (path, value) => {
@@ -176,12 +178,20 @@ export default function LandlordAddPropertyPage() {
     if (!validateStep()) return;
     setSubmitting(true);
     try {
+      let coords = [39.6682, -4.0435];
+      if (form.locationMethod === 'gps' && form.location?.coordinates?.length === 2) {
+        coords = form.location.coordinates;
+      } else {
+        const geo = await geocodeAddress(form.address.street, form.address.area, 'Mombasa');
+        coords = [geo.lng, geo.lat];
+      }
+
       const payload = {
         ...form,
         units: form.units.map(u => ({ ...u, rent_kes: Number(u.rent_kes) || 0 })),
         location: {
           type: 'Point',
-          coordinates: [39.6682, -4.0435] // Mombasa Central default
+          coordinates: coords
         }
       };
       const res = await submitLandlordProperty(payload);
@@ -273,6 +283,96 @@ export default function LandlordAddPropertyPage() {
                   <label style={labelStyle}>Street Address</label>
                   <input value={form.address.street} onChange={e => setField('address.street', e.target.value)} placeholder="e.g. Mombasa-Malindi Road" style={inputStyle} />
                 </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
+                <label style={labelStyle}>Location Setup Method</label>
+                <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#fff', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="locationMethod"
+                      checked={form.locationMethod === 'estimate'}
+                      onChange={() => setField('locationMethod', 'estimate')}
+                      className="accent-indigo-500"
+                    />
+                    Area Estimate
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#fff', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="locationMethod"
+                      checked={form.locationMethod === 'gps'}
+                      onChange={() => setField('locationMethod', 'gps')}
+                      className="accent-indigo-500"
+                    />
+                    Real GPS Coordinates
+                  </label>
+                </div>
+
+                {form.locationMethod === 'gps' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div>
+                        <label style={labelStyle}>Latitude</label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={form.location?.coordinates?.[1] || ''}
+                          onChange={e => {
+                            const lat = parseFloat(e.target.value) || 0;
+                            const lng = form.location?.coordinates?.[0] || 39.6682;
+                            setField('location', { type: 'Point', coordinates: [lng, lat] });
+                          }}
+                          placeholder="e.g. -4.0435"
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Longitude</label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={form.location?.coordinates?.[0] || ''}
+                          onChange={e => {
+                            const lng = parseFloat(e.target.value) || 0;
+                            const lat = form.location?.coordinates?.[1] || -4.0435;
+                            setField('location', { type: 'Point', coordinates: [lng, lat] });
+                          }}
+                          placeholder="e.g. 39.6682"
+                          style={inputStyle}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                              const lat = position.coords.latitude;
+                              const lng = position.coords.longitude;
+                              setField('location', { type: 'Point', coordinates: [lng, lat] });
+                              toast.success(`📍 Real GPS Coordinates detected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+                            },
+                            (error) => {
+                              toast.error(`Failed to get location: ${error.message}`);
+                            }
+                          );
+                        } else {
+                          toast.error('Geolocation is not supported by your browser');
+                        }
+                      }}
+                      style={{ alignSelf: 'flex-start', background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 10, padding: '6px 12px', color: '#a78bfa', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      📍 Detect My Current Location
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                    Will automatically estimate location from area/street address standard coordinates when saved.
+                  </p>
+                )}
               </div>
             </div>
           )}

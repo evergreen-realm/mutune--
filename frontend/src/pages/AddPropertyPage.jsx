@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useQueryClient } from '@tanstack/react-query';
-import { createProperty, addUnit } from '../lib/api';
+import { createProperty, addUnit, geocodeAddress } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 import {
   Building2, Home, ChevronRight, ChevronLeft, Check,
@@ -26,6 +26,22 @@ const MOMBASA_AREAS = [
   'Nyali', 'Bamburi', 'Mtwapa', 'Tudor', 'Likoni', 'Changamwe',
   'Kisauni', 'Mvita', 'Mkomani', 'Shanzu', 'Kongowea', 'Mikindani', 'Port Reitz'
 ];
+
+const AREA_COORDINATES = {
+  'Nyali': [39.6978, -4.0287],
+  'Bamburi': [39.7139, -3.9858],
+  'Mtwapa': [39.7423, -3.9458],
+  'Tudor': [39.6669, -4.0401],
+  'Likoni': [39.6586, -4.0847],
+  'Changamwe': [39.6200, -4.0305],
+  'Kisauni': [39.6736, -4.0152],
+  'Mvita': [39.6639, -4.0536],
+  'Mkomani': [39.6914, -4.0396],
+  'Shanzu': [39.7291, -3.9681],
+  'Kongowea': [39.6766, -4.0385],
+  'Mikindani': [39.6000, -4.0100],
+  'Port Reitz': [39.5850, -4.0350]
+};
 
 // ── Shared Styles ────────────────────────────────────────────────────────────
 // Replaced inline styles with Tailwind class equivalents for reactivity.
@@ -135,6 +151,96 @@ function StepDetails({ form, setField }) {
             placeholder="e.g. 2018"
           />
         </div>
+      </div>
+
+      <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-2">
+        <label className={labelClass}>Location Setup Method</label>
+        <div className="flex gap-6 mb-4">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input
+              type="radio"
+              name="locationMethod"
+              checked={form.locationMethod === 'estimate'}
+              onChange={() => setField('locationMethod', 'estimate')}
+              className="accent-blue-600"
+            />
+            Area Estimate
+          </label>
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input
+              type="radio"
+              name="locationMethod"
+              checked={form.locationMethod === 'gps'}
+              onChange={() => setField('locationMethod', 'gps')}
+              className="accent-blue-600"
+            />
+            Real GPS Coordinates
+          </label>
+        </div>
+
+        {form.locationMethod === 'gps' ? (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Latitude</label>
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="any"
+                  value={form.location?.coordinates?.[1] || ''}
+                  onChange={e => {
+                    const lat = parseFloat(e.target.value) || 0;
+                    const lng = form.location?.coordinates?.[0] || 39.6682;
+                    setField('location', { type: 'Point', coordinates: [lng, lat] });
+                  }}
+                  placeholder="e.g. -4.0435"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Longitude</label>
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="any"
+                  value={form.location?.coordinates?.[0] || ''}
+                  onChange={e => {
+                    const lng = parseFloat(e.target.value) || 0;
+                    const lat = form.location?.coordinates?.[1] || -4.0435;
+                    setField('location', { type: 'Point', coordinates: [lng, lat] });
+                  }}
+                  placeholder="e.g. 39.6682"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                      const lat = position.coords.latitude;
+                      const lng = position.coords.longitude;
+                      setField('location', { type: 'Point', coordinates: [lng, lat] });
+                      toast.success(`📍 Real GPS Coordinates detected: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+                    },
+                    (error) => {
+                      toast.error(`Failed to get location: ${error.message}`);
+                    }
+                  );
+                } else {
+                  toast.error('Geolocation is not supported by your browser');
+                }
+              }}
+              className="self-start text-xs font-semibold py-1.5 px-3 rounded-lg border border-blue-500 text-blue-600 dark:text-blue-450 hover:bg-blue-50 dark:hover:bg-blue-950/20 cursor-pointer transition"
+            >
+              📍 Detect My Current Location
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 italic">
+            Will automatically estimate location from Nyali area standard coordinates when saved.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -306,6 +412,8 @@ const INITIAL_FORM = {
   address: { street: '', area: 'Nyali', city: 'Mombasa' },
   units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '' }],
   photos: [],
+  locationMethod: 'estimate',
+  location: { type: 'Point', coordinates: [39.6978, -4.0287] }
 };
 
 export default function AddPropertyPage() {
@@ -381,6 +489,14 @@ export default function AddPropertyPage() {
     if (!validateStep()) return;
     setSubmitting(true);
     try {
+      let coords = [39.6682, -4.0435];
+      if (form.locationMethod === 'gps' && form.location?.coordinates?.length === 2) {
+        coords = form.location.coordinates;
+      } else {
+        const geo = await geocodeAddress(form.address.street, form.address.area, 'Mombasa');
+        coords = [geo.lng, geo.lat];
+      }
+
       // 1. Create the property
       const res = await createProperty({
         name: form.name.trim(),
@@ -390,6 +506,7 @@ export default function AddPropertyPage() {
         year_built: form.year_built ? Number(form.year_built) : undefined,
         address: form.address,
         photos: form.photos,
+        location: { type: 'Point', coordinates: coords }
       });
 
       const propertyId = res.data?._id;

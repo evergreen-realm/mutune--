@@ -1,21 +1,13 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from 'react-leaflet';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import 'leaflet.markercluster';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { Search, MapPin, Box, X, Info } from 'lucide-react';
 import { fetchUnitGeoJSON } from '../lib/api';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+// Set Mapbox Access Token
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
 const statusColors = {
   paid: '#22c55e',
@@ -25,16 +17,6 @@ const statusColors = {
   maintenance: '#f97316'
 };
 
-function createStatusIcon(status, isUnit = false) {
-  const size = isUnit ? 10 : 14;
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `<div style="background:${statusColors[status] || statusColors.vacant};width:${size}px;height:${size}px;border-radius:50%;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2]
-  });
-}
-
 function getUnitStatus(unit) {
   if (unit.lock_status === 'locked') return 'paid';
   if (unit.lock_status === 'payment_confirmed') return 'pending';
@@ -43,72 +25,270 @@ function getUnitStatus(unit) {
   return 'vacant';
 }
 
-// ── Property Cluster Layer (Native Leaflet Cluster) ─────────────────────────
-function PropertyClusterLayer({ properties, onPropertySelect }) {
-  const map = useMap();
-  const clusterRef = useRef(null);
+// ── Mapbox Map component ─────────────────────────────────────────────────────
+function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen }) {
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
 
+  // Initialize Map
   useEffect(() => {
-    if (!properties?.length) return;
+    if (!mapContainerRef.current) return;
 
-    const clusterGroup = L.markerClusterGroup({
-      maxClusterRadius: 50,
-      spiderfyOnMaxZoom: true,
-      showCoverageOnHover: false,
+    // Mapbox center: [longitude, latitude]
+    const mapCenter = [center[1], center[0]];
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: mapCenter,
+      zoom: zoom || 12,
+      pitch: 45,
+      bearing: -17.6,
+      antialias: true
     });
 
-    properties.forEach(prop => {
-      const coords = prop.location?.coordinates;
-      if (!coords?.length) return;
-      const [lng, lat] = coords;
+    mapRef.current = map;
 
-      const marker = L.marker([lat, lng], { icon: createStatusIcon('vacant', false) });
+    map.on('load', () => {
+      // Style buildings in 3D
+      const layers = map.getStyle().layers;
+      const labelLayerId = layers.find(
+        (layer) => layer.type === 'symbol' && layer.layout['text-field']
+      )?.id;
 
-      // Bind detailed popup content
-      const occupiedCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
-      const totalUnits = prop.units?.length || 0;
-      const popupDiv = document.createElement('div');
-      popupDiv.className = 'p-1 min-w-[220px] font-sans';
-      popupDiv.innerHTML = `
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="font-semibold text-sm">${prop.name}</p>
-            <p class="text-xs text-gray-500 font-mono">${prop.property_code}</p>
-          </div>
-        </div>
-        <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">📍 ${prop.address?.area || ''}</p>
-        <p class="text-xs mt-1">${totalUnits} units | ${occupiedCount} occupied</p>
-        ${prop.address?.plus_code ? `<p class="text-xs text-brand-600 mt-1 font-semibold">Plus Code: ${prop.address.plus_code}</p>` : ''}
-        <button id="btn-show-units-${prop._id}" class="mt-2 text-xs text-blue-600 font-medium hover:underline block">
-          Show units & boundaries
-        </button>
-      `;
+      if (map.getLayer('3d-buildings')) return;
 
-      marker.bindPopup(popupDiv);
-
-      marker.on('popupopen', () => {
-        const btn = document.getElementById(`btn-show-units-${prop._id}`);
-        if (btn) {
-          btn.addEventListener('click', () => {
-            onPropertySelect(prop);
-          });
-        }
-      });
-
-      clusterGroup.addLayer(marker);
+      map.addLayer(
+        {
+          id: '3d-buildings',
+          source: 'composite',
+          'source-layer': 'building',
+          filter: ['==', 'extrude', 'true'],
+          type: 'fill-extrusion',
+          minzoom: 15,
+          paint: {
+            'fill-extrusion-color': '#cabeff',
+            'fill-extrusion-height': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              15,
+              0,
+              15.05,
+              ['get', 'height']
+            ],
+            'fill-extrusion-base': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              15,
+              0,
+              15.05,
+              ['get', 'min_height']
+            ],
+            'fill-extrusion-opacity': 0.35
+          }
+        },
+        labelLayerId
+      );
     });
-
-    map.addLayer(clusterGroup);
-    clusterRef.current = clusterGroup;
 
     return () => {
-      if (clusterRef.current) {
-        map.removeLayer(clusterRef.current);
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
       }
     };
-  }, [map, properties, onPropertySelect]);
+  }, []);
 
-  return null;
+  // Handle center updates
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const mapCenter = [center[1], center[0]];
+    mapRef.current.easeTo({ center: mapCenter, duration: 800 });
+  }, [center]);
+
+  // Handle markers & layers updates
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // Clear old markers
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    // Remove source & layer if they exist
+    if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
+    if (map.getLayer('boundary-line')) map.removeLayer('boundary-line');
+    if (map.getSource('property-boundary')) map.removeSource('property-boundary');
+
+    if (activeTab === 'properties') {
+      properties.forEach((prop) => {
+        const coords = prop.location?.coordinates;
+        if (!coords || coords.length !== 2) return;
+
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        const occupiedCount = prop.units?.filter((u) => u.status === 'occupied').length || 0;
+        const totalUnits = prop.units?.length || 0;
+        const ratio = totalUnits > 0 ? occupiedCount / totalUnits : 0;
+        let color = '#22c55e';
+        if (ratio < 0.5) color = '#ef4444';
+        else if (ratio < 0.9) color = '#eab308';
+
+        el.style.background = color;
+        el.style.width = '14px';
+        el.style.height = '14px';
+        el.style.borderRadius = '50%';
+        el.style.border = '2px solid white';
+        el.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+        el.style.cursor = 'pointer';
+
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+          <div style="font-family: sans-serif; padding: 4px; min-width: 180px; color: #1e293b;">
+            <p style="font-weight: 700; margin: 0; font-size: 13px;">${prop.name}</p>
+            <p style="font-size: 11px; color: #64748b; font-family: monospace; margin: 2px 0;">${prop.property_code}</p>
+            <p style="font-size: 12px; margin: 4px 0 0 0;">📍 ${prop.address?.area || ''}</p>
+            <p style="font-size: 11px; margin: 2px 0;">${totalUnits} units | ${occupiedCount} occupied</p>
+            <button id="mapbox-btn-${prop._id}" style="margin-top: 8px; width: 100%; border: none; background: #6366f1; color: white; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer;">
+              Show units & boundaries
+            </button>
+          </div>
+        `);
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat(coords)
+          .setPopup(popup)
+          .addTo(map);
+
+        popup.on('open', () => {
+          const btn = document.getElementById(`mapbox-btn-${prop._id}`);
+          if (btn) {
+            btn.addEventListener('click', () => {
+              popup.remove();
+              onPropertySelect(prop);
+            });
+          }
+        });
+
+        markersRef.current.push(marker);
+      });
+    }
+
+    if (activeTab === 'units' && selectedProperty) {
+      if (selectedProperty.boundaries) {
+        map.addSource('property-boundary', {
+          type: 'geojson',
+          data: selectedProperty.boundaries
+        });
+        map.addLayer({
+          id: 'boundary-fill',
+          type: 'fill',
+          source: 'property-boundary',
+          paint: {
+            'fill-color': '#10b981',
+            'fill-opacity': 0.15
+          }
+        });
+        map.addLayer({
+          id: 'boundary-line',
+          type: 'line',
+          source: 'property-boundary',
+          paint: {
+            'line-color': '#10b981',
+            'line-width': 2
+          }
+        });
+      }
+
+      const pCoords = selectedProperty.location?.coordinates;
+      if (pCoords) {
+        const el = document.createElement('div');
+        el.style.background = '#8b5cf6';
+        el.style.width = '16px';
+        el.style.height = '16px';
+        el.style.borderRadius = '50%';
+        el.style.border = '2px solid white';
+        el.style.cursor = 'pointer';
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat(pCoords)
+          .addTo(map);
+        markersRef.current.push(marker);
+      }
+
+      if (unitGeoJSON?.features) {
+        unitGeoJSON.features.forEach((feature) => {
+          const coords = feature.geometry.coordinates;
+          const unit = feature.properties;
+
+          const el = document.createElement('div');
+          el.style.background = unit.status === 'occupied' ? '#eab308' : '#22c55e';
+          el.style.width = '10px';
+          el.style.height = '10px';
+          el.style.borderRadius = '50%';
+          el.style.border = '1.5px solid white';
+          el.style.cursor = 'pointer';
+
+          const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(`
+            <div style="font-family: sans-serif; padding: 4px; color: #1e293b;">
+              <p style="font-weight: 700; margin: 0; font-size: 12px;">Unit ${unit.unit_number}</p>
+              <p style="font-size: 11px; margin: 2px 0;">Status: ${unit.status}</p>
+              <p style="font-size: 11px; color: #64748b; margin: 2px 0;">KES ${unit.rent_kes?.toLocaleString()}/mo</p>
+              <button id="mapbox-unit-${unit.unit_id}" style="margin-top: 6px; width: 100%; border: none; background: #8b5cf6; color: white; border-radius: 4px; padding: 3px 6px; font-size: 10px; font-weight: 600; cursor: pointer;">
+                Open 3D Model
+              </button>
+            </div>
+          `);
+
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat(coords)
+            .setPopup(popup)
+            .addTo(map);
+
+          popup.on('open', () => {
+            const btn = document.getElementById(`mapbox-unit-${unit.unit_id}`);
+            if (btn) {
+              btn.addEventListener('click', () => {
+                popup.remove();
+                onUnitSelect(unit);
+              });
+            }
+          });
+
+          markersRef.current.push(marker);
+        });
+      }
+    }
+
+    if (agentLocation) {
+      const el = document.createElement('div');
+      el.style.background = '#3b82f6';
+      el.style.width = '12px';
+      el.style.height = '12px';
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid white';
+      el.style.boxShadow = '0 0 0 2px #3b82f6';
+
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([agentLocation.lng, agentLocation.lat])
+        .addTo(map);
+      markersRef.current.push(marker);
+    }
+  }, [activeTab, properties, selectedProperty, unitGeoJSON, agentLocation]);
+
+  return (
+    <div
+      ref={mapContainerRef}
+      style={{
+        width: '100%',
+        height: isFullscreen ? 'calc(100vh - 140px)' : '500px',
+        minHeight: isFullscreen ? 'calc(100vh - 140px)' : '500px',
+        borderRadius: 'inherit'
+      }}
+    />
+  );
 }
 
 // ── 3D Unit Block (React Three Fiber Mesh) ──────────────────────────────────
@@ -119,7 +299,7 @@ function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
 
   const colMatch = unitStr.match(/([a-zA-Z]+)$/);
   const colStr = colMatch ? colMatch[1].toUpperCase() : 'A';
-  const col = colStr.charCodeAt(0) - 65; // A=0, B=1, C=2...
+  const col = colStr.charCodeAt(0) - 65;
 
   const x = col * 1.6 - 0.8;
   const y = floor * 1.2 + 0.6;
@@ -181,7 +361,6 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
 
   return (
     <div className="relative bg-slate-900 rounded-xl border border-slate-850 p-4 overflow-hidden" style={{ minHeight: '400px' }}>
-      {/* 3D Header Info */}
       <div className="absolute top-4 left-4 z-10 text-white pointer-events-none">
         <h3 className="font-bold text-sm">{property.name}</h3>
         <p className="text-xs text-slate-400 font-mono">{property.property_code}</p>
@@ -201,7 +380,6 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
         </button>
       </div>
 
-      {/* R3F WebGL Canvas */}
       <div className="w-full h-80 bg-slate-950 rounded-lg overflow-hidden border border-slate-850 mt-10">
         <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
           <ambientLight intensity={0.4} />
@@ -237,7 +415,6 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
         </Canvas>
       </div>
 
-      {/* Detail info box */}
       <div className="mt-4 flex flex-col md:flex-row justify-between items-stretch gap-3 border-t border-slate-800 pt-3">
         <div className="flex-1 text-xs text-slate-400">
           {hoveredUnit ? (
@@ -277,7 +454,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [unitGeoJSON, setUnitGeoJSON] = useState(null);
   const [selectedUnit, setSelectedUnit] = useState(null);
-  const [activeTab, setActiveTab] = useState('properties'); // 'properties' | 'units' | '3d'
+  const [activeTab, setActiveTab] = useState('properties');
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -298,7 +475,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
       const coords = filtered[0].location?.coordinates;
       if (coords?.length === 2) return [coords[1], coords[0]];
     }
-    return [-4.0435, 39.6682]; // Mombasa
+    return [-4.0435, 39.6682]; // Mombasa default
   }, [agentLocation, filtered]);
 
   const handlePropertySelect = useCallback(async (prop) => {
@@ -327,14 +504,14 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
     <div className={`flex flex-col overflow-hidden transition-all duration-350 ${
       isFullscreen 
         ? 'fixed inset-6 z-[9999] rounded-[24px] shadow-2xl bg-slate-900 border border-slate-800' 
-        : 'bg-white rounded-lg border shadow-sm'
+        : 'bg-white rounded-lg border shadow-sm dark:bg-slate-900 dark:border-slate-800'
     }`}>
       {/* Header and Search */}
       <div className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-3 ${
-        isFullscreen ? 'bg-slate-950/85 border-slate-850' : 'bg-gray-50'
+        isFullscreen ? 'bg-slate-950/85 border-slate-850' : 'bg-gray-50 dark:bg-slate-950'
       }`}>
         <div className="flex items-center gap-3">
-          <h3 className={`font-semibold text-sm ${isFullscreen ? 'text-white' : 'text-gray-900'}`}>Property Map</h3>
+          <h3 className={`font-semibold text-sm ${isFullscreen ? 'text-white' : 'text-gray-900 dark:text-white'}`}>Property Map</h3>
           <div className="relative">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -343,8 +520,8 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
               placeholder="Search Plus Code or property..."
               className={`pl-8 pr-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isFullscreen 
-                  ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-505' 
-                  : 'bg-white border-gray-250 text-gray-800'
+                  ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-500' 
+                  : 'bg-white border-gray-200 text-gray-800 dark:bg-slate-900 dark:border-slate-700 dark:text-white'
               }`}
             />
           </div>
@@ -362,7 +539,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
                     ? 'bg-blue-600 text-white shadow-sm'
                     : isFullscreen
                       ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-750 disabled:opacity-40'
-                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed'
                   }`}
               >
                 {tab.label}
@@ -376,7 +553,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
               className={`p-1.5 rounded-lg border transition ${
                 isFullscreen
                   ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700'
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
               }`}
               title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Map"}
             >
@@ -389,110 +566,26 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
       {/* Map Views */}
       {activeTab !== '3d' && (
         <div className="relative flex-1">
-          <MapContainer 
-            center={center} 
-            zoom={13} 
-            style={{ 
-              height: isFullscreen ? 'calc(100vh - 140px)' : '500px', 
-              width: '100%',
-              minHeight: isFullscreen ? 'calc(100vh - 140px)' : '500px'
-            }} 
-            scrollWheelZoom={false}
-          >
-            <TileLayer 
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' 
-              url={isFullscreen ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} 
-            />
-
-            {activeTab === 'properties' && (
-              <PropertyClusterLayer
-                properties={filtered}
-                onPropertySelect={handlePropertySelect}
-              />
-            )}
-
-            {activeTab === 'units' && selectedProperty && (
-              <>
-                {/* Complex boundary polygon */}
-                {selectedProperty.boundaries?.coordinates && (
-                  <Polygon
-                    positions={selectedProperty.boundaries.coordinates[0].map(c => [c[1], c[0]])}
-                    pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.1, weight: 2 }}
-                  />
-                )}
-
-                {/* Property marker */}
-                {selectedProperty.location?.coordinates && (
-                  <Marker
-                    position={[selectedProperty.location.coordinates[1], selectedProperty.location.coordinates[0]]}
-                    icon={createStatusIcon('vacant', false)}
-                  >
-                    <Popup>
-                      <div className="p-1">
-                        <p className="font-semibold text-sm">{selectedProperty.name}</p>
-                        <p className="text-xs text-gray-500">{selectedProperty.property_code}</p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                )}
-
-                {/* Unit markers */}
-                {unitGeoJSON?.features?.map((feature, idx) => {
-                  const [lng, lat] = feature.geometry.coordinates;
-                  const unit = feature.properties;
-
-                  return (
-                    <Marker
-                      key={unit.unit_id || idx}
-                      position={[lat, lng]}
-                      icon={createStatusIcon(unit.status === 'occupied' ? 'pending' : 'vacant', true)}
-                      eventHandlers={{
-                        click: () => {
-                          const originalUnit = selectedProperty.units?.find(u => u.unit_number === unit.unit_number);
-                          if (originalUnit) {
-                            setSelectedUnit(originalUnit);
-                            setActiveTab('3d');
-                          }
-                        }
-                      }}
-                    >
-                      <Popup>
-                        <div className="p-1 font-sans">
-                          <p className="font-semibold text-sm">Unit {unit.unit_number}</p>
-                          <p className="text-xs capitalize">{unit.status} | {unit.lock_status?.replace('_', ' ')}</p>
-                          <p className="text-xs text-gray-500">KES {unit.rent_kes?.toLocaleString()}/mo</p>
-                          <span className="text-xs text-blue-600 font-semibold block mt-1">Click to open 3D preview</span>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-              </>
-            )}
-
-            {/* Agent Location */}
-            {agentLocation && (
-              <>
-                <Circle
-                  center={[agentLocation.lat, agentLocation.lng]}
-                  radius={agentLocation.accuracy || 50}
-                  pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15 }}
-                />
-                <Marker
-                  position={[agentLocation.lat, agentLocation.lng]}
-                  icon={L.divIcon({
-                    className: 'custom-marker',
-                    html: '<div style="background:#3b82f6;width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 0 0 2px #3b82f6"></div>',
-                    iconSize: [12, 12],
-                    iconAnchor: [6, 6]
-                  })}
-                />
-              </>
-            )}
-          </MapContainer>
+          <MapboxMap
+            center={center}
+            properties={filtered}
+            selectedProperty={selectedProperty}
+            unitGeoJSON={unitGeoJSON}
+            activeTab={activeTab}
+            onPropertySelect={handlePropertySelect}
+            onUnitSelect={(unit) => {
+              const originalUnit = selectedProperty.units?.find(u => u.unit_number === unit.unit_number);
+              if (originalUnit) {
+                setSelectedUnit(originalUnit);
+                setActiveTab('3d');
+              }
+            }}
+            agentLocation={agentLocation}
+            isFullscreen={isFullscreen}
+          />
 
           {loadingUnits && (
-            <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex items-center justify-center z-[1000]">
+            <div className="absolute inset-0 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-[1000]">
               <span className="text-sm font-medium text-slate-600 flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                 Loading units...
@@ -516,7 +609,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
 
       {/* Legend Footer */}
       <div className={`px-4 py-2 border-t flex gap-4 text-xs flex-wrap items-center ${
-        isFullscreen ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-gray-50'
+        isFullscreen ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-gray-50 dark:bg-slate-950 dark:border-slate-800 text-slate-400'
       }`}>
         {Object.entries(statusColors).map(([status, color]) => (
           <span key={status} className="flex items-center gap-1.5">
@@ -524,8 +617,8 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
             {status}
           </span>
         ))}
-        <span className="text-gray-400 text-xs ml-auto">
-          {activeTab === 'properties' ? 'Click show units on property popup to view details' : 'Click a unit marker to trigger 3D visual preview'}
+        <span className="text-slate-400 text-xs ml-auto">
+          {activeTab === 'properties' ? 'Click a property marker to view details' : 'Click a unit marker to trigger 3D visual preview'}
         </span>
       </div>
     </div>
