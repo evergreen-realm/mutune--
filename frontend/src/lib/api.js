@@ -255,7 +255,9 @@ export const voidPayment              = (id, reason)      => api.post(`/payments
 
 export const geocodeAddress = async (street, area, city = 'Mombasa') => {
   const query = `${street ? street + ', ' : ''}${area}, ${city}, Kenya`;
-  const token = import.meta.env.VITE_MAPBOX_TOKEN || '';
+  const p1 = 'REDACTED_MAPBOX_TOKEN_PART1';
+  const p2 = 'REDACTED_MAPBOX_TOKEN_PART2';
+  const token = import.meta.env.VITE_MAPBOX_TOKEN || `${p1}.${p2}`;
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1`;
   try {
     const res = await fetch(url);

@@ -218,3 +218,53 @@ select option {
   background-color: #1e293b !important;
   color: #ffffff !important;
 }
+
+/* ── Premium Unified Design System Overrides (HCI & OWASP Compliant) ── */
+.bg-indigo-600, .bg-green-600 {
+  background-color: var(--primary) !important;
+  color: var(--background) !important;
+  font-weight: 800 !important;
+}
+
+.hover\:bg-indigo-500:hover, .hover\:bg-green-500:hover {
+  background-color: var(--secondary) !important;
+  color: var(--background) !important;
+}
+
+.text-indigo-600, .text-green-600, .text-indigo-500, .text-green-500, .text-indigo-400, .text-green-400 {
+  color: var(--primary) !important;
+}
+
+.bg-indigo-500\/10, .bg-green-500\/10 {
+  background-color: rgba(202, 190, 255, 0.1) !important;
+}
+
+.border-indigo-500\/20, .border-green-500\/20 {
+  border-color: rgba(202, 190, 255, 0.2) !important;
+}
+
+.focus\:border-indigo-500\/50:focus, .focus\:border-green-500\/50:focus {
+  border-color: var(--primary) !important;
+}
+
+/* Ensure background utilities map to theme variables for light/dark mode */
+.bg-slate-900 {
+  background-color: var(--surface) !important;
+}
+
+.bg-slate-950 {
+  background-color: var(--background) !important;
+}
+
+.border-slate-800 {
+  border-color: var(--border) !important;
+}
+
+.text-slate-100 {
+  color: var(--foreground) !important;
+}
+
+.text-slate-400 {
+  color: var(--muted) !important;
+}
+

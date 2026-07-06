@@ -11,7 +11,9 @@ interface ThemeState {
 const initialTheme = (localStorage.getItem('mutunerent-theme') as Theme) || 'light';
 if (initialTheme === 'dark') {
   document.documentElement.classList.add('dark');
+  document.documentElement.classList.remove('light');
 } else {
+  document.documentElement.classList.add('light');
   document.documentElement.classList.remove('dark');
 }
 
@@ -22,7 +24,9 @@ export const useThemeStore = create<ThemeState>((set) => ({
     localStorage.setItem('mutunerent-theme', nextTheme);
     if (nextTheme === 'dark') {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
     } else {
+      document.documentElement.classList.add('light');
       document.documentElement.classList.remove('dark');
     }
     return { theme: nextTheme };
@@ -31,7 +35,9 @@ export const useThemeStore = create<ThemeState>((set) => ({
     localStorage.setItem('mutunerent-theme', newTheme);
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
     } else {
+      document.documentElement.classList.add('light');
       document.documentElement.classList.remove('dark');
     }
     return { theme: newTheme };

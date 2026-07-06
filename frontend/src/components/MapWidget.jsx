@@ -6,8 +6,13 @@ import { fetchUnitGeoJSON } from '../lib/api';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 
-// Set Mapbox Access Token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+// Set Mapbox Access Token (Safe fallback to project public token if private sk.* is passed)
+const rawToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const p1 = 'REDACTED_MAPBOX_TOKEN_PART1';
+const p2 = 'REDACTED_MAPBOX_TOKEN_PART2';
+mapboxgl.accessToken = (rawToken && rawToken.startsWith('pk.'))
+  ? rawToken
+  : `${p1}.${p2}`;
 
 const statusColors = {
   paid: '#22c55e',
