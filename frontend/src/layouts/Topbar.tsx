@@ -357,52 +357,82 @@ export default function Topbar({
           <AnimatePresence>
             {settingsOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setSettingsOpen(false)} />
+                <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={() => setSettingsOpen(false)} />
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ duration: 0.15, ease: 'easeOut' }}
-                  className="absolute right-0 mt-2 w-64 bg-surface border border-border rounded-2xl shadow-xl z-50 p-4"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                  onClick={(e) => e.target === e.currentTarget && setSettingsOpen(false)}
                 >
-                  <h3 className="text-xs font-bold text-foreground border-b border-border pb-2 mb-3">
-                    System Settings
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="bg-background p-3 rounded-xl border border-border">
-                      <p className="text-xs font-bold uppercase tracking-wider text-muted">User Profile</p>
-                      <p className="text-xs font-bold text-foreground mt-1 truncate">{fullName}</p>
-                      <p className="text-xs text-muted capitalize">{role}</p>
-                      {dbUser?.phone && (
-                        <p className="text-xs text-muted font-mono mt-1">{dbUser.phone}</p>
-                      )}
+                  <div className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-2xl p-6">
+                    <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+                      <h3 className="text-sm font-bold text-foreground">System Settings</h3>
+                      <button
+                        onClick={() => setSettingsOpen(false)}
+                        className="p-1.5 text-muted hover:text-foreground hover:bg-background rounded-lg transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
 
-                    <div className="space-y-1.5 text-xs font-medium text-muted">
-                      <div className="flex justify-between">
-                        <span>Billing Currency:</span>
-                        <span className="font-bold text-foreground">KES (Shilling)</span>
+                    <div className="space-y-4">
+                      {/* User Profile Card */}
+                      <div className="bg-background p-4 rounded-xl border border-border">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted mb-2">User Profile</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs text-muted">Name</p>
+                            <p className="text-sm font-bold text-foreground truncate">{fullName}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted">Role</p>
+                            <p className="text-sm font-bold text-foreground capitalize">{role}</p>
+                          </div>
+                          {dbUser?.phone && (
+                            <div>
+                              <p className="text-xs text-muted">Phone</p>
+                              <p className="text-sm font-bold text-foreground font-mono">{dbUser.phone}</p>
+                            </div>
+                          )}
+                          {dbUser?.email && (
+                            <div>
+                              <p className="text-xs text-muted">Email</p>
+                              <p className="text-sm font-bold text-foreground truncate">{dbUser.email}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>M-Pesa Sandbox:</span>
-                        <span className="font-bold text-green-600">Active</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>System Location:</span>
-                        <span className="font-bold text-foreground">Mombasa, KE</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>API Status:</span>
-                        <span className="font-bold text-green-600">Connected</span>
-                      </div>
-                    </div>
 
-                    <button
-                      onClick={() => onLogout()}
-                      className="w-full mt-2 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider"
-                    >
-                      <LogOut size={12} /> Sign Out
-                    </button>
+                      {/* System Info Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-background p-3 rounded-xl border border-border">
+                          <p className="text-xs text-muted mb-1">Billing Currency</p>
+                          <p className="text-sm font-bold text-foreground">KES (Shilling)</p>
+                        </div>
+                        <div className="bg-background p-3 rounded-xl border border-border">
+                          <p className="text-xs text-muted mb-1">M-Pesa Status</p>
+                          <p className="text-sm font-bold text-green-600">Active ✓</p>
+                        </div>
+                        <div className="bg-background p-3 rounded-xl border border-border">
+                          <p className="text-xs text-muted mb-1">System Location</p>
+                          <p className="text-sm font-bold text-foreground">Mombasa, KE</p>
+                        </div>
+                        <div className="bg-background p-3 rounded-xl border border-border">
+                          <p className="text-xs text-muted mb-1">API Status</p>
+                          <p className="text-sm font-bold text-green-600">Connected ✓</p>
+                        </div>
+                      </div>
+
+                      {/* Sign Out */}
+                      <button
+                        onClick={() => onLogout()}
+                        className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                      >
+                        <LogOut size={14} /> Sign Out
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               </>

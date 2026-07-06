@@ -3,6 +3,7 @@ import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useThemeStore } from '../store/themeStore';
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -119,6 +120,7 @@ function PortalSkeleton() {
 export default function TenantPortalPage() {
   const { user: clerkUser } = useUser();
   const { signOut } = useClerk();
+  const { theme } = useThemeStore();
 
   const [profile,    setProfile]    = useState(null);
   const [payments,   setPayments]   = useState([]);
@@ -127,6 +129,33 @@ export default function TenantPortalPage() {
   const [notifs,     setNotifs]     = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [activeTab,  setActiveTab]  = useState('overview');
+  const [timeLeft,   setTimeLeft]   = useState('00:00:00');
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const rentDueDay = profile?.rent_due_day || 5;
+      const now = new Date();
+      let dueDate = new Date(now.getFullYear(), now.getMonth(), rentDueDay);
+      if (dueDate < now) {
+        dueDate = new Date(now.getFullYear(), now.getMonth() + 1, rentDueDay);
+      }
+      const diff = dueDate.getTime() - now.getTime();
+      if (diff <= 0) {
+        setTimeLeft('00:00:00');
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft(
+        `${days.toString().padStart(2, '0')}d : ${hours.toString().padStart(2, '0')}h : ${minutes
+          .toString()
+          .padStart(2, '0')}m : ${seconds.toString().padStart(2, '0')}s`
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [profile]);
   const [notifOpen,  setNotifOpen]  = useState(false);
   const [ticketForm, setTicketForm] = useState({ open: false, editId: null, title: '', description: '', priority: 'medium' });
   const [submitting, setSubmitting] = useState(false);
@@ -511,6 +540,41 @@ export default function TenantPortalPage() {
           <span className="text-green-500 capitalize">{activeTab}</span>
         </div>
 
+        {/* ── Welcome & Countdown Banner (Nano Banana Style) ─────────────────── */}
+        <div className="bg-surface/70 border border-border backdrop-blur-md rounded-2xl p-6 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-extrabold text-foreground">
+              Welcome back, <span className="text-primary">{tenantName}</span>
+            </h1>
+            <p className="text-xs text-muted mt-1 font-medium">
+              Unit Number: <strong className="text-foreground">{unitNumber}</strong>
+            </p>
+          </div>
+          <div className="flex flex-col md:items-end text-left md:text-right">
+            <span className="text-[10px] text-muted font-extrabold uppercase tracking-wider block mb-1">
+              Next Rent Due:{' '}
+              <span className="text-foreground">
+                {(() => {
+                  const rentDueDay = profile?.rent_due_day || 5;
+                  const now = new Date();
+                  let dueDate = new Date(now.getFullYear(), now.getMonth(), rentDueDay);
+                  if (dueDate < now) {
+                    dueDate = new Date(now.getFullYear(), now.getMonth() + 1, rentDueDay);
+                  }
+                  return dueDate.toLocaleDateString('en-US', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  });
+                })()}
+              </span>
+            </span>
+            <div className="text-lg font-black text-amber-500 font-mono tracking-widest mt-0.5">
+              {timeLeft}
+            </div>
+          </div>
+        </div>
+
         {/* APPROVED PROPERTY ALERTS */}
         <AnimatePresence>
           {myDbUserId && approvedPropertyNotifs.filter(n => !n.read_by?.includes(myDbUserId)).map(n => (
@@ -820,119 +884,166 @@ export default function TenantPortalPage() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.25 }}
           >
-            {/* OVERVIEW TAB */}
+            {/* OVERVIEW TAB (Nano Banana 2b Layout) */}
             {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Lease details box */}
-                <div className="md:col-span-3 bg-surface/80 border border-border rounded-2xl p-6 space-y-4">
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <Home size={16} className="text-green-500" /> Lease Summary
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
-                    <div>
-                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Property Name</span>
-                      <p className="text-xs font-bold text-foreground">{propertyName}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Unit</span>
-                      <p className="text-xs font-bold text-foreground">{unitNumber}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Monthly Rent</span>
-                      <p className="text-xs font-bold text-foreground">{FMT_KES(unitRent || rent)}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Next Due Date</span>
-                      <p className="text-xs font-bold text-green-500">
-                        {profile?.rent_due_day ? `${profile.rent_due_day}th of every month` : '5th of every month'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick actions grid */}
-                <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Pay Rent', desc: paying ? 'Initiating...' : `${FMT_KES(unitRent || rent)} via M-Pesa`, icon: <Wallet size={20} />, color: 'emerald', action: handlePayRent },
-                    { label: 'Maintenance Request', desc: `${tickets.filter(t => t.status === 'open').length} open tickets`, icon: <Wrench size={20} />, color: 'indigo', action: () => setTicketForm(f => ({ ...f, open: true })) },
-                    { label: 'Official Notices', desc: `${notices.length} active notice${notices.length !== 1 ? 's' : ''}`, icon: <FileText size={20} />, color: 'amber', action: () => setActiveTab('notices') },
-                    { label: 'Contact Property Agent', desc: agentPhone, icon: <Phone size={20} />, color: 'violet', href: `tel:${formatPhoneHref(agentPhone)}` }
-                  ].map((item, i) => {
-                    const cardStyle = "bg-surface/30 hover:bg-surface/60 backdrop-blur-md border border-border hover:border-border/85 p-5 rounded-2xl cursor-pointer text-left transition duration-300 flex items-center justify-between group";
-                    const isEmerald = item.color === 'emerald';
-                    const isIndigo = item.color === 'indigo';
-                    const isAmber = item.color === 'amber';
-                    
-                    const badgeColor = isEmerald ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                                      : isIndigo ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
-                                      : isAmber ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                                      : 'bg-violet-500/10 border-violet-500/20 text-violet-400';
-
-                    const content = (
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${badgeColor}`}>
-                          {item.icon}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-foreground group-hover:text-emerald-400 transition-colors">{item.label}</p>
-                          <p className="text-xs text-muted mt-1">{item.desc}</p>
-                        </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column (2/3 width on desktop) */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Rent Payment Card */}
+                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-6 shadow-xl">
+                    <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+                      <div>
+                        <h2 className="text-xs text-muted font-extrabold uppercase tracking-wider">Rent Payment</h2>
+                        <p className="text-[10px] text-muted mt-0.5">Current rent amount due</p>
                       </div>
-                    );
+                      <span className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg">
+                        Current due
+                      </span>
+                    </div>
 
-                    if (item.href) {
-                      return (
-                        <a key={i} href={item.href} className={cardStyle}>
-                          {content}
-                          <ChevronRight size={16} className="text-muted group-hover:text-foreground transition" />
-                        </a>
-                      );
-                    }
+                    <div className="py-4">
+                      <div className="text-3xl font-black text-foreground font-mono tracking-tight">
+                        {FMT_KES(unitRent || rent)}
+                      </div>
+                    </div>
 
-                    return (
-                      <button key={i} onClick={item.action} disabled={item.label === 'Pay Rent' && paying} className={`${cardStyle} disabled:opacity-50`}>
-                        {content}
-                        <ChevronRight size={16} className="text-muted group-hover:text-foreground transition animate-none" />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Recent Payments Section */}
-                <div className="md:col-span-3 bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6">
-                  <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Recent Transactions</h3>
-                    <button onClick={() => setActiveTab('payments')} className="text-xs font-bold text-emerald-400 hover:text-emerald-355 transition flex items-center gap-1 cursor-pointer">
-                      View Statement <ArrowUpRight size={14} />
+                    <button
+                      onClick={handlePayRent}
+                      disabled={paying}
+                      className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-primary hover:from-indigo-500 hover:to-primary/90 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                    >
+                      <CreditCard size={14} /> {paying ? 'Connecting...' : 'M-Pesa pay'}
                     </button>
                   </div>
-                  {payments.slice(0, 3).length === 0 ? (
-                    <p className="text-xs text-muted py-6 text-center">No payment history found.</p>
-                  ) : (
-                    <div className="divide-y divide-border/50">
-                      {payments.slice(0, 3).map(p => (
-                        <div key={p._id} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                              p.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400' : p.status === 'failed' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'
-                            }`}>
-                              <CreditCard size={15} />
+
+                  {/* Payment History Card */}
+                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-6 shadow-xl">
+                    <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider mb-4">Payment History</h3>
+                    {payments.length === 0 ? (
+                      <p className="text-xs text-muted py-6 text-center">No payment history found.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {payments.slice(0, 5).map((p) => (
+                          <div key={p._id} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0 last:pb-0">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/25">
+                                <CheckCircle2 size={16} />
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-foreground">Current Payment</p>
+                                <p className="text-[10px] text-muted mt-0.5">{FMT_DATE(p.created_at)}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-xs font-bold text-foreground">{FMT_KES(p.amount_kes)}</p>
-                              <p className="text-xs text-muted mt-0.5">{FMT_DATE(p.created_at)}</p>
-                            </div>
+                            <span className="text-xs font-bold text-foreground font-mono">
+                              {FMT_KES(p.amount_kes)}
+                            </span>
                           </div>
-                          <span className={`text-xs font-extrabold uppercase px-2.5 py-0.5 border rounded-full ${statusColor(p.status)}`}>
-                            {p.status}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
+                {/* Right Column (1/3 width on desktop) */}
+                <div className="space-y-6">
+                  {/* Maintenance Request Card */}
+                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-6 shadow-xl space-y-4">
+                    <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider border-b border-border pb-3">
+                      Maintenance Request
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Issue Title</label>
+                        <input
+                          type="text"
+                          placeholder="Enter issue title..."
+                          value={ticketForm.title}
+                          onChange={(e) => setTicketForm(f => ({ ...f, title: e.target.value }))}
+                          className="w-full bg-background/50 border border-border rounded-xl px-3 py-2 text-xs focus:border-primary focus:outline-none transition"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Description</label>
+                        <textarea
+                          placeholder="Enter maintenance details here..."
+                          value={ticketForm.description}
+                          onChange={(e) => setTicketForm(f => ({ ...f, description: e.target.value }))}
+                          className="w-full h-24 bg-background/50 border border-border rounded-xl px-3 py-2 text-xs focus:border-primary focus:outline-none transition resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Priority Level</label>
+                        <select
+                          value={ticketForm.priority}
+                          onChange={(e) => setTicketForm(f => ({ ...f, priority: e.target.value }))}
+                          className="w-full bg-background/50 border border-border rounded-xl px-3 py-2.5 text-xs focus:border-primary focus:outline-none transition"
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                          <option value="emergency">Emergency</option>
+                        </select>
+                      </div>
+
+                      {/* Photo Upload area */}
+                      <div>
+                        <label className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Photos</label>
+                        <div className="border border-dashed border-border/80 rounded-xl p-4 text-center hover:border-primary cursor-pointer transition">
+                          <Plus size={20} className="text-muted mx-auto mb-1" />
+                          <span className="text-[10px] text-muted font-semibold">Upload Photos</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={submitTicket}
+                        disabled={submitting}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition uppercase tracking-wider shadow-md"
+                      >
+                        {submitting ? 'Sending...' : 'Send'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Row - Active Lease Summary */}
+                <div className="lg:col-span-3 bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-6 shadow-xl">
+                  <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider mb-4 border-b border-border pb-3 flex items-center gap-2">
+                    <Home size={14} className="text-emerald-400" /> Active Lease Summary
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+                    {/* Property Image */}
+                    <div className="md:col-span-1 rounded-xl overflow-hidden aspect-[4/3] border border-border/30">
+                      {propertyPhoto ? (
+                        <img src={propertyPhoto} alt={propertyName} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-indigo-950/40 to-slate-900/40 flex items-center justify-center text-muted">
+                          <Home size={28} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lease details */}
+                    <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-3 gap-6 text-xs">
+                      <div>
+                        <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Start Date</span>
+                        <p className="font-bold text-foreground">{FMT_DATE(profile?.lease_start)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">End Date</span>
+                        <p className="font-bold text-foreground">{FMT_DATE(profile?.lease_end)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Landlord Contact</span>
+                        <p className="font-bold text-foreground">{profile?.current_property_id?.landlord_id?.email || 'landlord@gmail.com'}</p>
+                        <p className="text-[10px] text-muted mt-0.5">08123567879</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

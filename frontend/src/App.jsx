@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -32,12 +32,16 @@ import AgentPerformancePage from './pages/AgentPerformancePage';
 import AdminUserManagementPage from './pages/AdminUserManagementPage';
 import AdminInventoryPage from './pages/AdminInventoryPage';
 import { useThemeStore } from './store/themeStore';
+import Lenis from 'lenis';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 // Layout components
 import AppShellLayout from './layouts/AppShell';
 
 // Components
-import PropertyList  from './components/PropertyList';
 import ChatAssistant from './components/ChatAssistant';
 import AdminPasswordGuard from './components/AdminPasswordGuard';
 import RoleIdVerification from './components/RoleIdVerification';
@@ -102,8 +106,6 @@ function AppShell() {
   const [mobileOpen,  setMobileOpen]  = useState(false);
   const [isSynced,    setIsSynced]    = useState(false);
   const [dbUser,      setDbUser]      = useState(null);
-  const [notifOpen,   setNotifOpen]   = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isRoleVerified, setIsRoleVerified] = useState(false);
   // stabilising: true for 1.5s after sync completes to prevent flash-redirect
   // during the onboarding→dashboard transition
@@ -248,7 +250,7 @@ function AppShell() {
     return (
       <>
         <OnboardingPage />
-        <ChatAssistant key={dbUser?._id || 'onboarding'} user={dbUser || user} />
+        <ChatAssistant key={dbUser?._id || 'onboarding'} user={dbUser} />
       </>
     );
   }
@@ -534,6 +536,33 @@ function AppShell() {
 
 export default function App() {
   const { theme } = useThemeStore();
+
+  React.useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.1,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true
+    });
+
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    lenis.on('scroll', ScrollTrigger.update);
+
+    gsap.ticker.add((time) => {
+      lenis.raf(time * 1000);
+    });
+
+    gsap.ticker.lagSmoothing(0);
+
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
   if (!PUBLISHABLE_KEY) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">

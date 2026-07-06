@@ -7,6 +7,7 @@ import { StatCardSkeleton, TableSkeleton, MapSkeleton } from '../components/Skel
 import { Home, Users, DollarSign, TrendingUp, Landmark, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { Card, EmptyState } from '../components/ui';
+import { useThemeStore } from '../store/themeStore';
 
 const MONTH_LABELS = {
   '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
@@ -21,6 +22,7 @@ function formatMonth(yyyyMM) {
 }
 
 export default function DashboardPage() {
+  const { theme } = useThemeStore();
   const { data: propData, isLoading: propLoading, error } = useQuery({
     queryKey: ['properties'],
     queryFn: fetchProperties
@@ -211,7 +213,7 @@ export default function DashboardPage() {
           <PropertyList properties={properties} />
         </div>
         <div>
-          <MapWidget properties={properties} />
+          <MapWidget properties={properties} theme={theme} />
         </div>
       </div>
     </div>

@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Search, MapPin, Box, X, Info } from 'lucide-react';
+import { Search, MapPin, Box, X, Maximize2, Minimize2 } from 'lucide-react';
 import { fetchUnitGeoJSON } from '../lib/api';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 
-// Set Mapbox Access Token (Safe fallback to project public token if private sk.* is passed)
+// Set Mapbox Access Token
 const rawToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 const p1 = 'REDACTED_MAPBOX_TOKEN_PART1';
 const p2 = 'REDACTED_MAPBOX_TOKEN_PART2';
@@ -36,6 +36,7 @@ export function getPropertyCoords(prop) {
   if (coords && coords.length === 2 && coords[0] !== 0 && coords[1] !== 0) {
     return coords;
   }
+  // Deterministic GPS fallback using string hash of property ID
   const hashStr = prop._id || prop.name || '';
   let hash = 0;
   for (let i = 0; i < hashStr.length; i++) {
@@ -47,72 +48,121 @@ export function getPropertyCoords(prop) {
 }
 
 // ── Mapbox Map component ─────────────────────────────────────────────────────
-function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen }) {
+function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+
+  const mapStyle = theme === 'light'
+    ? 'mapbox://styles/mapbox/light-v11'
+    : 'mapbox://styles/mapbox/dark-v11';
 
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Mapbox center: [longitude, latitude]
     const mapCenter = [center[1], center[0]];
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
+      style: mapStyle,
       center: mapCenter,
-      zoom: zoom || 12,
-      pitch: 45,
+      zoom: zoom || 13,
+      pitch: 50,
       bearing: -17.6,
       antialias: true
     });
 
     mapRef.current = map;
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     map.on('load', () => {
-      // Style buildings in 3D
       const layers = map.getStyle().layers;
       const labelLayerId = layers.find(
         (layer) => layer.type === 'symbol' && layer.layout['text-field']
       )?.id;
 
-      if (map.getLayer('3d-buildings')) return;
+      if (!map.getLayer('3d-buildings')) {
+        // 3D building extrusions for Mombasa
+        map.addLayer(
+          {
+            id: '3d-buildings',
+            source: 'composite',
+            'source-layer': 'building',
+            filter: ['==', 'extrude', 'true'],
+            type: 'fill-extrusion',
+            minzoom: 14,
+            paint: {
+              'fill-extrusion-color': theme === 'light' ? '#6366f1' : '#cabeff',
+              'fill-extrusion-height': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 0,
+                14.5, ['get', 'height']
+              ],
+              'fill-extrusion-base': [
+                'interpolate', ['linear'], ['zoom'],
+                14, 0,
+                14.5, ['get', 'min_height']
+              ],
+              'fill-extrusion-opacity': 0.5
+            }
+          },
+          labelLayerId
+        );
+      }
 
-      map.addLayer(
-        {
-          id: '3d-buildings',
-          source: 'composite',
-          'source-layer': 'building',
-          filter: ['==', 'extrude', 'true'],
-          type: 'fill-extrusion',
-          minzoom: 15,
-          paint: {
-            'fill-extrusion-color': '#cabeff',
-            'fill-extrusion-height': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              15,
-              0,
-              15.05,
-              ['get', 'height']
-            ],
-            'fill-extrusion-base': [
-              'interpolate',
-              ['linear'],
-              ['zoom'],
-              15,
-              0,
-              15.05,
-              ['get', 'min_height']
-            ],
-            'fill-extrusion-opacity': 0.35
-          }
-        },
-        labelLayerId
-      );
+      // Add custom 3D property building extrusions with dynamic heights based on unit count
+      if (properties?.length > 0) {
+        const propFeatures = properties.map(prop => {
+          const coords = getPropertyCoords(prop);
+          const unitCount = prop.units?.length || 1;
+          // Dynamic height: taller buildings = more units (visual density indicator)
+          const height = Math.max(15, unitCount * 5);
+          const occupiedCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
+          const ratio = unitCount > 0 ? occupiedCount / unitCount : 0;
+
+          return {
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[
+                [coords[0] - 0.00015, coords[1] - 0.00015],
+                [coords[0] + 0.00015, coords[1] - 0.00015],
+                [coords[0] + 0.00015, coords[1] + 0.00015],
+                [coords[0] - 0.00015, coords[1] + 0.00015],
+                [coords[0] - 0.00015, coords[1] - 0.00015],
+              ]]
+            },
+            properties: {
+              height: height,
+              min_height: 0,
+              name: prop.name,
+              units: unitCount,
+              occupancy: ratio,
+              color: ratio > 0.8 ? '#22c55e' : ratio > 0.5 ? '#eab308' : '#ef4444'
+            }
+          };
+        });
+
+        if (!map.getSource('property-buildings')) {
+          map.addSource('property-buildings', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: propFeatures }
+          });
+
+          map.addLayer({
+            id: 'property-extrusions',
+            type: 'fill-extrusion',
+            source: 'property-buildings',
+            paint: {
+              'fill-extrusion-color': ['get', 'color'],
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': ['get', 'min_height'],
+              'fill-extrusion-opacity': 0.75
+            }
+          });
+        }
+      }
     });
 
     return () => {
@@ -121,7 +171,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         mapRef.current = null;
       }
     };
-  }, []);
+  }, [theme]);
 
   // Handle center updates
   useEffect(() => {
@@ -133,7 +183,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
   // Handle markers & layers updates
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !map.isStyleLoaded()) return;
 
     // Clear old markers
     markersRef.current.forEach((m) => m.remove());
@@ -146,7 +196,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
     if (activeTab === 'properties') {
       properties.forEach((prop) => {
-        let coords = getPropertyCoords(prop);
+        const coords = getPropertyCoords(prop);
 
         const el = document.createElement('div');
         el.className = 'custom-marker';
@@ -157,22 +207,29 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         if (ratio < 0.5) color = '#ef4444';
         else if (ratio < 0.9) color = '#eab308';
 
-        el.style.background = color;
-        el.style.width = '14px';
-        el.style.height = '14px';
-        el.style.borderRadius = '50%';
-        el.style.border = '2px solid white';
-        el.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-        el.style.cursor = 'pointer';
+        el.style.cssText = `
+          background: ${color};
+          width: 16px; height: 16px;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 2px ${color}40;
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        `;
+        el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.3)'; });
+        el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
 
         const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-          <div style="font-family: sans-serif; padding: 4px; min-width: 180px; color: #1e293b;">
-            <p style="font-weight: 700; margin: 0; font-size: 13px;">${prop.name}</p>
-            <p style="font-size: 11px; color: #64748b; font-family: monospace; margin: 2px 0;">${prop.property_code}</p>
-            <p style="font-size: 12px; margin: 4px 0 0 0;">📍 ${prop.address?.area || ''}</p>
-            <p style="font-size: 11px; margin: 2px 0;">${totalUnits} units | ${occupiedCount} occupied</p>
-            <button id="mapbox-btn-${prop._id}" style="margin-top: 8px; width: 100%; border: none; background: #6366f1; color: white; border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer;">
-              Show units & boundaries
+          <div style="font-family: 'Inter', sans-serif; padding: 10px; min-width: 210px; color: #1e293b;">
+            <p style="font-weight: 700; margin: 0; font-size: 14px;">${prop.name}</p>
+            <p style="font-size: 11px; color: #64748b; font-family: 'Fira Code', monospace; margin: 3px 0;">${prop.property_code}</p>
+            <p style="font-size: 12px; margin: 4px 0 0 0;">📍 ${prop.address?.area || 'Mombasa'}</p>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <span style="font-size: 11px; background: ${color}15; color: ${color}; padding: 2px 8px; border-radius: 4px; font-weight: 600;">${totalUnits} units</span>
+              <span style="font-size: 11px; background: #6366f115; color: #6366f1; padding: 2px 8px; border-radius: 4px; font-weight: 600;">${occupiedCount} occupied</span>
+            </div>
+            <button id="mapbox-btn-${prop._id}" style="margin-top: 10px; width: 100%; border: none; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border-radius: 8px; padding: 7px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;">
+              View Units & 3D Model
             </button>
           </div>
         `);
@@ -194,6 +251,16 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
         markersRef.current.push(marker);
       });
+
+      // Fit map to show all properties
+      if (properties.length > 1) {
+        const bounds = new mapboxgl.LngLatBounds();
+        properties.forEach(prop => {
+          const c = getPropertyCoords(prop);
+          bounds.extend(c);
+        });
+        map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 1200 });
+      }
     }
 
     if (activeTab === 'units' && selectedProperty) {
@@ -206,35 +273,25 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           id: 'boundary-fill',
           type: 'fill',
           source: 'property-boundary',
-          paint: {
-            'fill-color': '#10b981',
-            'fill-opacity': 0.15
-          }
+          paint: { 'fill-color': '#10b981', 'fill-opacity': 0.15 }
         });
         map.addLayer({
           id: 'boundary-line',
           type: 'line',
           source: 'property-boundary',
-          paint: {
-            'line-color': '#10b981',
-            'line-width': 2
-          }
+          paint: { 'line-color': '#10b981', 'line-width': 2 }
         });
       }
 
       const pCoords = getPropertyCoords(selectedProperty);
       if (pCoords) {
         const el = document.createElement('div');
-        el.style.background = '#8b5cf6';
-        el.style.width = '16px';
-        el.style.height = '16px';
-        el.style.borderRadius = '50%';
-        el.style.border = '2px solid white';
-        el.style.cursor = 'pointer';
-
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat(pCoords)
-          .addTo(map);
+        el.style.cssText = `
+          background: #8b5cf6; width: 18px; height: 18px;
+          border-radius: 50%; border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(139,92,246,0.4); cursor: pointer;
+        `;
+        const marker = new mapboxgl.Marker(el).setLngLat(pCoords).addTo(map);
         markersRef.current.push(marker);
       }
 
@@ -244,28 +301,27 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           const unit = feature.properties;
 
           const el = document.createElement('div');
-          el.style.background = unit.status === 'occupied' ? '#eab308' : '#22c55e';
-          el.style.width = '10px';
-          el.style.height = '10px';
-          el.style.borderRadius = '50%';
-          el.style.border = '1.5px solid white';
-          el.style.cursor = 'pointer';
+          const unitColor = unit.status === 'occupied' ? '#eab308' : '#22c55e';
+          el.style.cssText = `
+            background: ${unitColor}; width: 10px; height: 10px;
+            border-radius: 50%; border: 2px solid white;
+            cursor: pointer; transition: transform 0.2s;
+          `;
+          el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.4)'; });
+          el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
 
           const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(`
-            <div style="font-family: sans-serif; padding: 4px; color: #1e293b;">
+            <div style="font-family: 'Inter', sans-serif; padding: 8px; color: #1e293b;">
               <p style="font-weight: 700; margin: 0; font-size: 12px;">Unit ${unit.unit_number}</p>
               <p style="font-size: 11px; margin: 2px 0;">Status: ${unit.status}</p>
               <p style="font-size: 11px; color: #64748b; margin: 2px 0;">KES ${unit.rent_kes?.toLocaleString()}/mo</p>
-              <button id="mapbox-unit-${unit.unit_id}" style="margin-top: 6px; width: 100%; border: none; background: #8b5cf6; color: white; border-radius: 4px; padding: 3px 6px; font-size: 10px; font-weight: 600; cursor: pointer;">
+              <button id="mapbox-unit-${unit.unit_id}" style="margin-top: 6px; width: 100%; border: none; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border-radius: 6px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">
                 Open 3D Model
               </button>
             </div>
           `);
 
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat(coords)
-            .setPopup(popup)
-            .addTo(map);
+          const marker = new mapboxgl.Marker(el).setLngLat(coords).setPopup(popup).addTo(map);
 
           popup.on('open', () => {
             const btn = document.getElementById(`mapbox-unit-${unit.unit_id}`);
@@ -284,13 +340,11 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
     if (agentLocation) {
       const el = document.createElement('div');
-      el.style.background = '#3b82f6';
-      el.style.width = '12px';
-      el.style.height = '12px';
-      el.style.borderRadius = '50%';
-      el.style.border = '2px solid white';
-      el.style.boxShadow = '0 0 0 2px #3b82f6';
-
+      el.style.cssText = `
+        background: #3b82f6; width: 14px; height: 14px;
+        border-radius: 50%; border: 3px solid white;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.3);
+      `;
       const marker = new mapboxgl.Marker(el)
         .setLngLat([agentLocation.lng, agentLocation.lat])
         .addTo(map);
@@ -343,7 +397,7 @@ function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
         setHovered(true);
         onHover?.(unit);
       }}
-      onPointerOut={(e) => {
+      onPointerOut={() => {
         setHovered(false);
         onHover?.(null);
       }}
@@ -364,29 +418,43 @@ function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
   );
 }
 
-// ── BuildingPreview3D (Phase 5 complete R3F canvas) ────────────────────────
-export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelect }) {
+// ── BuildingPreview3D (theme-aware R3F canvas) ──────────────────────────────
+export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelect, theme = 'dark' }) {
   const [hoveredUnit, setHoveredUnit] = useState(null);
+  const isLight = theme === 'light';
 
   if (!property) {
     return (
-      <div className="h-80 flex flex-col items-center justify-center bg-slate-900 rounded-xl border border-slate-800 text-slate-400">
-        <Box size={32} className="mb-2 text-slate-600 animate-pulse" />
+      <div className={`h-80 flex flex-col items-center justify-center rounded-xl border ${
+        isLight
+          ? 'bg-surface-bright border-border text-muted'
+          : 'bg-surface border-border text-muted'
+      }`}>
+        <Box size={32} className="mb-2 opacity-40 animate-pulse" />
         <p className="text-xs">No property selected for 3D Preview</p>
       </div>
     );
   }
 
   const units = property.units || [];
+  const groundColor = isLight ? '#e2e8f0' : '#0b0f19';
+  const gridColor1 = isLight ? '#6366f1' : '#3b82f6';
+  const gridColor2 = isLight ? '#cbd5e1' : '#334155';
 
   return (
-    <div className="relative bg-slate-900 rounded-xl border border-slate-850 p-4 overflow-hidden" style={{ minHeight: '400px' }}>
-      <div className="absolute top-4 left-4 z-10 text-white pointer-events-none">
-        <h3 className="font-bold text-sm">{property.name}</h3>
-        <p className="text-xs text-slate-400 font-mono">{property.property_code}</p>
+    <div className={`relative rounded-xl border p-4 overflow-hidden ${
+      isLight ? 'bg-surface border-border' : 'bg-surface border-border'
+    }`} style={{ minHeight: '400px' }}>
+      <div className="absolute top-4 left-4 z-10 pointer-events-none">
+        <h3 className="font-bold text-sm text-foreground">{property.name}</h3>
+        <p className="text-xs text-muted font-mono">{property.property_code}</p>
         <div className="mt-2 flex gap-2">
-          <span className="text-xs bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/50 flex items-center gap-1 text-slate-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Interactive 3D Model
+          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${
+            isLight
+              ? 'bg-brand-50 border-brand-200 text-brand-600'
+              : 'bg-surface-bright border-border text-muted'
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" /> Interactive 3D Model
           </span>
         </div>
       </div>
@@ -394,16 +462,18 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
       <div className="absolute top-4 right-4 z-10 flex gap-2">
         <button
           onClick={onClose}
-          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700/50 transition-colors"
+          className="p-1.5 bg-surface-bright hover:bg-background text-muted hover:text-foreground rounded-lg border border-border transition-colors"
         >
           <X size={14} />
         </button>
       </div>
 
-      <div className="w-full h-80 bg-slate-950 rounded-lg overflow-hidden border border-slate-850 mt-10">
+      <div className={`w-full h-80 rounded-lg overflow-hidden border mt-10 ${
+        isLight ? 'bg-surface-bright border-border' : 'bg-background border-border'
+      }`}>
         <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
-          <ambientLight intensity={0.4} />
-          <pointLight position={[10, 10, 10]} intensity={1.5} />
+          <ambientLight intensity={isLight ? 0.6 : 0.4} />
+          <pointLight position={[10, 10, 10]} intensity={isLight ? 1.2 : 1.5} />
           <directionalLight position={[-5, 8, -5]} intensity={0.6} />
 
           <group position={[0, -1, 0]}>
@@ -418,10 +488,10 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
               />
             ))}
 
-            <gridHelper args={[15, 15, '#3b82f6', '#334155']} position={[0, 0.01, 0]} />
+            <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
             <mesh rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[15, 15]} />
-              <meshStandardMaterial color="#0b0f19" roughness={0.9} />
+              <meshStandardMaterial color={groundColor} roughness={0.9} />
             </mesh>
           </group>
 
@@ -435,28 +505,28 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
         </Canvas>
       </div>
 
-      <div className="mt-4 flex flex-col md:flex-row justify-between items-stretch gap-3 border-t border-slate-800 pt-3">
-        <div className="flex-1 text-xs text-slate-400">
+      <div className="mt-4 flex flex-col md:flex-row justify-between items-stretch gap-3 border-t border-border pt-3">
+        <div className="flex-1 text-xs text-muted">
           {hoveredUnit ? (
-            <div className="bg-slate-850/50 p-2.5 rounded border border-slate-800">
-              <p className="font-semibold text-white">Unit {hoveredUnit.unit_number}</p>
-              <p className="text-xs text-slate-400 capitalize">Status: {hoveredUnit.status.replace('_', ' ')}</p>
-              <p className="text-xs text-slate-400">Rent: KES {hoveredUnit.rent_kes?.toLocaleString()}</p>
+            <div className="bg-surface-bright p-2.5 rounded border border-border">
+              <p className="font-semibold text-foreground">Unit {hoveredUnit.unit_number}</p>
+              <p className="text-xs text-muted capitalize">Status: {hoveredUnit.status?.replace('_', ' ')}</p>
+              <p className="text-xs text-muted">Rent: KES {hoveredUnit.rent_kes?.toLocaleString()}</p>
             </div>
           ) : selectedUnit ? (
-            <div className="bg-blue-950/20 p-2.5 rounded border border-blue-900/30">
-              <p className="font-semibold text-blue-400">Selected: Unit {selectedUnit.unit_number}</p>
-              <p className="text-xs text-slate-300 capitalize">Status: {selectedUnit.status.replace('_', ' ')}</p>
-              <p className="text-xs text-slate-300">Rent: KES {selectedUnit.rent_kes?.toLocaleString()}</p>
+            <div className="bg-brand-50 p-2.5 rounded border border-brand-200">
+              <p className="font-semibold text-brand-600">Selected: Unit {selectedUnit.unit_number}</p>
+              <p className="text-xs text-foreground capitalize">Status: {selectedUnit.status?.replace('_', ' ')}</p>
+              <p className="text-xs text-foreground">Rent: KES {selectedUnit.rent_kes?.toLocaleString()}</p>
             </div>
           ) : (
-            <p className="italic text-slate-500 py-2">Hover over or click a 3D unit block to inspect details. Drag to rotate model.</p>
+            <p className="italic text-muted py-2">Hover over or click a 3D unit block to inspect details. Drag to rotate model.</p>
           )}
         </div>
 
         <div className="flex flex-wrap gap-2 items-center justify-end">
           {Object.entries(statusColors).map(([status, color]) => (
-            <span key={status} className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+            <span key={status} className="flex items-center gap-1.5 text-xs text-muted font-medium">
               <span className="w-2 h-2 rounded-full" style={{ background: color }} />
               {status}
             </span>
@@ -468,7 +538,7 @@ export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelec
 }
 
 // ── MapWidget Main Component ────────────────────────────────────────────────
-export default function MapWidget({ properties = [], agentLocation = null, onPropertySelect, isAdmin = false }) {
+export default function MapWidget({ properties = [], agentLocation = null, onPropertySelect, isAdmin = false, theme = 'dark' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filtered, setFiltered] = useState(properties);
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -477,6 +547,8 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
   const [activeTab, setActiveTab] = useState('properties');
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const isLight = theme === 'light';
 
   useEffect(() => {
     if (!searchQuery) { setFiltered(properties); return; }
@@ -515,69 +587,62 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
   }, [onPropertySelect]);
 
   const tabs = [
-    { id: 'properties', label: `Properties (${filtered.length})` },
-    { id: 'units', label: selectedProperty ? `Units — ${selectedProperty.name}` : 'Units' },
-    { id: '3d', label: '3D Building Preview' }
+    { id: 'properties', label: `Properties (${filtered.length})`, icon: MapPin },
+    { id: 'units', label: selectedProperty ? `Units — ${selectedProperty.name}` : 'Units', icon: Search },
+    { id: '3d', label: '3D Building', icon: Box }
   ];
 
   const mapContent = (
-    <div className={`flex flex-col overflow-hidden transition-all duration-350 ${
-      isFullscreen 
-        ? 'fixed inset-6 z-[9999] rounded-[24px] shadow-2xl bg-slate-900 border border-slate-800' 
-        : 'bg-white rounded-lg border shadow-sm dark:bg-slate-900 dark:border-slate-800'
+    <div className={`flex flex-col overflow-hidden transition-all duration-300 ${
+      isFullscreen
+        ? 'fixed inset-6 z-[9999] rounded-2xl shadow-2xl bg-surface border border-border'
+        : 'rounded-xl border shadow-sm bg-surface border-border'
     }`}>
       {/* Header and Search */}
-      <div className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-3 ${
-        isFullscreen ? 'bg-slate-950/85 border-slate-850' : 'bg-gray-50 dark:bg-slate-950'
-      }`}>
+      <div className="px-4 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-surface-bright">
         <div className="flex items-center gap-3">
-          <h3 className={`font-semibold text-sm ${isFullscreen ? 'text-white' : 'text-gray-900 dark:text-white'}`}>Property Map</h3>
+          <h3 className="font-semibold text-sm text-foreground">Mombasa Property Map</h3>
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search Plus Code or property..."
-              className={`pl-8 pr-3 py-1 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                isFullscreen 
-                  ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-500' 
-                  : 'bg-white border-gray-200 text-gray-800 dark:bg-slate-900 dark:border-slate-700 dark:text-white'
-              }`}
+              className="pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-surface text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand-400/30 focus:border-brand-400 transition-all w-48"
             />
           </div>
         </div>
 
         {/* Tab Buttons */}
         <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                disabled={tab.id === '3d' && !selectedProperty}
-                className={`px-3 py-1 text-xs rounded-md font-medium transition ${activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : isFullscreen
-                      ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-750 disabled:opacity-40'
-                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed'
+          <div className="flex gap-1 p-0.5 bg-background rounded-lg border border-border">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  disabled={tab.id === '3d' && !selectedProperty}
+                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-all flex items-center gap-1.5 ${
+                    activeTab === tab.id
+                      ? 'bg-brand-500 text-white shadow-sm'
+                      : 'text-muted hover:text-foreground hover:bg-surface-bright disabled:opacity-40 disabled:cursor-not-allowed'
                   }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+                >
+                  <Icon size={12} />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {isAdmin && (
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
-              className={`p-1.5 rounded-lg border transition ${
-                isFullscreen
-                  ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700'
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
-              }`}
-              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Map"}
+              className="p-1.5 rounded-lg border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-bright transition-colors"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map'}
             >
-              {isFullscreen ? <X size={14} /> : <Search size={14} />}
+              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
           )}
         </div>
@@ -602,12 +667,13 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
             }}
             agentLocation={agentLocation}
             isFullscreen={isFullscreen}
+            theme={theme}
           />
 
           {loadingUnits && (
-            <div className="absolute inset-0 bg-white/70 dark:bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-[1000]">
-              <span className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="absolute inset-0 bg-surface/70 backdrop-blur-sm flex items-center justify-center z-[1000]">
+              <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
                 Loading units...
               </span>
             </div>
@@ -617,28 +683,27 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
 
       {/* 3D Preview Canvas */}
       {activeTab === '3d' && (
-        <div className="p-4 bg-slate-950 flex-1">
+        <div className="p-4 bg-background flex-1">
           <BuildingPreview3D
             property={selectedProperty}
             selectedUnit={selectedUnit}
             onClose={() => setActiveTab('units')}
             onUnitSelect={setSelectedUnit}
+            theme={theme}
           />
         </div>
       )}
 
       {/* Legend Footer */}
-      <div className={`px-4 py-2 border-t flex gap-4 text-xs flex-wrap items-center ${
-        isFullscreen ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-gray-50 dark:bg-slate-950 dark:border-slate-800 text-slate-400'
-      }`}>
+      <div className="px-4 py-2 border-t border-border flex gap-4 text-xs flex-wrap items-center bg-surface-bright">
         {Object.entries(statusColors).map(([status, color]) => (
-          <span key={status} className="flex items-center gap-1.5">
+          <span key={status} className="flex items-center gap-1.5 text-muted">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
             {status}
           </span>
         ))}
-        <span className="text-slate-400 text-xs ml-auto">
-          {activeTab === 'properties' ? 'Click a property marker to view details' : 'Click a unit marker to trigger 3D visual preview'}
+        <span className="text-muted text-xs ml-auto">
+          {activeTab === 'properties' ? 'Click a property marker to view details' : 'Click a unit to open 3D preview'}
         </span>
       </div>
     </div>

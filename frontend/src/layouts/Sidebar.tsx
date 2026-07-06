@@ -64,12 +64,12 @@ function SidebarPanel({
       initial={false}
       animate={{ width: sidebarOpen ? 240 : 72 }}
       transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-      className="fixed inset-y-0 left-0 z-30 flex flex-col bg-slate-900 text-white overflow-hidden"
+      className="fixed inset-y-0 left-0 z-30 flex flex-col bg-surface text-foreground border-r border-border overflow-hidden"
     >
       {/* ── Brand ───────────────────────────────────────────────────────────── */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-slate-800 flex-shrink-0">
+      <div className="flex h-16 items-center justify-between px-4 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="p-2 bg-blue-600 rounded-lg text-white font-black flex-shrink-0 text-xs select-none">
+          <div className="p-2 bg-gradient-to-br from-brand-400 to-secondary rounded-lg text-slate-950 font-black flex-shrink-0 text-xs select-none">
             MR
           </div>
           <AnimatePresence initial={false}>
@@ -83,7 +83,7 @@ function SidebarPanel({
                 className="font-extrabold text-sm tracking-wider uppercase whitespace-nowrap"
               >
                 MutuneRent{' '}
-                <span className="text-blue-500 font-medium normal-case">Pro</span>
+                <span className="text-brand-400 font-medium normal-case">Pro</span>
               </motion.span>
             )}
           </AnimatePresence>
@@ -92,7 +92,7 @@ function SidebarPanel({
         {/* Collapse toggle (desktop only) */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="hidden lg:flex p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+          className="hidden lg:flex p-1.5 hover:bg-surface-bright rounded text-muted hover:text-foreground transition-colors"
           aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
@@ -146,13 +146,13 @@ function SidebarPanel({
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all relative',
                 isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted hover:bg-surface-bright hover:text-foreground',
               ].join(' ')}
             >
               {/* Active left-border indicator */}
               {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-blue-300 rounded-r-full" />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-5 bg-primary rounded-r-full" />
               )}
               <span className="flex-shrink-0">{item.icon}</span>
               <AnimatePresence initial={false}>
@@ -175,9 +175,9 @@ function SidebarPanel({
       </nav>
 
       {/* ── User footer ─────────────────────────────────────────────────────── */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/40 flex-shrink-0">
+      <div className="p-3 border-t border-border bg-background/40 flex-shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-blue-500 border border-slate-700 uppercase flex-shrink-0 text-sm select-none">
+          <div className="h-9 w-9 rounded-full bg-surface-bright flex items-center justify-center font-bold text-primary border border-border uppercase flex-shrink-0 text-sm select-none">
             {fullName.charAt(0)}
           </div>
           <AnimatePresence initial={false}>
@@ -190,8 +190,8 @@ function SidebarPanel({
                 transition={{ duration: 0.12 }}
                 className="flex-1 min-w-0"
               >
-                <p className="text-xs font-bold truncate text-slate-100">{fullName}</p>
-                <p className="text-xs text-slate-400 truncate capitalize">{role}</p>
+                <p className="text-xs font-bold truncate text-foreground">{fullName}</p>
+                <p className="text-xs text-muted truncate capitalize">{role}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -207,7 +207,7 @@ function SidebarPanel({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12 }}
               onClick={() => onLogout()}
-              className="mt-3 flex w-full items-center justify-center gap-2 px-3 py-1.5 border border-slate-800 hover:border-red-900 rounded-lg text-xs font-bold text-slate-400 hover:text-red-400 transition-colors uppercase tracking-wider"
+              className="mt-3 flex w-full items-center justify-center gap-2 px-3 py-1.5 border border-border hover:border-red-500/50 rounded-lg text-xs font-bold text-muted hover:text-red-400 transition-colors uppercase tracking-wider"
             >
               <LogOut size={12} />
               Log Out

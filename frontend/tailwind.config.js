@@ -6,12 +6,21 @@ export default {
     extend: {
       colors: {
         primary: 'var(--primary)',
+        secondary: 'var(--secondary)',
+        tertiary: 'var(--tertiary)',
         background: 'var(--background)',
         foreground: 'var(--foreground)',
         success: 'var(--success)',
         'success-bg': 'var(--success-bg)',
-        surface: 'var(--surface)',
-        border: 'var(--border)',
+        surface: {
+          DEFAULT: 'var(--surface)',
+          bright: 'var(--surface-bright)',
+          tint: 'var(--surface-tint)',
+        },
+        border: {
+          DEFAULT: 'var(--border)',
+          focus: 'var(--border-focus)',
+        },
         muted: 'var(--muted)',
         brand: {
           50:  'var(--brand-50)',
@@ -30,6 +39,9 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['Fira Code', 'JetBrains Mono', 'Cascadia Code', 'monospace']
+      },
+      backdropBlur: {
+        xs: '2px',
       }
     }
   },
