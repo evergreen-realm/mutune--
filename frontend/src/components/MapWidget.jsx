@@ -30,6 +30,22 @@ function getUnitStatus(unit) {
   return 'vacant';
 }
 
+export function getPropertyCoords(prop) {
+  if (!prop) return [39.6682, -4.0435];
+  const coords = prop.location?.coordinates;
+  if (coords && coords.length === 2 && coords[0] !== 0 && coords[1] !== 0) {
+    return coords;
+  }
+  const hashStr = prop._id || prop.name || '';
+  let hash = 0;
+  for (let i = 0; i < hashStr.length; i++) {
+    hash = hashStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const latJitter = ((Math.abs(hash) % 100) / 1000) * 0.04 - 0.02;
+  const lngJitter = (((Math.abs(hash) >> 8) % 100) / 1000) * 0.04 - 0.02;
+  return [39.6682 + lngJitter, -4.0435 + latJitter];
+}
+
 // ── Mapbox Map component ─────────────────────────────────────────────────────
 function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen }) {
   const mapContainerRef = useRef(null);
@@ -130,8 +146,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
     if (activeTab === 'properties') {
       properties.forEach((prop) => {
-        const coords = prop.location?.coordinates;
-        if (!coords || coords.length !== 2) return;
+        let coords = getPropertyCoords(prop);
 
         const el = document.createElement('div');
         el.className = 'custom-marker';
@@ -207,7 +222,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         });
       }
 
-      const pCoords = selectedProperty.location?.coordinates;
+      const pCoords = getPropertyCoords(selectedProperty);
       if (pCoords) {
         const el = document.createElement('div');
         el.style.background = '#8b5cf6';
@@ -477,8 +492,8 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
   const center = useMemo(() => {
     if (agentLocation) return [agentLocation.lat, agentLocation.lng];
     if (filtered?.length) {
-      const coords = filtered[0].location?.coordinates;
-      if (coords?.length === 2) return [coords[1], coords[0]];
+      const coords = getPropertyCoords(filtered[0]);
+      return [coords[1], coords[0]];
     }
     return [-4.0435, 39.6682]; // Mombasa default
   }, [agentLocation, filtered]);

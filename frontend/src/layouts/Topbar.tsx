@@ -115,7 +115,7 @@ export default function Topbar({
   const unreadCount: number            = notifData?.unreadCount || 0;
 
   return (
-    <header className="h-16 bg-surface border-b border-border px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-10">
+    <header className="h-16 bg-surface border-b border-border px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-40">
       {/* ── Left: hamburger + breadcrumb ──────────────────────────────────── */}
       <div className="flex items-center gap-3">
         {/* Mobile hamburger */}
@@ -162,7 +162,7 @@ export default function Topbar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch(e as unknown as React.FormEvent)}
-            className="h-8 w-44 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted pl-7 pr-3 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all"
+            className="h-8 w-44 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted pl-7 pr-3 outline-none focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/20 transition-all"
           />
         </form>
 
@@ -222,7 +222,7 @@ export default function Topbar({
                               toast.error(e?.error?.message || 'Failed to update notifications');
                             }
                           }}
-                          className="text-xs text-blue-600 hover:text-blue-500 font-bold uppercase tracking-wider transition-colors"
+                          className="text-xs text-brand-400 hover:text-brand-500 font-bold uppercase tracking-wider transition-colors"
                         >
                           Mark all read
                         </button>
@@ -277,7 +277,7 @@ export default function Topbar({
                             className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                               isRead
                                 ? 'bg-surface border-border/50 hover:bg-background'
-                                : 'bg-blue-500/5 border-blue-500/10 hover:bg-blue-500/10'
+                                : 'bg-brand-500/5 border-brand-500/10 hover:bg-brand-500/10'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -290,7 +290,7 @@ export default function Topbar({
                               </span>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 {!isRead && (
-                                  <span className="h-2 w-2 rounded-full bg-blue-500 mt-1" />
+                                  <span className="h-2 w-2 rounded-full bg-brand-400 mt-1" />
                                 )}
                                 <button
                                   onClick={async (e) => {
