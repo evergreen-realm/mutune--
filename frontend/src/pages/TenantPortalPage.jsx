@@ -73,6 +73,65 @@ const ticketStatusColor = (s) => ({
   closed:      'bg-muted/10 text-muted border border-border'
 }[s] || 'bg-muted/10 text-muted border border-border');
 
+function RentCountdownTimer() {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const target = new Date();
+    target.setDate(1);
+    target.setMonth(target.getMonth() + 1);
+    target.setHours(0, 0, 0, 0);
+
+    const update = () => {
+      const difference = target.getTime() - Date.now();
+      if (difference <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+      setTimeLeft({ days, hours, minutes, seconds });
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="bg-gradient-to-br from-indigo-950/60 via-slate-900/40 to-slate-950/60 border border-indigo-500/20 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+      <div>
+        <span className="text-[10px] text-indigo-400 font-extrabold uppercase tracking-widest block mb-1">Rent Payment Countdown</span>
+        <h3 className="text-base font-black text-foreground">Time Remaining Until Next Cycle</h3>
+        <p className="text-[11px] text-muted mt-0.5">Please settle current balances before the countdown reaches zero to avoid late penalty interest fees.</p>
+      </div>
+      <div className="flex items-center gap-2 md:gap-3 text-center flex-shrink-0">
+        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
+          <div className="font-mono text-lg font-black text-primary">{timeLeft.days}</div>
+          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Days</div>
+        </div>
+        <div className="text-muted font-bold">:</div>
+        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
+          <div className="font-mono text-lg font-black text-primary">{timeLeft.hours}</div>
+          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Hrs</div>
+        </div>
+        <div className="text-muted font-bold">:</div>
+        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
+          <div className="font-mono text-lg font-black text-primary">{timeLeft.minutes}</div>
+          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Mins</div>
+        </div>
+        <div className="text-muted font-bold">:</div>
+        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
+          <div className="font-mono text-lg font-black text-pink-500">{timeLeft.seconds}</div>
+          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Secs</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Skeleton loader component for portal
 function PortalSkeleton() {
   return (
@@ -887,6 +946,10 @@ export default function TenantPortalPage() {
             {/* OVERVIEW TAB (Nano Banana 2b Layout) */}
             {activeTab === 'overview' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Full-width Welcome Countdown banner */}
+                <div className="lg:col-span-3">
+                  <RentCountdownTimer />
+                </div>
                 {/* Left Column (2/3 width on desktop) */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Rent Payment Card */}

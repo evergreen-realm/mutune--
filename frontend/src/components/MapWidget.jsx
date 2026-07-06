@@ -315,7 +315,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
               <p style="font-weight: 700; margin: 0; font-size: 12px;">Unit ${unit.unit_number}</p>
               <p style="font-size: 11px; margin: 2px 0;">Status: ${unit.status}</p>
               <p style="font-size: 11px; color: #64748b; margin: 2px 0;">KES ${unit.rent_kes?.toLocaleString()}/mo</p>
-              <button id="mapbox-unit-${unit.unit_id}" style="margin-top: 6px; width: 100%; border: none; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border-radius: 6px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">
+              <button id="mapbox-unit-${unit.unit_number}" style="margin-top: 6px; width: 100%; border: none; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border-radius: 6px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">
                 Open 3D Model
               </button>
             </div>
@@ -324,7 +324,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           const marker = new mapboxgl.Marker(el).setLngLat(coords).setPopup(popup).addTo(map);
 
           popup.on('open', () => {
-            const btn = document.getElementById(`mapbox-unit-${unit.unit_id}`);
+            const btn = document.getElementById(`mapbox-unit-${unit.unit_number}`);
             if (btn) {
               btn.addEventListener('click', () => {
                 popup.remove();
