@@ -54,7 +54,7 @@ if ($missing) {
 $envVars = @(
   @{key="NODE_ENV";                     value="production"},
   @{key="PORT";                         value="10000"},
-  @{key="FRONTEND_URL";                 value="https://mutunerent-web.vercel.app"},
+  @{key="FRONTEND_URL";                 value="https://mutunerent-web-mishael-s-alpha.vercel.app"},
   @{key="MONGODB_URI";                  value=$env:MONGODB_URI},
   @{key="JWT_SECRET";                   value=$env:JWT_SECRET},
   @{key="ENCRYPTION_KEY";               value=$env:ENCRYPTION_KEY},

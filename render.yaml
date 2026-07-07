@@ -69,5 +69,5 @@ services:
       - key: CLOUDFLARE_R2_PUBLIC_URL
         sync: false
       - key: FRONTEND_URL
-        value: https://mutunerent-web.vercel.app
+        value: https://mutunerent-web-mishael-s-alpha.vercel.app
     healthCheckPath: /api/v1/health
