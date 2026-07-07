@@ -12,6 +12,7 @@ import {
   useClerk
 } from '@clerk/clerk-react';
 
+
 // Pages
 import DashboardPage     from './pages/DashboardPage';
 import TenantsPage       from './pages/TenantsPage';
@@ -31,6 +32,8 @@ import LandlordAddPropertyPage from './pages/LandlordAddPropertyPage';
 import AgentPerformancePage from './pages/AgentPerformancePage';
 import AdminUserManagementPage from './pages/AdminUserManagementPage';
 import AdminInventoryPage from './pages/AdminInventoryPage';
+import TasksPage         from './pages/TasksPage';
+
 import { useThemeStore } from './store/themeStore';
 import Lenis from 'lenis';
 import gsap from 'gsap';
@@ -519,6 +522,7 @@ function AppShell() {
           <Route path="/tenants"        element={<TenantsPage />} />
           <Route path="/payments"       element={<PaymentsPage />} />
           <Route path="/maintenance"    element={<MaintenancePage />} />
+          <Route path="/tasks"          element={<TasksPage dbUser={dbUser} />} />
           <Route path="/admin"          element={<Navigate to="/" replace />} />
           <Route path="/admin/users"    element={<AdminUserManagementPage />} />
           <Route path="/admin/inventory" element={<AdminInventoryPage />} />

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Building2, Users2, WalletCards,
   Wrench, ShieldCheck, Home, PlusCircle, FileText,
-  Menu, X, LogOut,
+  Menu, X, LogOut, ListTodo,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -266,6 +266,7 @@ export default function Sidebar({
     { path: '/tenants',         label: 'Tenants',              icon: <Users2 size={18} />,          show: !isTenant },
     { path: '/payments',        label: 'Rent Payments',        icon: <WalletCards size={18} />,     show: !isTenant },
     { path: '/maintenance',     label: 'Maintenance',          icon: <Wrench size={18} />,          show: true },
+    { path: '/tasks',           label: 'Task Board',           icon: <ListTodo size={18} />,        show: isAdmin || isAgent },
     { path: '/notices',         label: 'Notices',              icon: <FileText size={18} />,        show: isAdmin || isAgent || isTenant },
   ].filter((item) => item.show);
 
