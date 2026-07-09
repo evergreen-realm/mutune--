@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
+import VoxelLogo3D from '../components/VoxelLogo3D';
 import 'leaflet/dist/leaflet.css';
 import {
   fetchMyProfile, fetchMyPayments, fetchMyNotices,
@@ -102,31 +103,31 @@ function RentCountdownTimer() {
   }, []);
 
   return (
-    <div className="bg-gradient-to-br from-blue-950/60 via-slate-900/40 to-slate-950/60 border border-blue-500/20 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+    <div className="bg-slate-900/60 dark:bg-slate-950/65 backdrop-blur-md border border-slate-800/40 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
       <div>
         <span className="text-[10px] text-blue-400 font-extrabold uppercase tracking-widest block mb-1">Rent Payment Countdown</span>
-        <h3 className="text-base font-black text-foreground">Time Remaining Until Next Cycle</h3>
-        <p className="text-[11px] text-muted mt-0.5">Please settle current balances before the countdown reaches zero to avoid late penalty interest fees.</p>
+        <h3 className="text-base font-black text-white">Time Remaining Until Next Cycle</h3>
+        <p className="text-[11px] text-slate-400 mt-1 font-semibold">Please settle current balances before the countdown reaches zero to avoid late penalty interest fees.</p>
       </div>
       <div className="flex items-center gap-2 md:gap-3 text-center flex-shrink-0">
-        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
-          <div className="font-mono text-lg font-black text-primary">{timeLeft.days}</div>
-          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Days</div>
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 min-w-[55px] shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+          <div className="font-mono text-lg font-black text-blue-400" style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.6)' }}>{timeLeft.days}</div>
+          <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Days</div>
         </div>
-        <div className="text-muted font-bold">:</div>
-        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
-          <div className="font-mono text-lg font-black text-primary">{timeLeft.hours}</div>
-          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Hrs</div>
+        <div className="text-slate-500 font-bold">:</div>
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 min-w-[55px] shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+          <div className="font-mono text-lg font-black text-blue-400" style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.6)' }}>{timeLeft.hours}</div>
+          <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Hrs</div>
         </div>
-        <div className="text-muted font-bold">:</div>
-        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
-          <div className="font-mono text-lg font-black text-primary">{timeLeft.minutes}</div>
-          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Mins</div>
+        <div className="text-slate-500 font-bold">:</div>
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 min-w-[55px] shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+          <div className="font-mono text-lg font-black text-blue-400" style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.6)' }}>{timeLeft.minutes}</div>
+          <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Mins</div>
         </div>
-        <div className="text-muted font-bold">:</div>
-        <div className="bg-background/85 border border-border rounded-xl px-3 py-2.5 min-w-[50px] shadow-sm">
-          <div className="font-mono text-lg font-black text-pink-500">{timeLeft.seconds}</div>
-          <div className="text-[9px] text-muted uppercase font-bold tracking-wider">Secs</div>
+        <div className="text-slate-500 font-bold">:</div>
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 min-w-[55px] shadow-[0_0_15px_rgba(244,63,94,0.15)]">
+          <div className="font-mono text-lg font-black text-rose-500" style={{ textShadow: '0 0 8px rgba(244, 63, 94, 0.6)' }}>{timeLeft.seconds}</div>
+          <div className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Secs</div>
         </div>
       </div>
     </div>
@@ -227,6 +228,7 @@ export default function TenantPortalPage() {
 
   const [customerCare, setCustomerCare] = useState('254700000000');
   const [paying, setPaying] = useState(false);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
 
   const handlePayRent = async () => {
     setPaying(true);
@@ -235,6 +237,7 @@ export default function TenantPortalPage() {
       const res = await autoInitiatePayment();
       if (res?.success) {
         toast.update(toastId, { render: 'Payment request sent! Please enter your PIN on your handset.', type: 'success', isLoading: false, autoClose: 5000 });
+        setShowSuccessOverlay(true);
       } else {
         toast.update(toastId, { render: res?.message || 'STK Push failed to initiate.', type: 'error', isLoading: false, autoClose: 5000 });
       }
@@ -706,6 +709,11 @@ export default function TenantPortalPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Countdown timer card render */}
+        <div className="mb-6">
+          <RentCountdownTimer />
+        </div>
 
         {/* HERO PROPERTY LEASE CARD - ZILLOW STYLE */}
         <div className="bg-surface/30 backdrop-blur-xl border border-border rounded-[32px] overflow-hidden shadow-2xl mb-8">
@@ -1638,6 +1646,32 @@ export default function TenantPortalPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* 3D Confirmation Success Overlay Modal */}
+      {showSuccessOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[32px] shadow-2xl p-6 relative text-center">
+            <div className="w-24 h-24 mx-auto mb-4 relative flex items-center justify-center">
+              <VoxelLogo3D className="w-20 h-20" isSpinningFast={true} scale={2.0} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <CheckCircle2 size={32} className="text-emerald-450 drop-shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
+              </div>
+            </div>
+            
+            <h3 className="text-white text-base font-black uppercase tracking-wider mb-2">STK Push Triggered</h3>
+            <p className="text-slate-300 text-xs leading-relaxed mb-6 font-semibold">
+              We have dispatched an M-Pesa STK Push prompt to your phone. Settle rent by inputting your M-Pesa PIN.
+            </p>
+            
+            <button
+              onClick={() => setShowSuccessOverlay(false)}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all uppercase tracking-wider cursor-pointer border-none shadow-md shadow-emerald-950/40 active:scale-95"
+            >
+              Okay, Settle Rent
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

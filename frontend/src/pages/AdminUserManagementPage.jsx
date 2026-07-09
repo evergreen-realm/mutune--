@@ -395,7 +395,7 @@ export default function AdminUserManagementPage() {
   );
 
   return (
-    <div style={{ color: '#fff' }}>
+    <div className="admin-user-management text-foreground" style={{ color: 'var(--foreground)' }}>
       <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
         <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
       </div>
@@ -990,7 +990,7 @@ export default function AdminUserManagementPage() {
       {landlordModal.open && (
         <>
           <div onClick={() => setLandlordModal(m => ({ ...m, open: false }))} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 440, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
+           <div className="admin-user-management-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 440, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
             <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Register Landlord manually</h3>
             <form onSubmit={handleCreateLandlord} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
@@ -1029,7 +1029,7 @@ export default function AdminUserManagementPage() {
       {tierModal.open && (
         <>
           <div onClick={() => setTierModal(tm => ({ ...tm, open: false }))} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 460, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
+          <div className="admin-user-management-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 460, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
             <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>
               {tierModal.tier ? 'Modify Classification Tier' : 'Create Classification Tier'}
             </h3>
@@ -1071,13 +1071,13 @@ export default function AdminUserManagementPage() {
       {landlordRejectModal.open && (
         <>
           <div onClick={() => setLandlordRejectModal({ open: false, landlordId: null, reason: '' })} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 440, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
+          <div className="admin-user-management-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 440, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
             <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Reject Landlord Application</h3>
             <textarea value={landlordRejectModal.reason} onChange={e => setLandlordRejectModal(r => ({ ...r, reason: e.target.value }))} rows={4} placeholder="Reason for rejecting this landlord application (sent via email)…"
               style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={handleRejectLandlord} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Confirm Reject</button>
-              <button onClick={() => setLandlordRejectModal({ open: false, landlordId: null, reason: '' })} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setLandlordRejectModal({ open: false, landlordId: null, reason: '' })} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: 12, fontSize: 14, fontStyle: 'bold', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </>
@@ -1087,13 +1087,13 @@ export default function AdminUserManagementPage() {
       {rejectModal.open && (
         <>
           <div onClick={() => setRejectModal({ open: false, propId: null, reason: '' })} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, backdropFilter: 'blur(4px)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 440, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
+          <div className="admin-user-management-modal" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '90%', maxWidth: 440, zIndex: 201, background: 'linear-gradient(135deg, #1a1a3e, #0f0c29)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: 32, boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }}>
             <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 16 }}>Rejection Reason</h3>
             <textarea value={rejectModal.reason} onChange={e => setRejectModal(r => ({ ...r, reason: e.target.value }))} rows={4} placeholder="Explain why this property is being rejected…"
               style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={handleRejectProp} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Confirm Reject</button>
-              <button onClick={() => setRejectModal({ open: false, propId: null, reason: '' })} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setRejectModal({ open: false, propId: null, reason: '' })} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: 12, fontSize: 14, fontStyle: 'bold', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </>

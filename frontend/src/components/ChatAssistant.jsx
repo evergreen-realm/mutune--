@@ -3,6 +3,7 @@ import { Sparkles, X, Send, Bot, User, Wrench, CreditCard, Home, Loader2, Trash2
 import { sendChatMessage, clearChatHistory } from '../lib/api';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
+import VoxelLogo3D from './VoxelLogo3D';
 
 export default function ChatAssistant({ user, context = {} }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -88,7 +89,7 @@ export default function ChatAssistant({ user, context = {} }) {
         {tools.map((t, i) => (
           <span
             key={i}
-            className="px-2.5 py-0.5 bg-blue-550/10 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full border border-blue-200 dark:border-blue-800/50 flex items-center gap-1 font-medium animate-fade-in"
+            className="px-2.5 py-1 bg-blue-600/10 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] rounded-full border border-blue-200 dark:border-blue-800/50 flex items-center gap-1 font-bold animate-fade-in uppercase tracking-wider"
           >
             {iconMap[t.tool] || null}
             {t.tool.replace(/_/g, ' ')}
@@ -131,17 +132,15 @@ export default function ChatAssistant({ user, context = {} }) {
             className="w-[360px] sm:w-[400px] h-[550px] max-h-[85vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden transition-colors duration-200"
           >
             {/* Header */}
-            <div className="px-4 py-3.5 bg-slate-900 dark:bg-slate-955 text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800/40">
+            <div className="px-4 py-3.5 bg-slate-900 dark:bg-slate-950 text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800/40">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="w-9 h-9 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center flex-shrink-0">
-                    <Bot size={18} className="text-white" />
-                  </div>
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-blue-500 border-2 border-slate-900 dark:border-slate-950 rounded-full animate-pulse" />
+                  <VoxelLogo3D className="w-9 h-9" isSpinningFast={loading} scale={1.8} />
+                  <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-slate-900 rounded-full animate-pulse" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm leading-none text-white">Mutune AI</p>
-                  <p className="text-xs text-slate-300 mt-1">Property Assistant</p>
+                  <p className="font-bold text-sm leading-none text-white tracking-tight">Mutune AI</p>
+                  <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-extrabold">Property Agent</p>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
@@ -185,7 +184,7 @@ export default function ChatAssistant({ user, context = {} }) {
                         <button
                           key={i}
                           onClick={() => setInput(chip)}
-                          className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:border-blue-300 dark:hover:border-blue-800 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer transition-all duration-200 shadow-sm"
+                          className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-955/40 hover:border-blue-300 dark:hover:border-blue-800 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer transition-all duration-200 shadow-sm"
                         >
                           {chip}
                         </button>
@@ -206,8 +205,8 @@ export default function ChatAssistant({ user, context = {} }) {
                       msg.role === 'user'
                         ? 'bg-emerald-700 text-white rounded-tr-none'
                         : msg.isError
-                          ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-tl-none'
-                          : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700/50 rounded-tl-none'
+                          ? 'bg-red-55/30 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-tl-none'
+                          : 'bg-white dark:bg-slate-800 text-slate-850 dark:text-slate-100 border border-slate-100 dark:border-slate-700/50 rounded-tl-none'
                     }`}
                   >
                     <ReactMarkdown className="prose prose-sm max-w-none break-words dark:prose-invert text-slate-800 dark:text-slate-100">
@@ -216,7 +215,7 @@ export default function ChatAssistant({ user, context = {} }) {
                     {msg.toolIntent && renderToolSuggestions(msg.toolIntent)}
                   </div>
                   {msg.role === 'user' && (
-                    <div className="w-7 h-7 rounded-full bg-slate-700 dark:bg-slate-850 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm animate-fade-in">
+                    <div className="w-7 h-7 rounded-full bg-slate-750 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm animate-fade-in">
                       <User size={14} className="text-slate-300 dark:text-slate-400" />
                     </div>
                   )}
@@ -227,12 +226,9 @@ export default function ChatAssistant({ user, context = {} }) {
                   <div className="w-7 h-7 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
                     <Bot size={14} className="text-white" />
                   </div>
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl rounded-tl-none px-4 py-3 border border-slate-100 dark:border-slate-700/50 shadow-sm">
-                    <div className="flex gap-1.5 items-center">
-                      <span className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:300ms]" />
-                    </div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl rounded-tl-none p-3.5 flex items-center gap-3 shadow-xl">
+                    <VoxelLogo3D className="w-8 h-8" isSpinningFast={true} scale={1.8} />
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">Compiling Response…</span>
                   </div>
                 </div>
               )}

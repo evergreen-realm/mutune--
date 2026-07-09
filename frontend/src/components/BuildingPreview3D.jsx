@@ -164,16 +164,23 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
             <directionalLight position={[-5, 8, -5]} intensity={0.6} />
 
             <group position={[0, -1, 0]}>
-              {units.map((unit, idx) => (
-                <Unit3DBlock
-                  key={unit._id || idx}
-                  unit={unit}
-                  index={idx}
-                  isSelected={selectedUnit?._id === unit._id}
-                  onHover={setHoveredUnit}
-                  onClick={onUnitSelect}
-                />
-              ))}
+              {units.length === 0 ? (
+                <mesh position={[0, 1.5, 0]}>
+                  <boxGeometry args={[3.2, 3.0, 3.2]} />
+                  <meshStandardMaterial color="#3b82f6" wireframe roughness={0.3} />
+                </mesh>
+              ) : (
+                units.map((unit, idx) => (
+                  <Unit3DBlock
+                    key={unit._id || idx}
+                    unit={unit}
+                    index={idx}
+                    isSelected={selectedUnit?._id === unit._id}
+                    onHover={setHoveredUnit}
+                    onClick={onUnitSelect}
+                  />
+                ))
+              )}
 
               <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
               <mesh rotation={[-Math.PI / 2, 0, 0]}>

@@ -76,6 +76,34 @@ router.get('/me', requireAuth, async (req, res, next) => {
 });
 
 
+// ─── PUT /users/me/profile-picture ───────────────────────────────────────────
+router.put('/me/profile-picture',
+  requireAuth,
+  [
+    body('profile_picture').trim().notEmpty().withMessage('profile_picture is required')
+  ],
+  async (req, res, next) => {
+    try {
+      if (!validate(req, res)) return;
+      const { profile_picture } = req.body;
+      const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: { profile_picture, updated_at: new Date() } },
+        { new: true }
+      ).select('-password_hash');
+
+      if (!user) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+      }
+
+      res.json({ success: true, data: user });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
 // ─── GET /users/check-tenant-email/:email ─────────────────────────────────────
 // Check if a tenant record exists for this email (used during onboarding to
 // prompt existing tenants to use their tenant code instead of re-registering).

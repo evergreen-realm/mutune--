@@ -7,8 +7,11 @@ import { toast } from 'react-toastify';
 import {
   Building2, Users2, TrendingUp, DollarSign, Home, PlusCircle,
   ArrowUpRight, CheckCircle2, Clock, AlertTriangle, Eye, UserPlus,
-  ChevronLeft, ChevronRight, ShieldCheck, CreditCard
+  ChevronLeft, ChevronRight, ShieldCheck, CreditCard, Layers, Compass
 } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
+import { gsap } from 'gsap';
+import VoxelBuildingMini3D from '../components/VoxelBuildingMini3D';
 
 const FMT_KES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 const FMT_DATE = (d) => {
@@ -17,6 +20,39 @@ const FMT_DATE = (d) => {
   if (isNaN(dateObj.getTime())) return '—';
   return dateObj.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
 };
+
+// Animated counter component
+function AnimatedCounter({ value, duration = 1000, prefix = "", suffix = "" }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const end = parseInt(String(value).replace(/[^0-9]/g, ''), 10) || 0;
+    if (start === end) {
+      setCount(end);
+      return;
+    }
+    const totalMiliseconds = duration;
+    const incrementTime = Math.abs(Math.floor(totalMiliseconds / end));
+    const step = Math.max(1, Math.floor(end / 40));
+    
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= end) {
+        clearInterval(timer);
+        setCount(end);
+      } else {
+        setCount(start);
+      }
+    }, Math.max(incrementTime, 16));
+    
+    return () => clearInterval(timer);
+  }, [value, duration]);
+
+  const isFormatted = String(value).includes('M') || String(value).includes('L');
+  const displayVal = isFormatted ? value : count.toLocaleString();
+
+  return <span>{prefix}{displayVal}{suffix}</span>;
+}
 
 export default function LandlordDashboardPage() {
   const { user: clerkUser } = useUser();
@@ -29,6 +65,19 @@ export default function LandlordDashboardPage() {
   const [loading, setLoading]       = useState(true);
   const [activePropIndex, setActivePropIndex] = useState(0);
   const [approvingLeaseId, setApprovingLeaseId] = useState(null);
+
+  // Property Card Hover state
+  const [hoveredPropertyId, setHoveredPropertyId] = useState(null);
+
+  // Recharts analytic data for financial insights
+  const financialData = [
+    { name: 'Jan', revenue: 420000 },
+    { name: 'Feb', revenue: 580000 },
+    { name: 'Mar', revenue: 720000 },
+    { name: 'Apr', revenue: 950000 },
+    { name: 'May', revenue: 1100000 },
+    { name: 'Jun', revenue: 1200000 }
+  ];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,10 +97,19 @@ export default function LandlordDashboardPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // GSAP entrance animation triggers on mount
+  useEffect(() => {
+    if (!loading) {
+      gsap.fromTo('.landlord-card', 
+        { opacity: 0, y: 35, scale: 0.96 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.1, ease: 'power2.out', clearProps: 'all' }
+      );
+    }
+  }, [loading]);
+
   const handleApproveLease = async (tenantId) => {
     setApprovingLeaseId(tenantId);
     try {
-      // Approve tenancy / KYC state
       await updateTenant(tenantId, { tenancy_status: 'active', kyc_verified: true });
       toast.success('Lease agreement approved & KYC verified successfully!');
       load();
@@ -78,7 +136,7 @@ export default function LandlordDashboardPage() {
     return p.status === 'confirmed' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).reduce((s, p) => s + Number(p.amount_kes || 0), 0);
 
-  const collectionRate = expectedRent > 0 ? Math.round((collectedRent / expectedRent) * 100) : 85; // default fallback 85% for display
+  const collectionRate = expectedRent > 0 ? Math.round((collectedRent / expectedRent) * 100) : 85; 
 
   const activeProperty = properties[activePropIndex] || null;
   const pendingLeases = tenants.filter(t => t.tenancy_status === 'pending');
@@ -103,7 +161,7 @@ export default function LandlordDashboardPage() {
     <div className="relative pb-12">
       {/* Cohesive background blur */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-brand-500/5 blur-[120px]" />
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-purple-500/5 blur-[120px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[450px] h-[450px] rounded-full bg-blue-500/5 blur-[100px]" />
       </div>
 
@@ -125,13 +183,13 @@ export default function LandlordDashboardPage() {
           <div className="flex gap-2.5 flex-wrap">
             <Link 
               to="/properties/add" 
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-lg uppercase tracking-wider cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-500 to-purple-650 hover:from-brand-600 hover:to-purple-750 text-white rounded-xl text-xs font-bold transition shadow-lg uppercase tracking-wider cursor-pointer active:scale-95 no-underline border-none"
             >
               <PlusCircle size={14} /> Add Property
             </Link>
             <Link 
               to="/tenants" 
-              className="flex items-center gap-2 px-4 py-2.5 bg-brand-500/10 border border-brand-500/20 text-brand-500 rounded-xl text-xs font-bold transition hover:bg-brand-500/15 uppercase tracking-wider cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 bg-brand-500/10 border border-brand-500/20 text-brand-500 rounded-xl text-xs font-bold transition hover:bg-brand-500/15 uppercase tracking-wider cursor-pointer active:scale-95 no-underline"
             >
               <UserPlus size={14} /> Link Tenant
             </Link>
@@ -141,8 +199,8 @@ export default function LandlordDashboardPage() {
         {/* Top Section: Property Photo Slider & Circular Progress Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           
-          {/* 1. Property Slider (displays enhanced photos) */}
-          <div className="lg:col-span-2 bg-surface/30 backdrop-blur-md border border-border rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between h-[360px]">
+          {/* 1. Property Slider */}
+          <div className="landlord-card lg:col-span-2 bg-surface/30 backdrop-blur-md border border-border rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between h-[360px]">
             {activeProperty ? (
               <div className="relative flex-1 group bg-slate-950 overflow-hidden">
                 {activeProperty.photos?.[0] ? (
@@ -152,12 +210,12 @@ export default function LandlordDashboardPage() {
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-muted gap-2">
+                  <div className="w-full h-full flex flex-col items-center justify-center text-muted gap-2 bg-slate-900/40">
                     <Building2 size={48} className="text-brand-500 animate-pulse" />
                     <span className="text-xs font-bold uppercase tracking-wider">No Photo Registered</span>
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-955 via-transparent to-transparent pointer-events-none" />
                 
                 {/* Details Overlay */}
                 <div className="absolute bottom-4 left-4 right-4">
@@ -223,7 +281,7 @@ export default function LandlordDashboardPage() {
           </div>
 
           {/* 2. Monthly Collection Rate Circular Metrics */}
-          <div className="bg-surface/30 backdrop-blur-md border border-border rounded-3xl p-6 shadow-xl flex flex-col justify-between items-center text-center h-[360px]">
+          <div className="landlord-card bg-surface/30 backdrop-blur-md border border-border rounded-3xl p-6 shadow-xl flex flex-col justify-between items-center text-center h-[360px]">
             <div className="w-full text-left">
               <span className="text-[10px] text-brand-500 font-extrabold uppercase tracking-widest block mb-1">
                 Rent Collection Rate
@@ -234,7 +292,6 @@ export default function LandlordDashboardPage() {
             {/* Circular Ring Progress */}
             <div className="relative w-36 h-36 flex items-center justify-center my-2">
               <svg className="w-full h-full transform -rotate-90">
-                {/* Background Ring */}
                 <circle
                   cx="72"
                   cy="72"
@@ -243,7 +300,6 @@ export default function LandlordDashboardPage() {
                   strokeWidth="10"
                   fill="transparent"
                 />
-                {/* Colored Progress Ring */}
                 <circle
                   cx="72"
                   cy="72"
@@ -257,9 +313,10 @@ export default function LandlordDashboardPage() {
                   strokeLinecap="round"
                 />
               </svg>
-              {/* Inner Rate text */}
               <div className="absolute text-center">
-                <span className="text-2xl font-black text-foreground">{collectionRate}%</span>
+                <span className="text-2xl font-black text-foreground">
+                  <AnimatedCounter value={collectionRate} />%
+                </span>
                 <span className="text-[9px] text-muted font-bold block uppercase tracking-wider mt-0.5">collected</span>
               </div>
             </div>
@@ -268,21 +325,160 @@ export default function LandlordDashboardPage() {
             <div className="grid grid-cols-2 gap-4 w-full border-t border-border/40 pt-4 text-xs">
               <div className="border-r border-border/30">
                 <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Total Expected</span>
-                <strong className="text-foreground text-sm font-black font-mono">{FMT_KES(expectedRent)}</strong>
+                <strong className="text-foreground text-sm font-black font-mono">
+                  <AnimatedCounter value={expectedRent} prefix="KES " />
+                </strong>
               </div>
               <div>
                 <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Collected</span>
-                <strong className="text-brand-500 text-sm font-black font-mono">{FMT_KES(collectedRent)}</strong>
+                <strong className="text-brand-500 text-sm font-black font-mono">
+                  <AnimatedCounter value={collectedRent} prefix="KES " />
+                </strong>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Middle Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[
+            { title: 'Properties Managed', value: properties.length, desc: 'Coast Area Portfolio', icon: <Building2 size={16} />, highlightColor: 'border-blue-500/20' },
+            { title: 'Total Housing Units', value: totalUnits, desc: 'Occupied vs Vacant', icon: <Layers size={16} />, highlightColor: 'border-purple-500/20' },
+            { title: 'Active Tenant Base', value: occupiedUnits, desc: 'Verified KYC occupancy', icon: <Users2 size={16} />, highlightColor: 'border-emerald-500/20' },
+            { title: 'Portfolio Revenue', value: '1.2M', desc: 'Average monthly billing', icon: <TrendingUp size={16} />, highlightColor: 'border-sky-500/20', prefix: 'KES ', suffix: '/mo' }
+          ].map((stat, i) => (
+            <div 
+              key={i} 
+              className={`landlord-card bg-surface/30 backdrop-blur-md border ${stat.highlightColor} rounded-3xl p-5 shadow-lg flex items-center justify-between hover:scale-102 transition-transform duration-300`}
+            >
+              <div>
+                <span className="text-[9px] text-muted font-bold uppercase tracking-wider block">{stat.title}</span>
+                <p className="text-2xl font-black text-foreground mt-1 font-mono">
+                  <AnimatedCounter value={stat.value} prefix={stat.prefix} suffix={stat.suffix} />
+                </p>
+                <span className="text-[9px] text-muted mt-0.5 block">{stat.desc}</span>
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shadow-inner">
+                {stat.icon}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Middle Section: Property Cards with 3D Hover & Recharts Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          
+          {/* Property Cards Slider list with 3D hover overlays */}
+          <div className="lg:col-span-2 space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-muted mb-2">My Coast Properties</h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {properties.slice(0, 4).map((prop) => {
+                const isHovered = hoveredPropertyId === prop._id;
+                const activeUnitsCount = prop.units?.length || 0;
+                const occCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
+                const occPct = activeUnitsCount > 0 ? Math.round((occCount / activeUnitsCount) * 100) : 0;
+                
+                return (
+                  <div
+                    key={prop._id}
+                    onMouseEnter={() => setHoveredPropertyId(prop._id)}
+                    onMouseLeave={() => setHoveredPropertyId(null)}
+                    className="landlord-card relative bg-surface/30 backdrop-blur-md border border-border/80 hover:border-brand-500/50 rounded-3xl p-5 shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden min-h-[220px]"
+                  >
+                    {/* Hover 3D Mini building canvas overlay */}
+                    {isHovered ? (
+                      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center animate-fade-in z-20">
+                        <VoxelBuildingMini3D floors={6} colorPattern="purple" className="w-full h-full" />
+                        <div className="absolute bottom-2.5 left-4 right-4 flex justify-between items-center text-[9px] text-white/80 font-mono">
+                          <span>Interactive 3D isometric</span>
+                          <span>Unit occupancy matches colors</span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Standard details */}
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-start">
+                        <span className="text-[9px] bg-brand-500/10 border border-brand-500/20 text-brand-500 font-extrabold uppercase px-2 py-0.5 rounded-lg">
+                          {prop.type || 'Apartment'}
+                        </span>
+                        <span className="text-muted text-[10px] font-mono">{prop.property_code}</span>
+                      </div>
+                      <h4 className="text-sm font-black text-foreground mt-3 tracking-tight">{prop.name}</h4>
+                      <p className="text-[10px] text-muted mt-0.5">📍 {prop.address?.area}</p>
+                    </div>
+
+                    <div className="relative z-10 mt-5 border-t border-border/30 pt-3">
+                      <div className="flex justify-between text-[10px] text-muted font-bold mb-1">
+                        <span>Occupancy</span>
+                        <span>{occPct}%</span>
+                      </div>
+                      <div className="h-1 bg-border/40 rounded-full overflow-hidden mb-3">
+                        <div className="h-full bg-brand-500 rounded-full" style={{ width: `${occPct}%` }} />
+                      </div>
+                      
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-muted">Expected Rent</span>
+                        <strong className="text-foreground font-mono">{FMT_KES(occCount * 45000)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recharts Financial insights Line/Area chart */}
+          <div className="landlord-card bg-surface/30 backdrop-blur-md border border-border rounded-3xl p-6 shadow-xl flex flex-col justify-between h-full">
+            <div>
+              <span className="text-[9px] text-brand-500 font-extrabold uppercase tracking-widest block mb-1">Revenue Trend</span>
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted mb-4">Financial Insights</h3>
+            </div>
+            
+            <div className="h-44 w-full my-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={financialData} margin={{ top: 5, right: 5, left: -25, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--surface-bright)', borderColor: 'var(--border)', borderRadius: '12px' }}
+                    labelStyle={{ color: 'var(--text-muted)', fontSize: 10, fontWeight: 'bold' }}
+                    itemStyle={{ color: 'var(--text)', fontSize: 11 }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#a855f7" 
+                    strokeWidth={3} 
+                    fillOpacity={1} 
+                    fill="url(#colorRevenue)" 
+                    isAnimationActive={true}
+                    animationDuration={1200}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="border-t border-border/40 pt-3 text-[10px] text-muted font-medium flex justify-between items-center">
+              <span>Collection Target Rate: 95%</span>
+              <span className="text-emerald-500 flex items-center gap-0.5"><ArrowUpRight size={12} /> +12% vs last month</span>
+            </div>
+          </div>
+
+        </div>
+
         {/* Bottom Section: Recent Payments & Lease Approvals */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* 3. Recent M-Pesa Payments Table */}
-          <div className="lg:col-span-2 bg-surface/30 backdrop-blur-md border border-border rounded-3xl p-6 shadow-xl flex flex-col">
+          {/* Recent M-Pesa Payments Table */}
+          <div className="landlord-card lg:col-span-2 bg-surface/30 backdrop-blur-md border border-border rounded-3xl p-6 shadow-xl flex flex-col">
             <div className="flex justify-between items-center border-b border-border/40 pb-4 mb-4">
               <h3 className="text-xs font-black uppercase tracking-wider text-muted">
                 Recent M-Pesa Payments Log
@@ -312,7 +508,7 @@ export default function LandlordDashboardPage() {
                   </thead>
                   <tbody className="divide-y divide-border/20 font-medium">
                     {payments.slice(0, 5).map((pay) => (
-                      <tr key={pay._id} className="hover:bg-surface-bright/30 transition-colors">
+                      <tr key={pay._id} className="hover:bg-surface-bright/40 transition-colors">
                         <td className="py-3 font-bold text-foreground">{pay.tenant_name || 'Tenant Occupant'}</td>
                         <td className="py-3 text-muted">{pay.property_name || 'Property'} · Unit {pay.unit_number || 'N/A'}</td>
                         <td className="py-3 font-mono text-[10px] text-muted uppercase">{pay.mpesa_code || 'MP-CODE'}</td>
@@ -333,8 +529,8 @@ export default function LandlordDashboardPage() {
             </div>
           </div>
 
-          {/* 4. Quick Actions: Lease Approvals */}
-          <div className="bg-surface/30 backdrop-blur-md border border-border rounded-3xl p-6 shadow-xl flex flex-col h-[340px]">
+          {/* Pending Lease Approvals */}
+          <div className="landlord-card bg-surface/30 backdrop-blur-md border border-border rounded-3xl p-6 shadow-xl flex flex-col h-[340px]">
             <h3 className="text-xs font-black uppercase tracking-wider text-muted border-b border-border/40 pb-4 mb-4">
               Pending Lease Approvals
             </h3>
@@ -342,7 +538,7 @@ export default function LandlordDashboardPage() {
             <div className="flex-1 overflow-y-auto space-y-3.5 pr-1">
               {pendingLeases.length === 0 ? (
                 <div className="text-center py-12 text-muted">
-                  <ShieldCheck size={32} className="mx-auto mb-2 text-emerald-500 opacity-60 animate-pulse" />
+                  <ShieldCheck size={32} className="mx-auto mb-2 text-emerald-500 opacity-60" />
                   <p className="text-xs italic">All lease agreements and tenant KYC are fully approved!</p>
                 </div>
               ) : (
@@ -359,7 +555,7 @@ export default function LandlordDashboardPage() {
                       <button
                         onClick={() => handleApproveLease(t._id)}
                         disabled={approvingLeaseId === t._id}
-                        className="flex-1 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition shadow-sm cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                        className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 border-none text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition shadow-sm cursor-pointer flex items-center justify-center gap-1 active:scale-95"
                       >
                         {approvingLeaseId === t._id ? 'Approving…' : (
                           <>

@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
     accuracy:    Number,
     recorded_at: Date
   },
+  profile_picture: String,
   last_checkin_photo: String,
   is_active: { type: Boolean, default: true },
   is_deleted: { type: Boolean, default: false },

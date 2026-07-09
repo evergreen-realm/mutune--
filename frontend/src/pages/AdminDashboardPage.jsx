@@ -10,22 +10,28 @@ import {
 import {
   TrendingUp, Users, Home, Building2, Download, RefreshCw,
   ArrowUpRight, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Loader2,
-  Plus, Trash2, Edit2, DollarSign, Save, X, Phone, Mail, Receipt, Box
+  Plus, Trash2, Edit2, DollarSign, Save, X, Phone, Mail, Receipt, Box, BarChart3, UserCheck
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   fetchAdminStats, downloadKRAReport,
   fetchPendingAgents, fetchPendingLandlords, fetchPendingProperties,
   fetchLateFeeRules, createLateFeeRule, updateLateFeeRule, deleteLateFeeRule,
-  fetchProperties
+  fetchProperties, updateProperty, addUnit
 } from '../lib/api';
 import MapWidget, { getPropertyCoords } from '../components/MapWidget';
+import AgentPerformancePage from './AgentPerformancePage';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const EMPTY_RULE = { grace_period_days: 5, fee_type: 'flat', amount_kes: 500, cap_kes: '' };
+
+const MOMBASA_AREAS = [
+  'Nyali', 'Bamburi', 'Mtwapa', 'Tudor', 'Likoni', 'Changamwe',
+  'Kisauni', 'Mvita', 'Mkomani', 'Shanzu', 'Kongowea', 'Mikindani', 'Port Reitz'
+];
 
 const FMT_KES = n => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 const FMT_DATE = (d) => {
@@ -189,9 +195,10 @@ function LateFeePanel() {
 }
 
 // ── Main Page Component ───────────────────────────────────────────────────────
-export default function AdminDashboardPage() {
+export default function AdminDashboardPage({ dbUser }) {
   const navigate = useNavigate();
   const { theme } = useThemeStore();
+  const [adminTab, setAdminTab] = useState('overview');
   const [downloading, setDownloading] = useState(false);
   const [kraMonth, setKraMonth]     = useState(new Date().toISOString().slice(0, 7));
 
@@ -199,6 +206,104 @@ export default function AdminDashboardPage() {
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [propPhotoIndex, setPropPhotoIndex] = useState(0);
   const [selectedUnit, setSelectedUnit] = useState(null);
+
+  // Controlled MapWidget Tab/Focus states
+  const [mapActiveTab, setMapActiveTab] = useState('properties');
+
+  // Edit Property Form states
+  const [editingProperty, setEditingProperty] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    type: 'apartment',
+    address: { street: '', area: '', city: 'Mombasa' },
+    photos: []
+  });
+
+  // Add Unit Form states
+  const [addingUnitToProperty, setAddingUnitToProperty] = useState(null);
+  const [unitForm, setUnitForm] = useState({
+    unit_number: '',
+    unit_type: 'one_bedroom',
+    rent_kes: '',
+    bedrooms: 1,
+    bathrooms: 1
+  });
+
+  const queryClient = useQueryClient();
+
+  // Populate Edit Form when editingProperty changes
+  React.useEffect(() => {
+    if (editingProperty) {
+      setEditForm({
+        name: editingProperty.name || '',
+        type: editingProperty.type || 'apartment',
+        address: {
+          street: editingProperty.address?.street || '',
+          area: editingProperty.address?.area || '',
+          city: editingProperty.address?.city || 'Mombasa'
+        },
+        photos: editingProperty.photos || []
+      });
+    }
+  }, [editingProperty]);
+
+  const handleEditPropertySubmit = async (e) => {
+    e.preventDefault();
+    if (!editForm.name.trim()) {
+      toast.error('Property Name is required');
+      return;
+    }
+    try {
+      const res = await updateProperty(editingProperty._id, editForm);
+      if (res?.success && res.data) {
+        toast.success('Property updated successfully ✓');
+        setSelectedProperty(res.data);
+        queryClient.invalidateQueries({ queryKey: ['properties'] });
+        queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+        setEditingProperty(null);
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || err?.error?.message || 'Failed to update property');
+    }
+  };
+
+  const handleAddUnitSubmit = async (e) => {
+    e.preventDefault();
+    if (!unitForm.unit_number.trim() || !unitForm.rent_kes) {
+      toast.error('Unit number and rent are required');
+      return;
+    }
+    try {
+      const res = await addUnit(addingUnitToProperty._id, {
+        unit_number: unitForm.unit_number.trim(),
+        unit_type: unitForm.unit_type,
+        rent_kes: Number(unitForm.rent_kes),
+        bedrooms: Number(unitForm.bedrooms),
+        bathrooms: Number(unitForm.bathrooms),
+        status: 'vacant'
+      });
+      if (res?.success && res.data) {
+        toast.success('Unit added successfully ✓');
+        queryClient.invalidateQueries({ queryKey: ['properties'] });
+        queryClient.invalidateQueries({ queryKey: ['adminStats'] });
+        // Update selectedProperty in state with the new unit
+        setSelectedProperty(prev => ({
+          ...prev,
+          units: [...(prev.units || []), res.data]
+        }));
+        setAddingUnitToProperty(null);
+        setUnitForm({
+          unit_number: '',
+          unit_type: 'one_bedroom',
+          rent_kes: '',
+          bedrooms: 1,
+          bathrooms: 1
+        });
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || err?.error?.message || 'Failed to add unit');
+    }
+  };
 
   const formatMonth = (m) => {
     const [y, mon] = m.split('-');
@@ -312,219 +417,259 @@ export default function AdminDashboardPage() {
         </button>
       </div>
 
-      {/* Stats summary tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Properties</p>
-          <div className="flex justify-between items-baseline">
-            <span className="text-2xl font-black">{properties.length}</span>
-            <span className="text-[10px] text-muted font-medium">Registered units</span>
-          </div>
-        </div>
-        
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Active Tenants</p>
-          <div className="flex justify-between items-baseline">
-            <span className="text-2xl font-black">{stats?.totalTenants || 0}</span>
-            <span className="text-[10px] text-muted font-medium">Active leases</span>
-          </div>
-        </div>
-
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Collection Rate</p>
-          <div className="flex justify-between items-baseline">
-            <span className="text-2xl font-black text-emerald-400">{stats?.collectionRatePct || 0}%</span>
-            <span className="text-[10px] text-muted font-medium">Monthly efficiency</span>
-          </div>
-        </div>
-
-        <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-          <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">This Month Revenue</p>
-          <div className="flex justify-between items-baseline">
-            <span className="text-2xl font-black text-primary font-mono">{FMT_KES(stats?.currentMonthCollected || 0)}</span>
-          </div>
-        </div>
+      {/* Admin Tab Navigation */}
+      <div className="flex gap-2 p-1 bg-surface border border-border rounded-xl self-start">
+        <button
+          onClick={() => setAdminTab('overview')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'overview'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <BarChart3 size={13} />
+          Overview
+        </button>
+        <button
+          onClick={() => setAdminTab('agents')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'agents'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <UserCheck size={13} />
+          Agent Performance
+        </button>
       </div>
 
-      {/* Property Map Section for Admins */}
-      <div className="bg-surface border border-border rounded-[24px] overflow-hidden shadow-sm p-4 relative z-10">
-        <MapWidget 
-          properties={properties} 
-          isAdmin={true} 
-          theme={theme} 
-          onPropertySelect={(p) => setSelectedProperty(p)}
-        />
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Revenue Bar Chart */}
-        <div className="lg:col-span-2 bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h3 className="font-extrabold text-foreground text-xs uppercase tracking-wider">Monthly Revenue Trend</h3>
-              <p className="text-[10px] text-muted mt-0.5">Settle statement over the last 6 months</p>
+      {/* ── OVERVIEW TAB ──────────────────────────────────────────────────────── */}
+      {adminTab === 'overview' && (
+        <>
+          {/* Stats summary tiles */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Properties</p>
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-black">{properties.length}</span>
+                <span className="text-[10px] text-muted font-medium">Registered units</span>
+              </div>
             </div>
-            <TrendingUp size={16} className="text-emerald-500" />
+            
+            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Active Tenants</p>
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-black">{stats?.totalTenants || 0}</span>
+                <span className="text-[10px] text-muted font-medium">Active leases</span>
+              </div>
+            </div>
+
+            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Collection Rate</p>
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-black text-emerald-400">{stats?.collectionRatePct || 0}%</span>
+                <span className="text-[10px] text-muted font-medium">Monthly efficiency</span>
+              </div>
+            </div>
+
+            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">This Month Revenue</p>
+              <div className="flex justify-between items-baseline">
+                <span className="text-2xl font-black text-primary font-mono">{FMT_KES(stats?.currentMonthCollected || 0)}</span>
+              </div>
+            </div>
           </div>
-          
-          <div className="h-60 w-full">
-            {revenueData.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueData} barSize={26}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'dark' ? '#1e293b' : '#e2e8f0'} />
-                  <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} fontStyle="bold" />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickFormatter={(val) => `KES ${val / 1000}K`} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff', borderColor: theme === 'dark' ? '#334155' : '#cbd5e1' }}
-                    labelClassName="text-slate-500 font-bold"
+
+          {/* Property Map Section for Admins */}
+          <div className="bg-surface border border-border rounded-[24px] overflow-hidden shadow-sm p-4 relative z-10">
+            <MapWidget 
+              properties={properties} 
+              isAdmin={true} 
+              theme={theme} 
+              onPropertySelect={(p) => setSelectedProperty(p)}
+              activeTab={mapActiveTab}
+              onActiveTabChange={setMapActiveTab}
+              selectedProperty={selectedProperty}
+              onSelectedPropertyChange={setSelectedProperty}
+            />
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Revenue Bar Chart */}
+            <div className="lg:col-span-2 bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="font-extrabold text-foreground text-xs uppercase tracking-wider">Monthly Revenue Trend</h3>
+                  <p className="text-[10px] text-muted mt-0.5">Settle statement over the last 6 months</p>
+                </div>
+                <TrendingUp size={16} className="text-emerald-500" />
+              </div>
+              
+              <div className="h-60 w-full">
+                {revenueData.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revenueData} barSize={26}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'dark' ? '#1e293b' : '#e2e8f0'} />
+                      <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} fontStyle="bold" />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickFormatter={(val) => `KES ${val / 1000}K`} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff', borderColor: theme === 'dark' ? '#334155' : '#cbd5e1' }}
+                        labelClassName="text-slate-500 font-bold"
+                      />
+                      <Bar dataKey="total" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-xs text-muted text-center pt-20">No revenue data available</p>
+                )}
+              </div>
+            </div>
+
+            {/* Portfolio Distribution Pie Chart */}
+            <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+              <div>
+                <h3 className="font-extrabold text-foreground text-xs uppercase tracking-wider mb-1">Portfolio Distribution</h3>
+                <p className="text-[10px] text-muted mb-4">Rent reconciliation by transaction status</p>
+              </div>
+
+              <div className="h-48 w-full relative">
+                {paymentPieData.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={paymentPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {paymentPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-xs text-muted text-center pt-16">No transactions found</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Grid widgets: KRA + Approvals */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* KRA Tax withholding Statement Widget */}
+            <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+              <div>
+                <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm">
+                  <Download className="text-primary" size={18} /> Tax Statement
+                </h3>
+                <p className="text-xs text-muted mt-1">
+                  Download KRA Withholding Tax Certificate.
+                </p>
+                <div className="mt-4">
+                  <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">Statement Month</label>
+                  <input
+                    id="kra-month-input"
+                    type="month"
+                    value={kraMonth}
+                    onChange={(e) => setKraMonth(e.target.value)}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-green-500/50 transition font-bold"
                   />
-                  <Bar dataKey="total" fill="var(--primary)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-xs text-muted text-center pt-20">No revenue data available</p>
-            )}
-          </div>
-        </div>
+                </div>
+              </div>
 
-        {/* Portfolio Distribution Pie Chart */}
-        <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
-          <div>
-            <h3 className="font-extrabold text-foreground text-xs uppercase tracking-wider mb-1">Portfolio Distribution</h3>
-            <p className="text-[10px] text-muted mb-4">Rent reconciliation by transaction status</p>
-          </div>
+              <button
+                onClick={handleDownloadKRA}
+                disabled={downloading}
+                className="w-full py-3 mt-4 bg-primary hover:bg-primary/95 text-background rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 uppercase tracking-wider shadow-md active:scale-95"
+              >
+                {downloading ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" /> Fetching statement…
+                  </>
+                ) : (
+                  <>
+                    <Download size={13} /> Fetch withholding certificate
+                  </>
+                )}
+              </button>
+            </div>
 
-          <div className="h-48 w-full relative">
-            {paymentPieData.length ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={paymentPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
+            {/* Pending approvals widget */}
+            <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-1 border-b border-border pb-2">
+                  <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm">
+                    <ShieldCheck className="text-indigo-600 animate-pulse" size={18} /> Approvals Queue
+                  </h3>
+                  {totalPending > 0 && (
+                    <span className="bg-red-500/10 text-red-500 text-xs font-black px-2 py-0.5 rounded-full border border-red-500/20">
+                      {totalPending} Pending
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted mt-1">
+                  Verify credentials and approve listed properties.
+                </p>
+
+                <div className="space-y-2 mt-4">
+                  <div 
+                    onClick={() => navigate('/admin/users', { state: { defaultTab: 'agents' } })}
+                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
                   >
-                    {paymentPieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-xs text-muted text-center pt-16">No transactions found</p>
-            )}
-          </div>
-        </div>
-      </div>
+                    <span className="text-xs font-bold text-foreground">Pending Agents</span>
+                    <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingAgentsCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
+                      {pendingAgentsCount}
+                    </span>
+                  </div>
 
-      {/* Grid widgets: KRA + Approvals */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* KRA Tax withholding Statement Widget */}
-        <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
-          <div>
-            <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm">
-              <Download className="text-primary" size={18} /> Tax Statement
-            </h3>
-            <p className="text-xs text-muted mt-1">
-              Download KRA Withholding Tax Certificate.
-            </p>
-            <div className="mt-4">
-              <label className="block text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">Statement Month</label>
-              <input
-                id="kra-month-input"
-                type="month"
-                value={kraMonth}
-                onChange={(e) => setKraMonth(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-green-500/50 transition font-bold"
-              />
-            </div>
-          </div>
+                  <div 
+                    onClick={() => navigate('/admin/users', { state: { defaultTab: 'landlords' } })}
+                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
+                  >
+                    <span className="text-xs font-bold text-foreground">Pending Landlords</span>
+                    <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingLandlordsCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
+                      {pendingLandlordsCount}
+                    </span>
+                  </div>
 
-          <button
-            onClick={handleDownloadKRA}
-            disabled={downloading}
-            className="w-full py-3 mt-4 bg-primary hover:bg-primary/95 text-background rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 uppercase tracking-wider shadow-md active:scale-95"
-          >
-            {downloading ? (
-              <>
-                <Loader2 size={13} className="animate-spin" /> Fetching statement…
-              </>
-            ) : (
-              <>
-                <Download size={13} /> Fetch withholding certificate
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Pending approvals widget */}
-        <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-1 border-b border-border pb-2">
-              <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm">
-                <ShieldCheck className="text-indigo-600 animate-pulse" size={18} /> Approvals Queue
-              </h3>
-              {totalPending > 0 && (
-                <span className="bg-red-500/10 text-red-500 text-xs font-black px-2 py-0.5 rounded-full border border-red-500/20">
-                  {totalPending} Pending
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted mt-1">
-              Verify credentials and approve listed properties.
-            </p>
-
-            <div className="space-y-2 mt-4">
-              <div 
-                onClick={() => navigate('/admin/users', { state: { defaultTab: 'agents' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
-              >
-                <span className="text-xs font-bold text-foreground">Pending Agents</span>
-                <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingAgentsCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
-                  {pendingAgentsCount}
-                </span>
+                  <div 
+                    onClick={() => navigate('/admin/users', { state: { defaultTab: 'properties' } })}
+                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
+                  >
+                    <span className="text-xs font-bold text-foreground">Pending Listings</span>
+                    <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingPropertiesCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
+                      {pendingPropertiesCount}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div 
-                onClick={() => navigate('/admin/users', { state: { defaultTab: 'landlords' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
+              <button
+                onClick={() => navigate('/admin/users')}
+                className="w-full py-3 mt-4 border border-border hover:bg-background text-foreground rounded-xl text-xs font-black transition flex items-center justify-center gap-1 cursor-pointer uppercase tracking-wider"
               >
-                <span className="text-xs font-bold text-foreground">Pending Landlords</span>
-                <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingLandlordsCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
-                  {pendingLandlordsCount}
-                </span>
-              </div>
-
-              <div 
-                onClick={() => navigate('/admin/users', { state: { defaultTab: 'properties' } })}
-                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
-              >
-                <span className="text-xs font-bold text-foreground">Pending Listings</span>
-                <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${pendingPropertiesCount > 0 ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-pulse' : 'bg-background text-muted border border-border'}`}>
-                  {pendingPropertiesCount}
-                </span>
-              </div>
+                Manage Approvals <ChevronRight size={13} />
+              </button>
             </div>
+
+            {/* Late Fee Rules Box */}
+            <LateFeePanel />
           </div>
+        </>
+      )}
 
-          <button
-            onClick={() => navigate('/admin/users')}
-            className="w-full py-3 mt-4 border border-border hover:bg-background text-foreground rounded-xl text-xs font-black transition flex items-center justify-center gap-1 cursor-pointer uppercase tracking-wider"
-          >
-            Manage Approvals <ChevronRight size={13} />
-          </button>
-        </div>
-
-        {/* Late Fee Rules Box */}
-        <LateFeePanel />
-      </div>
+      {/* ── AGENT PERFORMANCE TAB ────────────────────────────────────────────── */}
+      {adminTab === 'agents' && (
+        <AgentPerformancePage dbUser={dbUser} />
+      )}
 
       {/* ── Property Detail Popup (selectedProperty modal) ──────────────────── */}
       {selectedProperty && (
@@ -593,22 +738,23 @@ export default function AdminDashboardPage() {
               {/* Action Buttons Panel */}
               <div className="p-4 flex gap-2 justify-stretch bg-surface-bright/50 mt-auto">
                 <button
-                  onClick={() => toast.info('Edit Property flow initiated')}
+                  onClick={() => setEditingProperty(selectedProperty)}
                   className="flex-1 py-2.5 bg-background border border-border hover:bg-surface text-foreground font-bold rounded-xl text-xs uppercase tracking-wider transition cursor-pointer active:scale-[0.98]"
                 >
                   Edit Property
                 </button>
                 <button
                   onClick={() => {
+                    setMapActiveTab('3d');
                     setSelectedProperty(null);
-                    toast.success('Switched map style to 3D View mode.');
+                    toast.success(`Zoomed into 3D view for ${selectedProperty.name}`);
                   }}
                   className="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-md cursor-pointer active:scale-[0.98]"
                 >
                   View 3D Model
                 </button>
                 <button
-                  onClick={() => toast.info('Add Unit flow initiated')}
+                  onClick={() => setAddingUnitToProperty(selectedProperty)}
                   className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-md cursor-pointer active:scale-[0.98]"
                 >
                   Add Unit
@@ -707,6 +853,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+
 
       {/* ── Unit Portfolio Popup (selectedUnit modal) ──────────────────────── */}
       {selectedUnit && (
@@ -820,6 +967,219 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Property Modal ────────────────────────────────────────────── */}
+      {editingProperty && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-surface border border-border rounded-3xl shadow-2xl p-6 relative text-foreground">
+            <button
+              onClick={() => setEditingProperty(null)}
+              className="absolute top-4 right-4 p-1.5 bg-background/80 hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+            <h3 className="text-lg font-black mb-4">Edit Property Details</h3>
+            <form onSubmit={handleEditPropertySubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Property Name *</label>
+                <input 
+                  type="text" 
+                  value={editForm.name} 
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value })} 
+                  className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Property Type *</label>
+                <select 
+                  value={editForm.type} 
+                  onChange={e => setEditForm({ ...editForm, type: e.target.value })} 
+                  className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                >
+                  <option value="apartment">Apartment Block</option>
+                  <option value="single_family">Single Family</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="mixed_use">Mixed Use</option>
+                  <option value="bedsitter">Bedsitter</option>
+                  <option value="studio">Studio</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Street Address *</label>
+                  <input 
+                    type="text" 
+                    value={editForm.address.street} 
+                    onChange={e => setEditForm({ ...editForm, address: { ...editForm.address, street: e.target.value } })} 
+                    className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    required 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Area *</label>
+                  <select 
+                    value={editForm.address.area} 
+                    onChange={e => setEditForm({ ...editForm, address: { ...editForm.address, area: e.target.value } })} 
+                    className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  >
+                    <option value="">Select Area</option>
+                    {MOMBASA_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Photos (Image URLs)</label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      id="new-photo-url-input"
+                      placeholder="Paste image URL here..." 
+                      className="flex-1 bg-surface-bright border border-border rounded-xl px-4 py-2 text-xs text-foreground focus:outline-none"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById('new-photo-url-input');
+                        if (input && input.value.trim()) {
+                          setEditForm({ ...editForm, photos: [...editForm.photos, input.value.trim()] });
+                          input.value = '';
+                        }
+                      }}
+                      className="px-4 py-2 bg-primary hover:bg-primary/95 text-white rounded-xl text-xs font-bold uppercase"
+                    >
+                      Add Url
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-1.5 bg-background/40 border border-border rounded-xl">
+                    {editForm.photos.map((ph, idx) => (
+                      <div key={idx} className="relative w-12 h-9 rounded overflow-hidden border border-border flex-shrink-0 group">
+                        <img src={ph} alt="preview" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, photos: editForm.photos.filter((_, i) => i !== idx) })}
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 text-[10px] font-bold transition"
+                        >
+                          Del
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-border/40">
+                <button 
+                  type="submit" 
+                  className="flex-1 py-3 bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-550 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition"
+                >
+                  Save changes
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setEditingProperty(null)}
+                  className="flex-1 py-3 bg-background border border-border hover:bg-surface text-foreground rounded-xl text-xs font-bold uppercase tracking-wider transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Unit Modal ─────────────────────────────────────────────────── */}
+      {addingUnitToProperty && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-surface border border-border rounded-3xl shadow-2xl p-6 relative text-foreground">
+            <button
+              onClick={() => setAddingUnitToProperty(null)}
+              className="absolute top-4 right-4 p-1.5 bg-background/80 hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+            <h3 className="text-lg font-black mb-4">Add Unit to {addingUnitToProperty.name}</h3>
+            <form onSubmit={handleAddUnitSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Unit Number *</label>
+                <input 
+                  type="text" 
+                  value={unitForm.unit_number} 
+                  onChange={e => setUnitForm({ ...unitForm, unit_number: e.target.value })} 
+                  placeholder="e.g. Unit 2B, Apt 14"
+                  className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  required 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Unit Type *</label>
+                  <select 
+                    value={unitForm.unit_type} 
+                    onChange={e => setUnitForm({ ...unitForm, unit_type: e.target.value })} 
+                    className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  >
+                    <option value="one_bedroom">1 Bedroom</option>
+                    <option value="two_bedroom">2 Bedroom</option>
+                    <option value="three_bedroom">3 Bedroom</option>
+                    <option value="bedsitter">Bedsitter</option>
+                    <option value="studio">Studio</option>
+                    <option value="commercial">Commercial</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Monthly Rent (KES) *</label>
+                  <input 
+                    type="number" 
+                    value={unitForm.rent_kes} 
+                    onChange={e => setUnitForm({ ...unitForm, rent_kes: e.target.value })} 
+                    placeholder="e.g. 25000"
+                    className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Bedrooms</label>
+                  <input 
+                    type="number" 
+                    value={unitForm.bedrooms} 
+                    onChange={e => setUnitForm({ ...unitForm, bedrooms: e.target.value })} 
+                    className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Bathrooms</label>
+                  <input 
+                    type="number" 
+                    value={unitForm.bathrooms} 
+                    onChange={e => setUnitForm({ ...unitForm, bathrooms: e.target.value })} 
+                    className="w-full bg-surface-bright border border-border rounded-xl px-4 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    min={0}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-border/40">
+                <button 
+                  type="submit" 
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-550 hover:to-teal-550 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-md"
+                >
+                  Create Unit
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setAddingUnitToProperty(null)}
+                  className="flex-1 py-3 bg-background border border-border hover:bg-surface text-foreground rounded-xl text-xs font-bold uppercase tracking-wider transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

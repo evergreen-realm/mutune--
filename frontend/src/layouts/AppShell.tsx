@@ -78,6 +78,36 @@ export default function AppShellLayout({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Initialize Lenis smooth scroll on the main viewport container
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Import Lenis dynamically to ensure it runs strictly client-side
+    import('lenis').then(({ default: Lenis }) => {
+      const mainElement = document.querySelector('main');
+      if (!mainElement) return;
+
+      const lenis = new Lenis({
+        wrapper: mainElement,
+        content: mainElement,
+        duration: 1.1,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+      });
+
+      let animationFrameId: number;
+      function raf(time: number) {
+        lenis.raf(time);
+        animationFrameId = requestAnimationFrame(raf);
+      }
+      animationFrameId = requestAnimationFrame(raf);
+
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        lenis.destroy();
+      };
+    });
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}

@@ -229,6 +229,97 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     mapRef.current.easeTo({ center: mapCenter, duration: 800 });
   }, [center]);
 
+  // Fly to selected property in satellite mode when 3D tab is active
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedProperty || activeTab !== '3d') return;
+    const coords = getPropertyCoords(selectedProperty);
+    const doFly = () => {
+      map.flyTo({
+        center: [coords[0], coords[1]],
+        zoom: 18.5,
+        pitch: 62,
+        bearing: 25,
+        duration: 2200,
+        essential: true
+      });
+    };
+    if (map.isStyleLoaded()) doFly();
+    else map.once('load', doFly);
+  }, [activeTab, selectedProperty]);
+
+  // Inject CSS 3D cube styles on mount
+  useEffect(() => {
+    const id = 'mapbox-cube-marker-styles';
+    if (!document.getElementById(id)) {
+      const style = document.createElement('style');
+      style.id = id;
+      style.innerHTML = `
+        .cube-marker {
+          width: 28px;
+          height: 28px;
+          perspective: 1000px;
+          cursor: pointer;
+          transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .cube-marker:hover {
+          transform: scale(1.3);
+        }
+        .cube {
+          width: 24px;
+          height: 24px;
+          position: relative;
+          transform-style: preserve-3d;
+          transform: rotateX(-25deg) rotateY(45deg);
+          transition: transform 0.5s ease, width 0.5s ease, height 0.5s ease;
+        }
+        .cube-face {
+          position: absolute;
+          width: 24px;
+          height: 24px;
+          border: 1px solid rgba(59, 130, 246, 0.7);
+          box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+          transition: all 0.5s ease;
+        }
+        .face-front  { transform: rotateY(  0deg) translateZ(12px); }
+        .face-back   { transform: rotateY(180deg) translateZ(12px); }
+        .face-right  { transform: rotateY( 90deg) translateZ(12px); }
+        .face-left   { transform: rotateY(-90deg) translateZ(12px); }
+        .face-top    { transform: rotateX( 90deg) translateZ(12px); }
+        .face-bottom { transform: rotateX(-90deg) translateZ(12px); }
+
+        /* Morphing Zoomed In Class */
+        .cube-marker.zoomed-in .cube {
+          transform: rotateX(-15deg) rotateY(45deg);
+          width: 32px;
+          height: 48px;
+        }
+        .cube-marker.zoomed-in .cube-face {
+          width: 32px;
+          height: 48px;
+          border-color: rgba(96, 165, 250, 0.9);
+          box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .cube-marker.zoomed-in .face-front  { transform: rotateY(  0deg) translateZ(16px); }
+        .cube-marker.zoomed-in .face-back   { transform: rotateY(180deg) translateZ(16px); }
+        .cube-marker.zoomed-in .face-right  { transform: rotateY( 90deg) translateZ(16px); }
+        .cube-marker.zoomed-in .face-left   { transform: rotateY(-90deg) translateZ(16px); }
+        .cube-marker.zoomed-in .face-top    { transform: rotateX( 90deg) translateZ(24px); width: 32px; height: 32px; }
+        .cube-marker.zoomed-in .face-bottom { transform: rotateX(-90deg) translateZ(24px); width: 32px; height: 32px; }
+
+        /* Add windows inside face front on morph */
+        .cube-marker.zoomed-in .face-front::after {
+          content: '';
+          position: absolute;
+          top: 10%; left: 15%; right: 15%; bottom: 10%;
+          background-image: radial-gradient(circle, #fef08a 25%, transparent 25%);
+          background-size: 8px 10px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   // Handle markers & layers updates
   useEffect(() => {
     const map = mapRef.current;
@@ -238,48 +329,89 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Remove source & layer if they exist
+    // Remove boundary layers if they exist
     if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
     if (map.getLayer('boundary-line')) map.removeLayer('boundary-line');
     if (map.getSource('property-boundary')) map.removeSource('property-boundary');
 
-    if (activeTab === 'properties') {
+    // Show property markers for PROPERTIES tab and UNITS tab (no selection = all properties shown)
+    if (activeTab === 'properties' || activeTab === 'units') {
       properties.forEach((prop) => {
         const coords = getPropertyCoords(prop);
 
         const el = document.createElement('div');
-        el.className = 'custom-marker';
+        el.className = 'cube-marker';
+
         const occupiedCount = prop.units?.filter((u) => u.status === 'occupied').length || 0;
         const totalUnits = prop.units?.length || 0;
         const ratio = totalUnits > 0 ? occupiedCount / totalUnits : 0;
-        let color = '#22c55e';
-        if (ratio < 0.5) color = '#ef4444';
-        else if (ratio < 0.9) color = '#eab308';
+        let color = 'rgba(59, 130, 246, 0.55)'; // default blue tint
 
-        el.style.cssText = `
-          background: ${color};
-          width: 16px; height: 16px;
-          border-radius: 50%;
-          border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 2px ${color}40;
-          cursor: pointer;
-          transition: transform 0.2s ease;
-        `;
-        el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.3)'; });
-        el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+        const cube = document.createElement('div');
+        cube.className = 'cube';
+        
+        ['front', 'back', 'right', 'left', 'top', 'bottom'].forEach(face => {
+          const faceEl = document.createElement('div');
+          faceEl.className = `cube-face face-${face}`;
+          
+          if (face === 'top') {
+            faceEl.style.backgroundColor = 'rgba(96, 165, 250, 0.75)';
+          } else if (face === 'bottom') {
+            faceEl.style.backgroundColor = 'rgba(29, 78, 216, 0.75)';
+          } else {
+            faceEl.style.backgroundColor = color;
+          }
+          cube.appendChild(faceEl);
+        });
+        
+        el.appendChild(cube);
 
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-          <div style="font-family: 'Inter', sans-serif; padding: 10px; min-width: 210px; color: #1e293b;">
-            <p style="font-weight: 700; margin: 0; font-size: 14px;">${prop.name}</p>
-            <p style="font-size: 11px; color: #64748b; font-family: 'Fira Code', monospace; margin: 3px 0;">${prop.property_code}</p>
-            <p style="font-size: 12px; margin: 4px 0 0 0;">📍 ${prop.address?.area || 'Mombasa'}</p>
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-              <span style="font-size: 11px; background: ${color}15; color: ${color}; padding: 2px 8px; border-radius: 4px; font-weight: 600;">${totalUnits} units</span>
-              <span style="font-size: 11px; background: #6366f115; color: #6366f1; padding: 2px 8px; border-radius: 4px; font-weight: 600;">${occupiedCount} occupied</span>
+        // Update morphing class on map zoom
+        const updateZoomMorph = () => {
+          if (map.getZoom() > 16.5) {
+            el.classList.add('zoomed-in');
+          } else {
+            el.classList.remove('zoomed-in');
+          }
+        };
+        map.on('zoom', updateZoomMorph);
+        updateZoomMorph();
+
+        // Property image popup with 3D background representation
+        const propImg = prop.images?.[0] || '/assets/3d_visual_building.jpg';
+        const occupancyPct = totalUnits > 0 ? Math.round((occupiedCount / totalUnits) * 100) : 0;
+
+        const popup = new mapboxgl.Popup({ 
+          offset: 25, 
+          maxWidth: '280px',
+          className: 'custom-mapbox-popup'
+        }).setHTML(`
+          <div class="font-sans w-[250px] bg-slate-900/90 text-white rounded-xl overflow-hidden shadow-2xl border border-slate-800 backdrop-blur-md">
+            <div class="w-full h-[110px] overflow-hidden relative bg-slate-950 flex items-center justify-center">
+              <img src="${propImg}" alt="${prop.name}" class="w-full h-full object-cover opacity-60" onerror="this.src='/assets/3d_visual_building.jpg'" />
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none"></div>
+              <span class="absolute bottom-2 left-3 bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow">
+                ${prop.type?.replace('_', ' ') || 'Apartment'}
+              </span>
             </div>
-            <button id="mapbox-btn-${prop._id}" style="margin-top: 10px; width: 100%; border: none; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border-radius: 8px; padding: 7px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;">
-              View Units & 3D Model
-            </button>
+            <div class="p-3">
+              <h4 class="font-black text-xs leading-tight text-white truncate">${prop.name}</h4>
+              <p class="text-[9px] text-slate-400 font-mono tracking-wider mt-0.5">${prop.property_code}</p>
+              <p class="text-xs text-slate-350 mt-1.5 flex items-center gap-1">
+                <span>📍</span> <span class="truncate">${prop.address?.area || 'Mombasa'}</span>
+              </p>
+              <div class="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-800">
+                <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-450">
+                  ${totalUnits} units
+                </span>
+                <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                  ${occupancyPct}% occupied
+                </span>
+              </div>
+              <button id="mapbox-btn-${prop._id}" class="mt-3.5 w-full border-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-xs font-bold cursor-pointer transition-all active:scale-[0.98] shadow-md uppercase tracking-wider">
+                View Units &amp; 3D Model
+              </button>
+            </div>
           </div>
         `);
 
@@ -312,81 +444,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       }
     }
 
-    if (activeTab === 'units' && selectedProperty) {
-      if (selectedProperty.boundaries) {
-        map.addSource('property-boundary', {
-          type: 'geojson',
-          data: selectedProperty.boundaries
-        });
-        map.addLayer({
-          id: 'boundary-fill',
-          type: 'fill',
-          source: 'property-boundary',
-          paint: { 'fill-color': '#10b981', 'fill-opacity': 0.15 }
-        });
-        map.addLayer({
-          id: 'boundary-line',
-          type: 'line',
-          source: 'property-boundary',
-          paint: { 'line-color': '#10b981', 'line-width': 2 }
-        });
-      }
-
-      const pCoords = getPropertyCoords(selectedProperty);
-      if (pCoords) {
-        const el = document.createElement('div');
-        el.style.cssText = `
-          background: #8b5cf6; width: 18px; height: 18px;
-          border-radius: 50%; border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(139,92,246,0.4); cursor: pointer;
-        `;
-        const marker = new mapboxgl.Marker(el).setLngLat(pCoords).addTo(map);
-        markersRef.current.push(marker);
-      }
-
-      if (unitGeoJSON?.features) {
-        unitGeoJSON.features.forEach((feature) => {
-          const coords = feature.geometry.coordinates;
-          const unit = feature.properties;
-
-          const el = document.createElement('div');
-          const unitColor = unit.status === 'occupied' ? '#eab308' : '#22c55e';
-          el.style.cssText = `
-            background: ${unitColor}; width: 10px; height: 10px;
-            border-radius: 50%; border: 2px solid white;
-            cursor: pointer; transition: transform 0.2s;
-          `;
-          el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.4)'; });
-          el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
-
-          const popup = new mapboxgl.Popup({ offset: 15 }).setHTML(`
-            <div style="font-family: 'Inter', sans-serif; padding: 8px; color: #1e293b;">
-              <p style="font-weight: 700; margin: 0; font-size: 12px;">Unit ${unit.unit_number}</p>
-              <p style="font-size: 11px; margin: 2px 0;">Status: ${unit.status}</p>
-              <p style="font-size: 11px; color: #64748b; margin: 2px 0;">KES ${unit.rent_kes?.toLocaleString()}/mo</p>
-              <button id="mapbox-unit-${unit.unit_number}" style="margin-top: 6px; width: 100%; border: none; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border-radius: 6px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">
-                Open 3D Model
-              </button>
-            </div>
-          `);
-
-          const marker = new mapboxgl.Marker(el).setLngLat(coords).setPopup(popup).addTo(map);
-
-          popup.on('open', () => {
-            const btn = document.getElementById(`mapbox-unit-${unit.unit_number}`);
-            if (btn) {
-              btn.addEventListener('click', () => {
-                popup.remove();
-                onUnitSelect(unit);
-              });
-            }
-          });
-
-          markersRef.current.push(marker);
-        });
-      }
-    }
-
+    // Agent location beacon
     if (agentLocation) {
       const el = document.createElement('div');
       el.style.cssText = `
@@ -399,7 +457,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         .addTo(map);
       markersRef.current.push(marker);
     }
-  }, [activeTab, properties, selectedProperty, unitGeoJSON, agentLocation]);
+  }, [activeTab, properties, agentLocation]);
 
   return (
     <div
@@ -469,16 +527,38 @@ export function BuildingPreviewLite({ property, selectedUnit, onClose, onUnitSel
 }
 
 // ── MapWidget Main Component ────────────────────────────────────────────────
-export default function MapWidget({ properties = [], agentLocation = null, onPropertySelect, isAdmin = false, theme = 'dark' }) {
+export default function MapWidget({ 
+  properties = [], 
+  agentLocation = null, 
+  onPropertySelect, 
+  isAdmin = false, 
+  theme = 'dark',
+  activeTab: externalActiveTab,
+  onActiveTabChange,
+  selectedProperty: externalSelectedProperty,
+  onSelectedPropertyChange
+}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filtered, setFiltered] = useState(properties);
-  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [selectedPropertyLocal, setSelectedPropertyLocal] = useState(null);
+  const selectedProperty = externalSelectedProperty !== undefined ? externalSelectedProperty : selectedPropertyLocal;
+  const setSelectedProperty = (val) => {
+    if (externalSelectedProperty !== undefined) onSelectedPropertyChange?.(val);
+    else setSelectedPropertyLocal(val);
+  };
+
   const [unitGeoJSON, setUnitGeoJSON] = useState(null);
   const [selectedUnit, setSelectedUnit] = useState(null);
-  const [activeTab, setActiveTab] = useState('properties');
+  const [activeTabLocal, setActiveTabLocal] = useState('properties');
+  const activeTab = externalActiveTab !== undefined ? externalActiveTab : activeTabLocal;
+  const setActiveTab = (val) => {
+    if (externalActiveTab !== undefined) onActiveTabChange?.(val);
+    else setActiveTabLocal(val);
+  };
+
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mapStyleMode, setMapStyleMode] = useState('satellite');
+  const [mapStyleMode, setMapStyleMode] = useState('vector');
   const [isLiteView, setIsLiteView] = useState(() => {
     if (typeof window === 'undefined') return false;
     const stored = localStorage.getItem('mutune_lite_view');
@@ -528,7 +608,14 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
     } finally {
       setLoadingUnits(false);
     }
-  }, [onPropertySelect]);
+  }, [onPropertySelect, onSelectedPropertyChange, onActiveTabChange, externalSelectedProperty, externalActiveTab]);
+
+  // Auto-sync map style with active tab:
+  // Properties & Units = vector, 3D = satellite
+  useEffect(() => {
+    if (activeTab === '3d') setMapStyleMode('satellite');
+    else setMapStyleMode('vector');
+  }, [activeTab]);
 
   const tabs = [
     { id: 'properties', label: `Properties (${filtered.length})`, icon: MapPin },
@@ -612,8 +699,8 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
         </div>
       </div>
 
-      {/* Map Views */}
-      {activeTab !== '3d' && (
+      {/* Map Views — shown for Properties tab, 3D tab, and Units tab with no property selected */}
+      {(activeTab === 'properties' || activeTab === '3d' || (activeTab === 'units' && !selectedProperty)) && (
         <div className="relative flex-1">
           <MapboxMap
             center={center}
@@ -623,17 +710,27 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
             activeTab={activeTab}
             onPropertySelect={handlePropertySelect}
             onUnitSelect={(unit) => {
-              const originalUnit = selectedProperty.units?.find(u => u.unit_number === unit.unit_number);
-              if (originalUnit) {
-                setSelectedUnit(originalUnit);
-                setActiveTab('3d');
-              }
+              const originalUnit = selectedProperty?.units?.find(u => u.unit_number === unit.unit_number);
+              if (originalUnit) setSelectedUnit(originalUnit);
             }}
             agentLocation={agentLocation}
             isFullscreen={isFullscreen}
             theme={theme}
             mapStyleMode={mapStyleMode}
           />
+
+          {/* Satellite badge when 3D tab is active */}
+          {activeTab === '3d' && selectedProperty && (
+            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-lg border border-white/10 z-10 flex items-center gap-2">
+              <span>🛰️</span>
+              <span className="font-medium">Satellite View — {selectedProperty.name}</span>
+            </div>
+          )}
+          {activeTab === '3d' && !selectedProperty && (
+            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-lg border border-white/10 z-10">
+              🛰️ Select a property first to zoom into satellite view
+            </div>
+          )}
 
           {loadingUnits && (
             <div className="absolute inset-0 bg-surface/70 backdrop-blur-sm flex items-center justify-center z-[1000]">
@@ -646,14 +743,20 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
         </div>
       )}
 
-      {/* 3D Preview Canvas / Lite Fallback */}
-      {activeTab === '3d' && (
-        <div className="p-4 bg-background flex-1">
+      {/* 3D Unit Grid — shown for Units tab WITH a selected property */}
+      {activeTab === 'units' && selectedProperty && (
+        <div className="p-4 bg-background flex-1 overflow-auto">
+          <button
+            onClick={() => { setSelectedProperty(null); setUnitGeoJSON(null); setSelectedUnit(null); }}
+            className="mb-3 flex items-center gap-1.5 text-xs font-bold text-muted hover:text-foreground transition-colors px-3 py-1.5 bg-surface hover:bg-surface-bright border border-border rounded-lg cursor-pointer"
+          >
+            ← Back to Map
+          </button>
           {isLiteView ? (
             <BuildingPreviewLite
               property={selectedProperty}
               selectedUnit={selectedUnit}
-              onClose={() => setActiveTab('units')}
+              onClose={() => { setSelectedProperty(null); setUnitGeoJSON(null); setSelectedUnit(null); }}
               onUnitSelect={setSelectedUnit}
               theme={theme}
             />
@@ -667,7 +770,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
               <BuildingPreview3D
                 property={selectedProperty}
                 selectedUnit={selectedUnit}
-                onClose={() => setActiveTab('units')}
+                onClose={() => { setSelectedProperty(null); setUnitGeoJSON(null); setSelectedUnit(null); }}
                 onUnitSelect={setSelectedUnit}
                 theme={theme}
               />

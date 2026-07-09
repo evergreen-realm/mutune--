@@ -509,7 +509,7 @@ function AppShell() {
             derivedRole === 'tenant' ? <TenantPortalPage /> :
             derivedRole === 'landlord' ? <LandlordDashboardPage dbUser={dbUser} /> :
             derivedRole === 'agent' ? <AgentPerformancePage dbUser={dbUser} /> :
-            (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage /> :
+            (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage dbUser={dbUser} /> :
             <DashboardPage />
           } />
           <Route path="/properties"     element={<PropertiesPage dbUser={dbUser} />} />
@@ -531,7 +531,7 @@ function AppShell() {
             derivedRole === 'tenant'   ? <TenantPortalPage /> :
             derivedRole === 'landlord' ? <LandlordDashboardPage dbUser={dbUser} /> :
             derivedRole === 'agent'    ? <AgentPerformancePage dbUser={dbUser} /> :
-            (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage /> :
+            (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage dbUser={dbUser} /> :
             <DashboardPage />
           } />
           <Route path="/notices"        element={<NoticesPage user={user} />} />

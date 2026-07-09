@@ -153,6 +153,7 @@ export const deleteNotice      = (id)       => api.delete(`/notices/${id}`);
 // ── Onboarding / User (Phase 4) ───────────────────────────────────────────────
 export const updateUserRole    = (data)    => api.patch('/users/me/role', data);
 export const checkTenantEmail  = (email)   => api.get(`/users/check-tenant-email/${encodeURIComponent(email)}`);
+export const updateUserProfilePicture = (profile_picture) => api.put('/users/me/profile-picture', { profile_picture });
 
 // ── Units Lock & Geo-checkin (Phase 4) ────────────────────────────────────────
 export const deletePropertyUnit    = (id, unitId) => api.delete(`/properties/${id}/units/${unitId}`);
