@@ -58,6 +58,15 @@ frontend_job_log*.txt
 # Agent system files - internal tooling, never commit
 .agents/
 design/
+design-system/
 ORIGINAL_REQUEST.md
 PROJECT.md
 TEST_INFRA.md
+
+# Stray local-only directories
+html/
+mnt/
+ui-redesign-references/
+
+# Internal one-off scripts
+scan_font_sizes.py
