@@ -70,29 +70,11 @@ function SidebarPanel({
       <div className="flex h-16 items-center justify-between px-4 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex-shrink-0 cursor-pointer select-none">
-            <svg className="w-9 h-9 transform transition-transform duration-500 hover:rotate-[15deg] hover:scale-110 filter drop-shadow-[0_4px_6px_rgba(139,92,246,0.3)]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="logo-grad-primary" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#8b5cf6" />
-                  <stop offset="100%" stopColor="#ec4899" />
-                </linearGradient>
-                <linearGradient id="logo-grad-secondary" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ec4899" />
-                  <stop offset="100%" stopColor="#f59e0b" />
-                </linearGradient>
-              </defs>
-              {/* 3D Base Slab */}
-              <path d="M15 65 L50 82.5 L85 65 L50 47.5 Z" fill="url(#logo-grad-primary)" opacity="0.4" />
-              <path d="M15 65 L15 70 L50 87.5 L50 82.5 Z" fill="#7c3aed" />
-              <path d="M50 82.5 L50 87.5 L85 70 L85 65 Z" fill="#db2777" />
-              
-              {/* Floating 3D M and R sheets */}
-              <path d="M22 53 L48 66 L48 38 L22 25 Z" fill="url(#logo-grad-primary)" />
-              <path d="M52 66 L78 53 L78 25 L52 38 Z" fill="url(#logo-grad-secondary)" />
-              
-              {/* Highlights */}
-              <path d="M48 38 L52 38 L52 66 L48 66 Z" fill="#ffffff" opacity="0.3" />
-            </svg>
+            <img 
+              src="/assets/3d_visual_building.jpg" 
+              alt="MutuneRent Logo" 
+              className="w-9 h-9 object-cover rounded-xl border border-border shadow-lg transform transition-transform duration-500 hover:rotate-[15deg] hover:scale-110"
+            />
           </div>
           <AnimatePresence initial={false}>
             {sidebarOpen && (
