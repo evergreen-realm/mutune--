@@ -14,7 +14,7 @@ MutuneRent Pro is a multi-role property management SaaS.
 | E2E | Milestone E2E | Design and build the opaque-box test runner and test cases (Tiers 1-4) | None | PLANNED |
 | 1 | Milestone 1 | Fix Vercel production deployment gap (force deployment, verify JS hash) | None | PLANNED |
 | 2 | Milestone 2 | Cybersecurity hardening (OWASP Top 10): auth checks, sanitize, logs, clean routes | Milestone 1 | PLANNED |
-| 3 | Milestone 3 | Identity & Role tying: Webhook, DB sync, App.jsx routing, tenant onboarding flow verification (including check-email & user sync with tenant_code) | Milestone 2 | PLANNED |
+| 3 | Milestone 3 | Identity & Role tying: Webhook, DB sync, App.jsx routing, tenant onboarding flow verification (including check-email & user sync with tenant_code) | Milestone 2 | DONE |
 | 4 | Milestone 4 | EazzyRent parity: Bulk notices, Income statement API, M-Pesa badges, Navbar notifications polling, and fully functional tenant portal | Milestone 3 | PLANNED |
 | 5 | Milestone 5 | Nielsen/Norman usability: full CRUD, confirmation modals, error toasts, navbar role badge | Milestone 4 | PLANNED |
 | 6 | Milestone 6 | Code audit: resolve all TODOs, FIXMEs, stubs, and place-holders across frontend/backend | Milestone 5 | PLANNED |

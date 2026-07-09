@@ -39,11 +39,11 @@ const STATUS_BADGES = {
   closed: { label: 'Closed', color: 'bg-green-500/10 text-green-400 border border-green-500/20' }
 };
 
-export default function MaintenancePage() {
+export default function MaintenancePage({ dbUser }) {
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
 
-  const role = clerkUser?.publicMetadata?.role || 'landlord';
+  const role = dbUser?.role || clerkUser?.publicMetadata?.role || 'landlord';
   const isAdmin = ['admin', 'super_admin'].includes(role);
   const isAgent = role === 'agent';
   const isTenant = role === 'tenant';

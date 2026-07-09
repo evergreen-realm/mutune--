@@ -19,7 +19,9 @@ import {
   fetchLateFeeRules, createLateFeeRule, updateLateFeeRule, deleteLateFeeRule,
   fetchProperties
 } from '../lib/api';
-import MapWidget from '../components/MapWidget';
+import MapWidget, { getPropertyCoords } from '../components/MapWidget';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -195,6 +197,7 @@ export default function AdminDashboardPage() {
 
   // Interactive Popup Modal states
   const [selectedProperty, setSelectedProperty] = useState(null);
+  const [propPhotoIndex, setPropPhotoIndex] = useState(0);
   const [selectedUnit, setSelectedUnit] = useState(null);
 
   const formatMonth = (m) => {
@@ -525,74 +528,174 @@ export default function AdminDashboardPage() {
 
       {/* ── Property Detail Popup (selectedProperty modal) ──────────────────── */}
       {selectedProperty && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden relative text-foreground">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-4xl bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden relative text-foreground grid grid-cols-1 md:grid-cols-2 gap-0">
             <button
               onClick={() => { setSelectedProperty(null); setSelectedUnit(null); }}
-              className="absolute top-4 right-4 z-10 p-1.5 hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
+              className="absolute top-4 right-4 z-20 p-1.5 bg-background/80 hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
             >
               <X size={14} />
             </button>
 
-            {/* Hero Property Photo */}
-            <div className="relative h-48 bg-slate-950">
-              {selectedProperty.photos?.[0] ? (
-                <img src={selectedProperty.photos[0]} alt={selectedProperty.name} className="w-full h-full object-cover opacity-85" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-indigo-950/40 to-slate-900/40 flex items-center justify-center text-muted">
-                  <Building2 size={36} />
+            {/* Left Panel: Photo Showcase & Gallery */}
+            <div className="flex flex-col border-r border-border/40 bg-background/25">
+              <div className="relative h-64 bg-slate-950 overflow-hidden">
+                {selectedProperty.photos?.[propPhotoIndex] ? (
+                  <img src={selectedProperty.photos[propPhotoIndex]} alt={selectedProperty.name} className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.02]" />
+                ) : (
+                  <img src="/assets/voxel_estate.png" alt="Realistic 3D Voxel Model" className="w-full h-full object-contain p-4" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-transparent to-transparent pointer-events-none" />
+                
+                <div className="absolute bottom-4 left-4 right-4">
+                  <span className="bg-brand-500 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-white/10 shadow-md">
+                    {selectedProperty.type?.replace('_', ' ') || 'Apartment'}
+                  </span>
+                  <h3 className="text-lg font-black text-white mt-2 tracking-tight drop-shadow">{selectedProperty.name}</h3>
+                  <p className="text-xs text-slate-300 font-medium drop-shadow mt-0.5">📍 {selectedProperty.address?.street}, {selectedProperty.address?.area}</p>
+                </div>
+
+                {selectedProperty.photos?.length > 1 && (
+                  <>
+                    <button 
+                      onClick={() => setPropPhotoIndex(prev => (prev > 0 ? prev - 1 : selectedProperty.photos.length - 1))}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/85 text-white p-1.5 rounded-full border border-white/10 transition cursor-pointer"
+                    >
+                      &larr;
+                    </button>
+                    <button 
+                      onClick={() => setPropPhotoIndex(prev => (prev < selectedProperty.photos.length - 1 ? prev + 1 : 0))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/85 text-white p-1.5 rounded-full border border-white/10 transition cursor-pointer"
+                    >
+                      &rarr;
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Photo Thumbnails Carousel */}
+              {selectedProperty.photos?.length > 0 && (
+                <div className="flex gap-2 p-3 overflow-x-auto border-b border-border/40 bg-surface-bright">
+                  {selectedProperty.photos.map((ph, idx) => (
+                    <button 
+                      key={idx}
+                      onClick={() => setPropPhotoIndex(idx)}
+                      className={`w-14 h-10 rounded-lg overflow-hidden border-2 flex-shrink-0 transition ${
+                        idx === propPhotoIndex ? 'border-brand-500 scale-95 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={ph} alt="thumbnail" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
-              <div className="absolute bottom-4 left-4">
-                <span className="bg-primary/95 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg">
-                  {selectedProperty.type?.replace('_', ' ')}
-                </span>
-                <h3 className="text-base font-black text-white mt-1.5">{selectedProperty.name}</h3>
-                <p className="text-[10px] text-slate-300">{selectedProperty.address?.area} · {selectedProperty.address?.city}</p>
+
+              {/* Action Buttons Panel */}
+              <div className="p-4 flex gap-2 justify-stretch bg-surface-bright/50 mt-auto">
+                <button
+                  onClick={() => toast.info('Edit Property flow initiated')}
+                  className="flex-1 py-2.5 bg-background border border-border hover:bg-surface text-foreground font-bold rounded-xl text-xs uppercase tracking-wider transition cursor-pointer active:scale-[0.98]"
+                >
+                  Edit Property
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedProperty(null);
+                    toast.success('Switched map style to 3D View mode.');
+                  }}
+                  className="flex-1 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-md cursor-pointer active:scale-[0.98]"
+                >
+                  View 3D Model
+                </button>
+                <button
+                  onClick={() => toast.info('Add Unit flow initiated')}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-md cursor-pointer active:scale-[0.98]"
+                >
+                  Add Unit
+                </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-3 gap-4 text-center border-b border-border/40 pb-4">
+            {/* Right Panel: Map & Unit Grid */}
+            <div className="p-6 flex flex-col space-y-4 max-h-[85vh] overflow-y-auto">
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted border-b border-border/40 pb-2">
+                Property Overview
+              </h3>
+
+              {/* 3D Mini Map showing Mombasa island location */}
+              <div className="rounded-2xl border border-border/40 overflow-hidden relative shadow-md bg-slate-950 h-32 w-full z-0">
+                <MapContainer 
+                  center={getPropertyCoords(selectedProperty)} 
+                  zoom={14} 
+                  zoomControl={false}
+                  className="w-full h-full"
+                >
+                  <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                  />
+                  <Marker position={getPropertyCoords(selectedProperty)} />
+                </MapContainer>
+                <div className="absolute top-2 left-2 z-[1000] bg-black/70 backdrop-blur-md border border-white/20 rounded px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider pointer-events-none">
+                  🛰 Satellite View
+                </div>
+              </div>
+
+              {/* Metrics */}
+              <div className="grid grid-cols-3 gap-2.5 text-center bg-surface-bright/50 border border-border/40 p-3 rounded-2xl">
                 <div>
                   <span className="text-[9px] text-muted font-bold uppercase tracking-wider block">Total Units</span>
-                  <p className="text-sm font-black">{selectedProperty.units?.length || 0}</p>
+                  <p className="text-sm font-black text-foreground">{selectedProperty.units?.length || 0}</p>
                 </div>
                 <div>
                   <span className="text-[9px] text-muted font-bold uppercase tracking-wider block">Occupied</span>
-                  <p className="text-sm font-black text-emerald-400">
+                  <p className="text-sm font-black text-emerald-500">
                     {selectedProperty.units?.filter(u => u.status === 'occupied').length || 0}
                   </p>
                 </div>
                 <div>
                   <span className="text-[9px] text-muted font-bold uppercase tracking-wider block">Base Rent</span>
-                  <p className="text-sm font-black font-mono">KES {selectedProperty.tier_id?.base_rent_kes?.toLocaleString() || '—'}</p>
+                  <p className="text-sm font-black font-mono text-foreground font-mono">
+                    {FMT_KES(selectedProperty.tier_id?.base_rent_kes || 25000)}
+                  </p>
                 </div>
               </div>
 
-              {/* Units Grid */}
+              {/* Colored Unit Status Grid */}
               <div>
-                <h4 className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Unit Status Directory</h4>
+                <h4 className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2.5 flex justify-between items-center">
+                  <span>Unit Status Directory</span>
+                  <span className="text-[9px] lowercase font-normal">click to open portfolio</span>
+                </h4>
                 {(!selectedProperty.units || selectedProperty.units.length === 0) ? (
-                  <p className="text-xs text-muted py-4 text-center">No units registered for this property</p>
+                  <p className="text-xs text-muted py-6 text-center">No units registered for this property</p>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-36 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
                     {selectedProperty.units.map(unit => {
                       const isOccupied = unit.status === 'occupied';
+                      let borderStyle = 'border-border/60 hover:bg-slate-100 dark:hover:bg-slate-900';
+                      let statusPillColor = 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-400';
+                      let statusText = 'vacant';
+
+                      if (isOccupied) {
+                        statusPillColor = 'bg-emerald-500/10 text-emerald-500';
+                        borderStyle = 'border-emerald-500/20 hover:bg-emerald-500/5';
+                        statusText = 'occupied';
+                      } else if (unit.status === 'maintenance') {
+                        statusPillColor = 'bg-orange-500/10 text-orange-500';
+                        borderStyle = 'border-orange-500/20 hover:bg-orange-500/5';
+                        statusText = 'maintenance';
+                      }
+
                       return (
                         <button
                           key={unit._id}
                           onClick={() => setSelectedUnit(unit)}
-                          className={`p-2.5 rounded-xl border text-left transition duration-300 ${
-                            isOccupied
-                              ? 'bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15'
-                              : 'bg-background/40 border-border/60 hover:bg-background/70'
-                          }`}
+                          className={`p-2.5 rounded-xl border text-left transition duration-200 cursor-pointer ${borderStyle}`}
                         >
-                          <p className="text-xs font-bold text-foreground">Unit {unit.unit_number}</p>
-                          <span className={`text-[9px] font-bold block mt-1 uppercase ${isOccupied ? 'text-emerald-400' : 'text-muted'}`}>
-                            {unit.status}
+                          <p className="text-xs font-black text-foreground">Unit {unit.unit_number}</p>
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded inline-block mt-2 ${statusPillColor}`}>
+                            {statusText}
                           </span>
                         </button>
                       );
@@ -607,59 +710,116 @@ export default function AdminDashboardPage() {
 
       {/* ── Unit Portfolio Popup (selectedUnit modal) ──────────────────────── */}
       {selectedUnit && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md bg-surface border border-border rounded-2xl shadow-2xl p-6 relative text-foreground space-y-4">
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden relative text-foreground grid grid-cols-1 md:grid-cols-2 gap-0">
             <button
               onClick={() => setSelectedUnit(null)}
-              className="absolute top-4 right-4 p-1.5 hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
+              className="absolute top-4 right-4 z-20 p-1.5 bg-background/80 hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
             >
               <X size={14} />
             </button>
 
-            <h3 className="text-xs font-black uppercase tracking-wider border-b border-border pb-3">
-              Unit {selectedUnit.unit_number} Portfolio
-            </h3>
-
-            {/* Photo Gallery Mock */}
-            <div className="rounded-xl overflow-hidden aspect-[16/10] bg-slate-950 border border-border">
-              {selectedUnit.photos?.[0] ? (
-                <img src={selectedUnit.photos[0]} alt="Unit interior" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-indigo-950/30 to-slate-900/30 flex flex-col items-center justify-center text-muted gap-2">
-                  <Home size={32} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">No interior photos uploaded</span>
+            {/* Left Panel: Floor Plan Gallery & Spec */}
+            <div className="flex flex-col border-r border-border/40 bg-background/25">
+              <div className="relative h-64 bg-slate-950 overflow-hidden flex items-center justify-center p-3">
+                <img src="/assets/voxel_floorplan.png" alt="3D Floorplan" className="w-full h-full object-contain hover:scale-[1.02] transition-transform duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute bottom-4 left-4">
+                  <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border ${
+                    selectedUnit.status === 'occupied' ? 'bg-emerald-500/90 text-white border-emerald-400/20' : 'bg-amber-600/90 text-white border-amber-400/20'
+                  }`}>
+                    {selectedUnit.status}
+                  </span>
+                  <h3 className="text-base font-black text-white mt-2.5 drop-shadow">Unit {selectedUnit.unit_number} Specifications</h3>
                 </div>
-              )}
+              </div>
+
+              {/* Specifications grid */}
+              <div className="p-4 grid grid-cols-2 gap-3.5 text-xs bg-surface-bright/50">
+                <div>
+                  <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Monthly Rent</span>
+                  <p className="font-black text-foreground font-mono">{FMT_KES(selectedUnit.rent_kes)}</p>
+                </div>
+                <div>
+                  <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Beds / Baths</span>
+                  <p className="font-black text-foreground">{selectedUnit.bedrooms || 1} Bed · {selectedUnit.bathrooms || 1} Bath</p>
+                </div>
+                <div>
+                  <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Dimension</span>
+                  <p className="font-black text-foreground font-mono">{selectedUnit.size_sqft || 720} Sq Ft</p>
+                </div>
+                <div>
+                  <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Floor Level</span>
+                  <p className="font-black text-foreground">Floor {selectedUnit.unit_number?.match(/^(\d+)/)?.[1] || 1}</p>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Rent Rate</span>
-                <p className="font-bold text-foreground font-mono">{FMT_KES(selectedUnit.rent_kes)}</p>
+            {/* Right Panel: Tenant & Location Map */}
+            <div className="p-6 flex flex-col space-y-4 max-h-[85vh] overflow-y-auto">
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted border-b border-border/40 pb-2">
+                Unit Portfolio
+              </h3>
+
+              {/* Mini Map showing Unit location coordinate */}
+              <div className="rounded-2xl border border-border/40 overflow-hidden relative shadow-md bg-slate-950 h-32 w-full z-0">
+                <MapContainer 
+                  center={getPropertyCoords(selectedProperty)} 
+                  zoom={15} 
+                  zoomControl={false}
+                  className="w-full h-full"
+                >
+                  <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                  />
+                  <Marker position={getPropertyCoords(selectedProperty)} />
+                </MapContainer>
+                <div className="absolute top-2 left-2 z-[1000] bg-black/70 backdrop-blur-md border border-white/20 rounded px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider pointer-events-none">
+                  🛰 Satellite View
+                </div>
               </div>
-              <div>
-                <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Occupancy State</span>
-                <span className={`inline-block mt-0.5 font-bold uppercase ${selectedUnit.status === 'occupied' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {selectedUnit.status}
-                </span>
-              </div>
-              <div>
-                <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Beds / Baths</span>
-                <p className="font-bold text-foreground">{selectedUnit.bedrooms || 1} Bed · {selectedUnit.bathrooms || 1} Bath</p>
-              </div>
-              <div>
-                <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-0.5">Size</span>
-                <p className="font-bold text-foreground">{selectedUnit.size_sqft || 650} Sq Ft</p>
+
+              {/* Assigned Tenant Details */}
+              <div className="border border-border/40 rounded-2xl p-4 bg-surface-bright/50 flex-1 flex flex-col justify-between min-h-[140px]">
+                <div>
+                  <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-2 border-b border-border/20 pb-1">
+                    Assigned Occupant
+                  </span>
+                  {selectedUnit.tenant_id ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-black text-foreground">{selectedUnit.tenant_id.full_name}</p>
+                      <div className="space-y-1 text-xs text-muted">
+                        <p className="flex items-center gap-1.5">📞 {selectedUnit.tenant_id.phone}</p>
+                        <p className="flex items-center gap-1.5">✉️ {selectedUnit.tenant_id.email || 'No email registered'}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center">
+                      <p className="text-xs text-muted italic">This unit is currently vacant</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-border/20 mt-auto">
+                  {selectedUnit.tenant_id ? (
+                    <button
+                      onClick={() => toast.info('Tenant profile options initiated')}
+                      className="w-full py-2 bg-background hover:bg-surface border border-border text-foreground rounded-xl text-xs font-bold transition cursor-pointer active:scale-[0.98]"
+                    >
+                      View Tenant Details
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => toast.info('Link Tenant flow initiated')}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer active:scale-[0.98]"
+                    >
+                      Assign New Tenant
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-
-            {selectedUnit.tenant_id && (
-              <div className="bg-background/40 border border-border rounded-xl p-3">
-                <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-1">Assigned Tenant</span>
-                <p className="text-xs font-bold text-foreground">{selectedUnit.tenant_id.full_name || 'Tenant Name'}</p>
-                <p className="text-[10px] text-muted mt-0.5">{selectedUnit.tenant_id.phone}</p>
-              </div>
-            )}
           </div>
         </div>
       )}

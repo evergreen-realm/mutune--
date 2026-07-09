@@ -674,7 +674,7 @@ function Section({ title, children }) {
 }
 
 // ─── Main TenantsPage ─────────────────────────────────────────────────────────
-export default function TenantsPage() {
+export default function TenantsPage({ dbUser }) {
   const qc = useQueryClient();
   const { user: clerkUser } = useUser();
   const [search, setSearch] = useState('');
@@ -688,7 +688,7 @@ export default function TenantsPage() {
   const [evictReason, setEvictReason] = useState('');
   const [evictDate, setEvictDate] = useState('');
 
-  const role = clerkUser?.publicMetadata?.role || 'landlord';
+  const role = dbUser?.role || clerkUser?.publicMetadata?.role || 'landlord';
   const canAddTenant = ['admin', 'super_admin', 'agent'].includes(role);
   const isStaff = ['admin', 'super_admin', 'agent'].includes(role);
 

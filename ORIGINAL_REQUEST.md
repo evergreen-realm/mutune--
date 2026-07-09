@@ -63,9 +63,9 @@ Based on the Huashu Design skill's `design-styles.md` style repository, the foll
 - [ ] Sidebars transition smoothly between collapsed and expanded states on click.
 
 ### Functional Integration
-- [ ] Local production compile `npm run build` in `frontend/` succeeds with zero errors.
+- [x] Local production compile `npm run build` in `frontend/` succeeds with zero errors.
 - [ ] Every dashboard integrates with real backend endpoints via `@tanstack/react-query` without mock data or stubs.
-- [ ] Tenant onboarding and profile verification successfully link Clerk IDs with MongoDB records.
+- [x] Tenant onboarding and profile verification successfully link Clerk IDs with MongoDB records.
 - [ ] Recharts widgets render correctly with dynamic tooltips and color gradients matching the active theme.
 
 ## Follow-up — 2026-06-20T20:43:52+03:00

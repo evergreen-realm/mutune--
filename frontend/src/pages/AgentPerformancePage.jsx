@@ -138,12 +138,16 @@ export default function AgentPerformancePage({ dbUser }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-8 flex-wrap gap-4 border-b border-border/40 pb-5">
           <div>
-            <span className="text-[10px] text-primary font-extrabold uppercase tracking-widest block mb-1">Performance</span>
+            <span className="text-[10px] text-primary font-extrabold uppercase tracking-widest block mb-1">
+              {dbUser?.role === 'agent' ? `Agent ID: ${dbUser.user_code || 'Pending'}` : 'Performance'}
+            </span>
             <h1 className="text-slate-900 dark:text-slate-100 text-2xl sm:text-3xl font-black tracking-tight mb-1">
-              Agent Performance Portal
+              {dbUser?.role === 'agent' ? `Welcome, ${dbUser.full_name}` : 'Agent Performance Portal'}
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-xs">
-              Monitor active tasks, commission rates, and review queues.
+              {dbUser?.role === 'agent' 
+                ? 'Manage assigned properties, check-ins, tasks, and inventory details.'
+                : 'Monitor active tasks, commission rates, and review queues.'}
             </p>
           </div>
 
@@ -191,11 +195,17 @@ export default function AgentPerformancePage({ dbUser }) {
 
           <div className="bg-surface/30 backdrop-blur-md border border-blue-500/20 rounded-2xl p-6 shadow-md">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] text-muted font-bold uppercase tracking-wider">Active Agent Count</span>
+              <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
+                {dbUser?.role === 'agent' ? 'My Agent ID' : 'Active Agent Count'}
+              </span>
               <Users2 size={18} className="text-blue-400" />
             </div>
-            <p className="text-2xl font-black text-foreground font-mono">{agents.length}</p>
-            <p className="text-[10px] text-muted font-semibold mt-1">Verified active managers</p>
+            <p className="text-2xl font-black text-foreground font-mono">
+              {dbUser?.role === 'agent' ? (dbUser.user_code || 'Pending') : agents.length}
+            </p>
+            <p className="text-[10px] text-muted font-semibold mt-1">
+              {dbUser?.role === 'agent' ? 'Your permanent system identifier' : 'Verified active managers'}
+            </p>
           </div>
         </div>
 
@@ -386,7 +396,7 @@ export default function AgentPerformancePage({ dbUser }) {
                           }
                           setReviewingId(prop._id);
                           try {
-                            await submitAgentReview(prop._id, { tier_id: tierId });
+                            await submitAgentReview(prop._id, tierId);
                             toast.success('Property tier updated and approved ✓');
                             setReviewProperties(prev => prev.filter(p => p._id !== prop._id));
                           } catch (err) {

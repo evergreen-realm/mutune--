@@ -1,10 +1,26 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Search, MapPin, Box, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Search, MapPin, Box, X, Maximize2, Minimize2, Globe } from 'lucide-react';
 import { fetchUnitGeoJSON } from '../lib/api';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { Suspense, lazy } from 'react';
+
+const BuildingPreview3D = lazy(() => import('./BuildingPreview3D'));
+
+function checkDeviceCapabilities() {
+  if (typeof window === 'undefined') return false;
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) return true;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (connection) {
+    if (['2g', 'slow-2g', '3g'].includes(connection.effectiveType)) return true;
+  }
+  const memory = navigator.deviceMemory;
+  const cores = navigator.hardwareConcurrency;
+  if (memory !== undefined && memory < 4) return true;
+  if (cores !== undefined && cores < 4) return true;
+  return false;
+}
 
 // Set Mapbox Access Token
 const rawToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -48,7 +64,7 @@ export function getPropertyCoords(prop) {
 }
 
 // ── Mapbox Map component ─────────────────────────────────────────────────────
-function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme }) {
+function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -81,6 +97,27 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       const labelLayerId = layers.find(
         (layer) => layer.type === 'symbol' && layer.layout['text-field']
       )?.id;
+
+      // Add free, high-resolution Esri World Imagery satellite layer
+      if (!map.getSource('esri-satellite')) {
+        map.addSource('esri-satellite', {
+          type: 'raster',
+          tiles: [
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+          ],
+          tileSize: 256,
+          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        map.addLayer({
+          id: 'esri-satellite-layer',
+          type: 'raster',
+          source: 'esri-satellite',
+          paint: {
+            'raster-opacity': mapStyleMode === 'satellite' ? 1.0 : 0.0
+          }
+        }, labelLayerId); // insert below labels and street names so they remain visible on top!
+      }
 
       if (!map.getLayer('3d-buildings')) {
         // 3D building extrusions for Mombasa
@@ -116,7 +153,6 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         const propFeatures = properties.map(prop => {
           const coords = getPropertyCoords(prop);
           const unitCount = prop.units?.length || 1;
-          // Dynamic height: taller buildings = more units (visual density indicator)
           const height = Math.max(15, unitCount * 5);
           const occupiedCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
           const ratio = unitCount > 0 ? occupiedCount / unitCount : 0;
@@ -172,6 +208,19 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       }
     };
   }, [theme]);
+
+  // Handle dynamically changing satellite mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    if (map.getLayer('esri-satellite-layer')) {
+      map.setPaintProperty(
+        'esri-satellite-layer',
+        'raster-opacity',
+        mapStyleMode === 'satellite' ? 1.0 : 0.0
+      );
+    }
+  }, [mapStyleMode]);
 
   // Handle center updates
   useEffect(() => {
@@ -365,173 +414,55 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
   );
 }
 
-// ── 3D Unit Block (React Three Fiber Mesh) ──────────────────────────────────
-function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
-  const unitStr = String(unit.unit_number || '');
-  const floorMatch = unitStr.match(/^(\d+)/);
-  const floor = floorMatch ? parseInt(floorMatch[1], 10) : Math.floor(index / 4);
-
-  const colMatch = unitStr.match(/([a-zA-Z]+)$/);
-  const colStr = colMatch ? colMatch[1].toUpperCase() : 'A';
-  const col = colStr.charCodeAt(0) - 65;
-
-  const x = col * 1.6 - 0.8;
-  const y = floor * 1.2 + 0.6;
-  const z = 0;
-
-  const status = getUnitStatus(unit);
-  const color = statusColors[status] || '#6b7280';
-
-  const [hovered, setHovered] = useState(false);
-
-  const scale = isSelected ? [1.1, 1.1, 1.1] : hovered ? [1.05, 1.05, 1.05] : [1, 1, 1];
-  const emissive = isSelected ? '#ffffff' : hovered ? '#475569' : '#000000';
-  const emissiveIntensity = isSelected ? 0.35 : hovered ? 0.2 : 0;
-
-  return (
-    <mesh
-      position={[x, y, z]}
-      scale={scale}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        setHovered(true);
-        onHover?.(unit);
-      }}
-      onPointerOut={() => {
-        setHovered(false);
-        onHover?.(null);
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick?.(unit);
-      }}
-    >
-      <boxGeometry args={[1.3, 1.0, 1.3]} />
-      <meshStandardMaterial
-        color={color}
-        roughness={0.15}
-        metalness={0.2}
-        emissive={emissive}
-        emissiveIntensity={emissiveIntensity}
-      />
-    </mesh>
-  );
-}
-
-// ── BuildingPreview3D (theme-aware R3F canvas) ──────────────────────────────
-export function BuildingPreview3D({ property, selectedUnit, onClose, onUnitSelect, theme = 'dark' }) {
-  const [hoveredUnit, setHoveredUnit] = useState(null);
+// ── BuildingPreviewLite (2D units grid fallback) ───────────────────────────
+export function BuildingPreviewLite({ property, selectedUnit, onClose, onUnitSelect, theme = 'dark' }) {
   const isLight = theme === 'light';
-
-  if (!property) {
-    return (
-      <div className={`h-80 flex flex-col items-center justify-center rounded-xl border ${
-        isLight
-          ? 'bg-surface-bright border-border text-muted'
-          : 'bg-surface border-border text-muted'
-      }`}>
-        <Box size={32} className="mb-2 opacity-40 animate-pulse" />
-        <p className="text-xs">No property selected for 3D Preview</p>
-      </div>
-    );
-  }
-
-  const units = property.units || [];
-  const groundColor = isLight ? '#e2e8f0' : '#0b0f19';
-  const gridColor1 = isLight ? '#6366f1' : '#3b82f6';
-  const gridColor2 = isLight ? '#cbd5e1' : '#334155';
-
+  const units = property?.units || [];
   return (
-    <div className={`relative rounded-xl border p-4 overflow-hidden ${
+    <div className={`relative rounded-xl border p-4 ${
       isLight ? 'bg-surface border-border' : 'bg-surface border-border'
     }`} style={{ minHeight: '400px' }}>
-      <div className="absolute top-4 left-4 z-10 pointer-events-none">
-        <h3 className="font-bold text-sm text-foreground">{property.name}</h3>
-        <p className="text-xs text-muted font-mono">{property.property_code}</p>
-        <div className="mt-2 flex gap-2">
-          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${
-            isLight
-              ? 'bg-brand-50 border-brand-200 text-brand-600'
-              : 'bg-surface-bright border-border text-muted'
-          }`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" /> Interactive 3D Model
-          </span>
+      <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+        <div>
+          <h3 className="font-bold text-sm text-foreground">{property?.name}</h3>
+          <p className="text-xs text-muted font-mono">{property?.property_code}</p>
         </div>
-      </div>
-
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
         <button
           onClick={onClose}
-          className="p-1.5 bg-surface-bright hover:bg-background text-muted hover:text-foreground rounded-lg border border-border transition-colors"
+          className="p-1.5 bg-surface-bright hover:bg-background text-muted hover:text-foreground rounded-lg border border-border transition-colors cursor-pointer"
         >
           <X size={14} />
         </button>
       </div>
 
-      <div className={`w-full h-80 rounded-lg overflow-hidden border mt-10 ${
-        isLight ? 'bg-surface-bright border-border' : 'bg-background border-border'
-      }`}>
-        <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
-          <ambientLight intensity={isLight ? 0.6 : 0.4} />
-          <pointLight position={[10, 10, 10]} intensity={isLight ? 1.2 : 1.5} />
-          <directionalLight position={[-5, 8, -5]} intensity={0.6} />
+      <p className="text-xs text-muted mb-4 font-medium flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Lite View (2D Units List)
+      </p>
 
-          <group position={[0, -1, 0]}>
-            {units.map((unit, idx) => (
-              <Unit3DBlock
-                key={unit._id || idx}
-                unit={unit}
-                index={idx}
-                isSelected={selectedUnit?._id === unit._id}
-                onHover={setHoveredUnit}
-                onClick={onUnitSelect}
-              />
-            ))}
-
-            <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
-            <mesh rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[15, 15]} />
-              <meshStandardMaterial color={groundColor} roughness={0.9} />
-            </mesh>
-          </group>
-
-          <OrbitControls
-            enableDamping
-            dampingFactor={0.05}
-            maxPolarAngle={Math.PI / 2 - 0.05}
-            minDistance={3}
-            maxDistance={20}
-          />
-        </Canvas>
-      </div>
-
-      <div className="mt-4 flex flex-col md:flex-row justify-between items-stretch gap-3 border-t border-border pt-3">
-        <div className="flex-1 text-xs text-muted">
-          {hoveredUnit ? (
-            <div className="bg-surface-bright p-2.5 rounded border border-border">
-              <p className="font-semibold text-foreground">Unit {hoveredUnit.unit_number}</p>
-              <p className="text-xs text-muted capitalize">Status: {hoveredUnit.status?.replace('_', ' ')}</p>
-              <p className="text-xs text-muted">Rent: KES {hoveredUnit.rent_kes?.toLocaleString()}</p>
-            </div>
-          ) : selectedUnit ? (
-            <div className="bg-brand-50 p-2.5 rounded border border-brand-200">
-              <p className="font-semibold text-brand-600">Selected: Unit {selectedUnit.unit_number}</p>
-              <p className="text-xs text-foreground capitalize">Status: {selectedUnit.status?.replace('_', ' ')}</p>
-              <p className="text-xs text-foreground">Rent: KES {selectedUnit.rent_kes?.toLocaleString()}</p>
-            </div>
-          ) : (
-            <p className="italic text-muted py-2">Hover over or click a 3D unit block to inspect details. Drag to rotate model.</p>
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2 items-center justify-end">
-          {Object.entries(statusColors).map(([status, color]) => (
-            <span key={status} className="flex items-center gap-1.5 text-xs text-muted font-medium">
-              <span className="w-2 h-2 rounded-full" style={{ background: color }} />
-              {status}
-            </span>
-          ))}
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-80 overflow-y-auto p-1">
+        {units.map((unit) => {
+          const status = getUnitStatus(unit);
+          const color = statusColors[status] || '#6b7280';
+          const isSelected = selectedUnit?._id === unit._id;
+          return (
+            <button
+              key={unit._id}
+              onClick={() => onUnitSelect(unit)}
+              className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between h-24 cursor-pointer hover:scale-[1.02] ${
+                isSelected 
+                  ? 'border-blue-500 bg-blue-550/10 dark:bg-blue-900/20' 
+                  : 'border-border bg-surface-bright hover:bg-background'
+              }`}
+            >
+              <div>
+                <p className="font-bold text-xs text-foreground">Unit {unit.unit_number}</p>
+                <p className="text-[10px] text-muted capitalize mt-0.5">{status.replace('_', ' ')}</p>
+              </div>
+              <p className="text-xs font-semibold text-foreground mt-2 font-mono">KES {unit.rent_kes?.toLocaleString()}</p>
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: color }} />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -547,6 +478,19 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
   const [activeTab, setActiveTab] = useState('properties');
   const [loadingUnits, setLoadingUnits] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mapStyleMode, setMapStyleMode] = useState('satellite');
+  const [isLiteView, setIsLiteView] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem('mutune_lite_view');
+    if (stored !== null) return stored === 'true';
+    return checkDeviceCapabilities();
+  });
+
+  const toggleLiteView = () => {
+    const newVal = !isLiteView;
+    setIsLiteView(newVal);
+    localStorage.setItem('mutune_lite_view', String(newVal));
+  };
 
   const isLight = theme === 'light';
 
@@ -636,10 +580,30 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
             })}
           </div>
 
+          <button
+            onClick={toggleLiteView}
+            className="px-2.5 py-1.5 rounded-lg border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-bright transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+            title={isLiteView ? 'Switch to 3D View' : 'Switch to Lite View'}
+          >
+            <Box size={13} />
+            <span>{isLiteView ? '3D View' : 'Lite Mode'}</span>
+          </button>
+
+          <button
+            onClick={() => setMapStyleMode(prev => prev === 'vector' ? 'satellite' : 'vector')}
+            className={`px-2.5 py-1.5 rounded-lg border border-border transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer ${
+              mapStyleMode === 'satellite' ? 'bg-brand-500 text-white border-transparent' : 'bg-surface text-muted hover:text-foreground hover:bg-surface-bright'
+            }`}
+            title="Toggle Satellite / Vector style"
+          >
+            <Globe size={13} />
+            <span>{mapStyleMode === 'satellite' ? 'Satellite View' : 'Vector View'}</span>
+          </button>
+
           {isAdmin && (
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
-              className="p-1.5 rounded-lg border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-bright transition-colors"
+              className="p-1.5 rounded-lg border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-bright transition-colors cursor-pointer"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map'}
             >
               {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -668,6 +632,7 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
             agentLocation={agentLocation}
             isFullscreen={isFullscreen}
             theme={theme}
+            mapStyleMode={mapStyleMode}
           />
 
           {loadingUnits && (
@@ -681,16 +646,33 @@ export default function MapWidget({ properties = [], agentLocation = null, onPro
         </div>
       )}
 
-      {/* 3D Preview Canvas */}
+      {/* 3D Preview Canvas / Lite Fallback */}
       {activeTab === '3d' && (
         <div className="p-4 bg-background flex-1">
-          <BuildingPreview3D
-            property={selectedProperty}
-            selectedUnit={selectedUnit}
-            onClose={() => setActiveTab('units')}
-            onUnitSelect={setSelectedUnit}
-            theme={theme}
-          />
+          {isLiteView ? (
+            <BuildingPreviewLite
+              property={selectedProperty}
+              selectedUnit={selectedUnit}
+              onClose={() => setActiveTab('units')}
+              onUnitSelect={setSelectedUnit}
+              theme={theme}
+            />
+          ) : (
+            <Suspense fallback={
+              <div className="h-80 flex flex-col items-center justify-center rounded-xl border bg-surface border-border text-muted animate-pulse">
+                <span className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-2" />
+                Loading interactive 3D scene...
+              </div>
+            }>
+              <BuildingPreview3D
+                property={selectedProperty}
+                selectedUnit={selectedUnit}
+                onClose={() => setActiveTab('units')}
+                onUnitSelect={setSelectedUnit}
+                theme={theme}
+              />
+            </Suspense>
+          )}
         </div>
       )}
 

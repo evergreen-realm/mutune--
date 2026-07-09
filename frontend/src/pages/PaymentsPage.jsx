@@ -28,7 +28,7 @@ const CHANNEL_LABELS = {
   diaspora_wire: 'Diaspora Wire'
 };
 
-export default function PaymentsPage() {
+export default function PaymentsPage({ dbUser }) {
   const qc = useQueryClient();
   const { user: clerkUser } = useUser();
   const { theme } = useThemeStore();
@@ -37,7 +37,7 @@ export default function PaymentsPage() {
   const [voidingPmt, setVoidingPmt] = useState(null);
   const [voidReason, setVoidReason] = useState('');
 
-  const role = clerkUser?.publicMetadata?.role || 'landlord';
+  const role = dbUser?.role || clerkUser?.publicMetadata?.role || 'landlord';
   const isAdmin = ['admin', 'super_admin'].includes(role);
 
   const { data, isLoading, error } = useQuery({

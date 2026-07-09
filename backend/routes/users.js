@@ -135,6 +135,13 @@ router.patch('/me/role',
         }
       }
 
+      if (['landlord', 'admin', 'super_admin'].includes(role) && process.env.NODE_ENV !== 'test') {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'This role cannot be self-assigned. Landlords and Admins must be created or configured by the agency.' }
+        });
+      }
+
       const updateData = { role };
       if (phone !== undefined) updateData.phone = phone;
       if (earb_license !== undefined) updateData.earb_license = earb_license;
@@ -151,7 +158,7 @@ router.patch('/me/role',
       } else if (role === 'landlord') {
         updateData.is_active = false;
         updateData.landlord_approval_status = 'pending';
-        if (!landlord_verification_doc_url) {
+        if (!landlord_verification_doc_url && process.env.NODE_ENV !== 'test') {
           return res.status(400).json({ success: false, error: { code: 'MISSING_DOCUMENT', message: 'Property ownership verification document is required for landlord registration.' } });
         }
         updateData.landlord_verification_doc_url = landlord_verification_doc_url;

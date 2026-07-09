@@ -662,6 +662,16 @@ router.post('/landlord/submit',
         photos: photos || []
       });
 
+      // Generate standard agency contract PDF and save to property
+      try {
+        const pdfService = require('../services/pdf');
+        const contractUrl = await pdfService.generateLandlordContractPDF({ property, landlord: req.user });
+        property.contract_pdf_url = contractUrl;
+        await property.save();
+      } catch (contractErr) {
+        logger.error('Failed to generate agency contract on submit', { propertyId: property._id, message: contractErr.message });
+      }
+
       // Notify all admins and agents
       if (Notification && User) {
         const staff = await User.find({ role: { $in: ['admin', 'super_admin', 'agent'] }, is_active: true }, '_id').lean();

@@ -261,6 +261,9 @@ The test suite covers the following 9 key features:
 - **TC-2.1.5: Deactivating Own Account**
   - *Steps*: Admin attempts to call `/api/v1/users/:id/deactivate` targeting their own ID.
   - *Assertion*: Returns `400 Bad Request` with code `SELF_DEACTIVATE` and blocks action.
+- **TC-2.1.6: Approved Role but No Gate Verification**
+  - *Steps*: Authenticate as a user with an approved role (e.g. admin or agent) but do not set the corresponding storage verification key (`mutunet_admin_verified` or `mutunerent_verified_id_*`).
+  - *Assertion*: The application blocks access to dashboard pages and falls back to rendering the respective role verification gate.
 
 ### Feature 2: Property & Unit Lifecycle Management
 - **TC-2.2.1: Property Create Without Auth**

@@ -115,7 +115,7 @@ function AppShell() {
   // stabilising: true for 1.5s after sync completes to prevent flash-redirect
   // during the onboarding→dashboard transition
   const [stabilising, setStabilising] = useState(false);
-  const derivedRole = dbUser?.role || clerkUser?.publicMetadata?.role || undefined;
+  const derivedRole = dbUser?.role || undefined;
   const location = useLocation();
 
   const handleLogout = (options = {}) => {
@@ -519,9 +519,9 @@ function AppShell() {
           } />
           <Route path="/properties/add-landlord" element={<LandlordAddPropertyPage dbUser={dbUser} />} />
           <Route path="/properties/:id" element={<PropertyDetailPage dbUser={dbUser} />} />
-          <Route path="/tenants"        element={<TenantsPage />} />
-          <Route path="/payments"       element={<PaymentsPage />} />
-          <Route path="/maintenance"    element={<MaintenancePage />} />
+          <Route path="/tenants"        element={<TenantsPage dbUser={dbUser} />} />
+          <Route path="/payments"       element={<PaymentsPage dbUser={dbUser} />} />
+          <Route path="/maintenance"    element={<MaintenancePage dbUser={dbUser} />} />
           <Route path="/tasks"          element={<TasksPage dbUser={dbUser} />} />
           <Route path="/admin"          element={<Navigate to="/" replace />} />
           <Route path="/admin/users"    element={<AdminUserManagementPage />} />

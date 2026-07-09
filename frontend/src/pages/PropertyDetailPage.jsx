@@ -39,13 +39,13 @@ const estimateLocation = (property) => {
   return [-4.0435, 39.6682]; // Mombasa
 };
 
-export default function PropertyDetailPage() {
+export default function PropertyDetailPage({ dbUser }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user: clerkUser } = useUser();
   const queryClient = useQueryClient();
 
-  const role = clerkUser?.publicMetadata?.role || 'landlord';
+  const role = dbUser?.role || clerkUser?.publicMetadata?.role || 'landlord';
   const isAdmin = ['admin', 'super_admin'].includes(role);
   const isAgent = role === 'agent';
   const canManage = isAdmin || (isAgent && property?.agent_ids?.some(a => a.email === clerkUser?.primaryEmailAddress?.emailAddress));

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Wrench, CreditCard, Home, Loader2, Trash2 } from 'lucide-react';
+import { Sparkles, X, Send, Bot, User, Wrench, CreditCard, Home, Loader2, Trash2 } from 'lucide-react';
 import { sendChatMessage, clearChatHistory } from '../lib/api';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -114,7 +114,7 @@ export default function ChatAssistant({ user, context = {} }) {
             transition={{ duration: 0.2 }}
             className="w-14 h-14 bg-blue-600 dark:bg-blue-500 text-white rounded-full shadow-2xl hover:bg-blue-700 dark:hover:bg-blue-600 transition-all duration-200 flex items-center justify-center hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
           >
-            <MessageCircle size={24} />
+            <Sparkles size={24} />
           </motion.button>
         )}
       </AnimatePresence>

@@ -13,6 +13,7 @@ import {
   fetchNotifications, markNotifRead, markAllNotifsRead,
   fetchCustomerCareNumber, autoInitiatePayment, updateUserRole
 } from '../lib/api';
+import ImageUpload from '../components/ImageUpload';
 import {
   Home, Wallet, Wrench, FileText, Bell, ChevronRight,
   CheckCircle2, AlertTriangle, Clock, TrendingUp, Star,
@@ -101,9 +102,9 @@ function RentCountdownTimer() {
   }, []);
 
   return (
-    <div className="bg-gradient-to-br from-indigo-950/60 via-slate-900/40 to-slate-950/60 border border-indigo-500/20 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+    <div className="bg-gradient-to-br from-blue-950/60 via-slate-900/40 to-slate-950/60 border border-blue-500/20 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
       <div>
-        <span className="text-[10px] text-indigo-400 font-extrabold uppercase tracking-widest block mb-1">Rent Payment Countdown</span>
+        <span className="text-[10px] text-blue-400 font-extrabold uppercase tracking-widest block mb-1">Rent Payment Countdown</span>
         <h3 className="text-base font-black text-foreground">Time Remaining Until Next Cycle</h3>
         <p className="text-[11px] text-muted mt-0.5">Please settle current balances before the countdown reaches zero to avoid late penalty interest fees.</p>
       </div>
@@ -137,7 +138,7 @@ function PortalSkeleton() {
   return (
     <div className="flex flex-col items-center justify-start relative overflow-hidden">
       {/* Background blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/20 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/20 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-900/20 blur-[120px] pointer-events-none" />
       
       <div className="w-full max-w-5xl space-y-6 z-10">
@@ -216,7 +217,8 @@ export default function TenantPortalPage() {
     return () => clearInterval(timer);
   }, [profile]);
   const [notifOpen,  setNotifOpen]  = useState(false);
-  const [ticketForm, setTicketForm] = useState({ open: false, editId: null, title: '', description: '', priority: 'medium' });
+  const [ticketForm, setTicketForm] = useState({ open: false, editId: null, title: '', description: '', priority: 'medium', category: 'other', photos: [] });
+  const [propertyCardTab, setPropertyCardTab] = useState('lease'); // 'lease' | 'property' | '3d'
   const [submitting, setSubmitting] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState(null);
 
@@ -320,24 +322,36 @@ export default function TenantPortalPage() {
       toast.error('Please fill in all fields');
       return;
     }
+    const propId = profile?.current_property_id?._id || profile?.current_property_id;
+    const unitId = profile?.current_unit_id?._id || profile?.current_unit_id;
+    if (!propId || !unitId) {
+      toast.error('No linked property/unit found. Link your tenancy first.');
+      return;
+    }
     setSubmitting(true);
     try {
       if (ticketForm.editId) {
         await updateMaintenanceTicket(ticketForm.editId, {
           title: ticketForm.title.trim(),
           description: ticketForm.description.trim(),
-          priority: ticketForm.priority
+          priority: ticketForm.priority,
+          category: ticketForm.category || 'other',
+          photos: ticketForm.photos || []
         });
         toast.success('Request updated!');
       } else {
         await createMaintenanceTicket({
           title: ticketForm.title.trim(),
           description: ticketForm.description.trim(),
-          priority: ticketForm.priority
+          priority: ticketForm.priority,
+          category: ticketForm.category || 'other',
+          property_id: propId,
+          unit_id: unitId,
+          photos: ticketForm.photos || []
         });
         toast.success('Maintenance request submitted!');
       }
-      setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium' });
+      setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium', category: 'other', photos: [] });
       load();
     } catch (err) {
       toast.error(err?.error?.message || 'Failed to submit request');
@@ -389,7 +403,7 @@ export default function TenantPortalPage() {
       <div className="flex items-center justify-center text-foreground relative overflow-hidden">
         {/* Glowing background mesh */}
         <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-600/10 blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none" />
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -577,7 +591,7 @@ export default function TenantPortalPage() {
             scale: [1, 1.15, 0.9, 1]
           }}
           transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[-10%] right-[-10%] w-[550px] h-[550px] rounded-full bg-indigo-900/10 blur-[130px]" 
+          className="absolute top-[-10%] right-[-10%] w-[550px] h-[550px] rounded-full bg-blue-900/10 blur-[130px]" 
         />
         <motion.div 
           animate={{
@@ -642,7 +656,7 @@ export default function TenantPortalPage() {
               initial={{ opacity: 0, height: 0, marginBottom: 0 }}
               animate={{ opacity: 1, height: 'auto', marginBottom: 20 }}
               exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              className="bg-gradient-to-r from-emerald-500/10 to-indigo-500/5 backdrop-blur-xl border border-emerald-500/25 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-emerald-950/20 overflow-hidden"
+              className="bg-gradient-to-r from-emerald-500/10 to-blue-500/5 backdrop-blur-xl border border-emerald-500/25 rounded-2xl p-4 flex items-center justify-between shadow-lg shadow-emerald-950/20 overflow-hidden"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0 border border-emerald-500/25">
@@ -697,40 +711,93 @@ export default function TenantPortalPage() {
         <div className="bg-surface/30 backdrop-blur-xl border border-border rounded-[32px] overflow-hidden shadow-2xl mb-8">
           {/* Top Panel: Photo and Mini Map side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-b border-border/40">
-            {/* House Photo Card */}
+            {/* House Photo/Map/3D Tab Card */}
             <div className="relative rounded-2xl overflow-hidden aspect-[16/9] md:aspect-auto md:h-80 group shadow-lg border border-border/20">
-              {propertyPhoto ? (
-                <img 
-                  src={propertyPhoto} 
-                  alt={propertyName} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-indigo-950/80 to-emerald-950/80 flex flex-col items-center justify-center text-muted gap-2">
-                  <Home size={48} className="text-emerald-400 animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-wider">No Property Photo Available</span>
+              {propertyCardTab === 'lease' && (
+                propertyPhoto ? (
+                  <img 
+                    src={propertyPhoto} 
+                    alt={propertyName} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-blue-950/80 to-emerald-950/80 flex flex-col items-center justify-center text-muted gap-2">
+                    <Home size={48} className="text-emerald-400 animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-wider">No Property Photo Available</span>
+                  </div>
+                )
+              )}
+
+              {propertyCardTab === 'property' && (
+                <div className="relative w-full h-full bg-slate-950 flex items-center justify-center">
+                  <img 
+                    src="/assets/voxel_floorplan.png" 
+                    alt="Property Plan Layout" 
+                    className="w-full h-full object-contain p-2 hover:scale-[1.02] transition-transform duration-500" 
+                  />
+                  <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-blue-400 uppercase tracking-widest">
+                    3D Floorplan Layout
+                  </div>
                 </div>
               )}
+
+              {propertyCardTab === '3d' && (
+                <div className="relative w-full h-full bg-slate-950 flex items-center justify-center">
+                  <img 
+                    src="/assets/voxel_estate.png" 
+                    alt="Real 3D Architectural Model" 
+                    className="w-full h-full object-contain p-2 hover:scale-[1.02] transition-transform duration-500" 
+                  />
+                  <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-purple-400 uppercase tracking-widest">
+                    Realistic 3D Voxel Model
+                  </div>
+                </div>
+              )}
+
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40 pointer-events-none" />
               
-              {/* Badges overlay */}
-              <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                <span className="bg-emerald-600/90 backdrop-blur-md text-white text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border border-emerald-500/30 shadow-md">
+              {/* Badges overlay / Tab selectors */}
+              <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-10">
+                <button 
+                  onClick={() => setPropertyCardTab('lease')}
+                  className={`backdrop-blur-md text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border transition-all shadow-md cursor-pointer ${
+                    propertyCardTab === 'lease'
+                      ? 'bg-emerald-600/90 text-white border-emerald-500/30'
+                      : 'bg-slate-900/60 hover:bg-slate-900/80 text-slate-300 border-slate-700/30'
+                  }`}
+                >
                   Active Lease
-                </span>
-                <span className="bg-indigo-950/90 backdrop-blur-md text-indigo-300 text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border border-indigo-500/30 shadow-md">
-                  {profile?.current_property_id?.type?.replace('_', ' ') || 'Property'}
-                </span>
+                </button>
+                <button 
+                  onClick={() => setPropertyCardTab('property')}
+                  className={`backdrop-blur-md text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border transition-all shadow-md cursor-pointer ${
+                    propertyCardTab === 'property'
+                      ? 'bg-blue-600/90 text-white border-blue-500/30'
+                      : 'bg-slate-900/60 hover:bg-slate-900/80 text-slate-300 border-slate-700/30'
+                  }`}
+                >
+                  {profile?.current_property_id?.type?.replace('_', ' ') || 'Property Plan'}
+                </button>
+                <button 
+                  onClick={() => setPropertyCardTab('3d')}
+                  className={`backdrop-blur-md text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border transition-all shadow-md cursor-pointer ${
+                    propertyCardTab === '3d'
+                      ? 'bg-purple-600/90 text-white border-purple-500/30'
+                      : 'bg-slate-900/60 hover:bg-slate-900/80 text-slate-300 border-slate-700/30'
+                  }`}
+                >
+                  3D View
+                </button>
               </div>
 
               {arrears > 0 && (
-                <span className="absolute top-4 right-4 bg-red-600/95 backdrop-blur-md text-white text-xs font-black uppercase tracking-wider px-3.5 py-1.5 rounded-lg border border-red-500/30 shadow-lg shadow-red-950/40 animate-pulse">
+                <span className="absolute top-4 right-4 bg-red-600/95 backdrop-blur-md text-white text-xs font-black uppercase tracking-wider px-3.5 py-1.5 rounded-lg border border-red-500/30 shadow-lg shadow-red-950/40 animate-pulse z-10">
                   Arrears: {FMT_KES(arrears)}
                 </span>
               )}
 
               {/* Bottom detail text overlay */}
-              <div className="absolute bottom-4 left-4 right-4">
+              <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
                 <p className="text-xs text-emerald-400 font-extrabold tracking-widest uppercase mb-1">
                   MutuneRent Certified
                 </p>
@@ -871,20 +938,19 @@ export default function TenantPortalPage() {
                   </div>
                   <div className="flex justify-between border-t border-border/20 pt-1.5">
                     <span className="text-muted">Utility Deposit (Reserve)</span>
-                    <span className="font-semibold text-indigo-400">KES 2,500</span>
+                    <span className="font-semibold text-blue-400">KES 2,500</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Contact Agent Zillow-style widget */}
-            <div className="bg-gradient-to-br from-indigo-950/30 to-slate-900/50 backdrop-blur-md border border-indigo-500/20 rounded-2xl p-5 min-w-[280px] lg:max-w-xs space-y-4 shadow-xl self-start">
+            <div className="bg-gradient-to-br from-blue-950/30 to-slate-900/50 backdrop-blur-md border border-blue-500/20 rounded-2xl p-5 min-w-[280px] lg:max-w-xs space-y-4 shadow-xl self-start">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
                   <Users size={20} />
                 </div>
                 <div>
-                  <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Property Agent</p>
+                  <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Property Agent</p>
                   <p className="text-xs font-black text-foreground">{profile?.current_property_id?.agent_ids?.[0]?.full_name || 'Mutune Estate Agent'}</p>
                 </div>
               </div>
@@ -892,7 +958,7 @@ export default function TenantPortalPage() {
               <div className="space-y-2 pt-1">
                 <a 
                   href={`tel:${formatPhoneHref(agentPhone)}`}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider cursor-pointer text-center"
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 uppercase tracking-wider cursor-pointer text-center"
                 >
                   <Phone size={12} /> Call Agent
                 </a>
@@ -945,16 +1011,12 @@ export default function TenantPortalPage() {
           >
             {/* OVERVIEW TAB (Nano Banana 2b Layout) */}
             {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Full-width Welcome Countdown banner */}
-                <div className="lg:col-span-3">
-                  <RentCountdownTimer />
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Left Column (2/3 width on desktop) */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-2 space-y-5">
                   {/* Rent Payment Card */}
-                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-6 shadow-xl">
-                    <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-5 shadow-xl">
+                    <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
                       <div>
                         <h2 className="text-xs text-muted font-extrabold uppercase tracking-wider">Rent Payment</h2>
                         <p className="text-[10px] text-muted mt-0.5">Current rent amount due</p>
@@ -964,7 +1026,7 @@ export default function TenantPortalPage() {
                       </span>
                     </div>
 
-                    <div className="py-4">
+                    <div className="py-3">
                       <div className="text-3xl font-black text-foreground font-mono tracking-tight">
                         {FMT_KES(unitRent || rent)}
                       </div>
@@ -973,24 +1035,24 @@ export default function TenantPortalPage() {
                     <button
                       onClick={handlePayRent}
                       disabled={paying}
-                      className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-primary hover:from-indigo-500 hover:to-primary/90 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-primary hover:from-blue-500 hover:to-primary/90 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
                     >
                       <CreditCard size={14} /> {paying ? 'Connecting...' : 'M-Pesa pay'}
                     </button>
                   </div>
 
                   {/* Payment History Card */}
-                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-6 shadow-xl">
-                    <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider mb-4">Payment History</h3>
+                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-5 shadow-xl">
+                    <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider mb-3">Payment History</h3>
                     {payments.length === 0 ? (
-                      <p className="text-xs text-muted py-6 text-center">No payment history found.</p>
+                      <p className="text-xs text-muted py-5 text-center">No payment history found.</p>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {payments.slice(0, 5).map((p) => (
-                          <div key={p._id} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0 last:pb-0">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/25">
-                                <CheckCircle2 size={16} />
+                          <div key={p._id} className="flex items-center justify-between py-1.5 border-b border-border/40 last:border-0 last:pb-0">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/25">
+                                <CheckCircle2 size={14} />
                               </div>
                               <div>
                                 <p className="text-xs font-bold text-foreground">Current Payment</p>
@@ -1008,10 +1070,10 @@ export default function TenantPortalPage() {
                 </div>
 
                 {/* Right Column (1/3 width on desktop) */}
-                <div className="space-y-6">
+                <div className="space-y-5">
                   {/* Maintenance Request Card */}
-                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-6 shadow-xl space-y-4">
-                    <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider border-b border-border pb-3">
+                  <div className="bg-surface/30 backdrop-blur-md border border-border rounded-2xl p-5 shadow-xl space-y-3.5">
+                    <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider border-b border-border pb-2.5">
                       Maintenance Request
                     </h3>
                     
@@ -1038,6 +1100,24 @@ export default function TenantPortalPage() {
                       </div>
 
                       <div>
+                        <label className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Category</label>
+                        <select
+                          value={ticketForm.category}
+                          onChange={(e) => setTicketForm(f => ({ ...f, category: e.target.value }))}
+                          className="w-full bg-background/50 border border-border rounded-xl px-3 py-2.5 text-xs focus:border-primary focus:outline-none transition"
+                        >
+                          <option value="plumbing">Plumbing</option>
+                          <option value="electrical">Electrical</option>
+                          <option value="structural">Structural</option>
+                          <option value="security">Security</option>
+                          <option value="appliance">Appliance</option>
+                          <option value="pest_control">Pest Control</option>
+                          <option value="cleaning">Cleaning</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
                         <label className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Priority Level</label>
                         <select
                           value={ticketForm.priority}
@@ -1054,16 +1134,18 @@ export default function TenantPortalPage() {
                       {/* Photo Upload area */}
                       <div>
                         <label className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Photos</label>
-                        <div className="border border-dashed border-border/80 rounded-xl p-4 text-center hover:border-primary cursor-pointer transition">
-                          <Plus size={20} className="text-muted mx-auto mb-1" />
-                          <span className="text-[10px] text-muted font-semibold">Upload Photos</span>
-                        </div>
+                        <ImageUpload
+                          value={ticketForm.photos || []}
+                          onChange={(urls) => setTicketForm(f => ({ ...f, photos: urls }))}
+                          multiple={true}
+                          label="Upload Issue Photos"
+                        />
                       </div>
 
                       <button
                         onClick={submitTicket}
                         disabled={submitting}
-                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition uppercase tracking-wider shadow-md"
+                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition uppercase tracking-wider shadow-md"
                       >
                         {submitting ? 'Sending...' : 'Send'}
                       </button>
@@ -1083,7 +1165,7 @@ export default function TenantPortalPage() {
                       {propertyPhoto ? (
                         <img src={propertyPhoto} alt={propertyName} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-indigo-950/40 to-slate-900/40 flex items-center justify-center text-muted">
+                        <div className="w-full h-full bg-gradient-to-br from-blue-950/40 to-slate-900/40 flex items-center justify-center text-muted">
                           <Home size={28} />
                         </div>
                       )}
@@ -1469,7 +1551,7 @@ export default function TenantPortalPage() {
                   {ticketForm.editId ? 'Edit Maintenance Request' : 'New Maintenance Request'}
                 </h3>
                 <button 
-                  onClick={() => setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium' })} 
+                  onClick={() => setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium', category: 'other' })} 
                   className="p-1 bg-background hover:bg-background border border-border text-muted rounded-lg cursor-pointer"
                 >
                   <X size={15} />
@@ -1497,6 +1579,23 @@ export default function TenantPortalPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Category</label>
+                  <select 
+                    value={ticketForm.category} 
+                    onChange={e => setTicketForm(f => ({ ...f, category: e.target.value }))}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-emerald-500 transition-all"
+                  >
+                    <option value="plumbing" className="bg-surface text-foreground">Plumbing</option>
+                    <option value="electrical" className="bg-surface text-foreground">Electrical</option>
+                    <option value="structural" className="bg-surface text-foreground">Structural</option>
+                    <option value="security" className="bg-surface text-foreground">Security</option>
+                    <option value="appliance" className="bg-surface text-foreground">Appliance</option>
+                    <option value="pest_control" className="bg-surface text-foreground">Pest Control</option>
+                    <option value="cleaning" className="bg-surface text-foreground">Cleaning</option>
+                    <option value="other" className="bg-surface text-foreground">Other</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Urgency / Priority</label>
                   <select 
                     value={ticketForm.priority} 
@@ -1509,11 +1608,20 @@ export default function TenantPortalPage() {
                     <option value="urgent" className="bg-surface text-foreground">Urgent 🚨 — Severe or dangerous hazard</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Photos</label>
+                  <ImageUpload
+                    value={ticketForm.photos || []}
+                    onChange={(urls) => setTicketForm(f => ({ ...f, photos: urls }))}
+                    multiple={true}
+                    label="Upload Issue Photos"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button 
-                  onClick={() => setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium' })}
+                  onClick={() => setTicketForm({ open: false, editId: null, title: '', description: '', priority: 'medium', category: 'other', photos: [] })}
                   className="flex-1 py-3 bg-background border border-border hover:bg-background text-muted rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   Cancel

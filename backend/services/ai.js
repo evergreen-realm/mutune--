@@ -69,8 +69,21 @@ const TOOLS = [
   }
 ];
 
+function getToolsForRole(role) {
+  if (['admin', 'super_admin', 'agent', 'landlord'].includes(role)) {
+    return TOOLS;
+  }
+  // Tenants (basic chat) only get get_payment_status and create_maintenance_ticket
+  return TOOLS.filter(t => ['get_payment_status', 'create_maintenance_ticket'].includes(t.function.name));
+}
+
 // ── Tool execution ───────────────────────────────────────────────────────────
 async function executeTool(toolName, args, callerUser) {
+  const allowedTools = getToolsForRole(callerUser?.role);
+  if (!allowedTools.some(t => t.function.name === toolName)) {
+    return { error: `Unauthorized: Your role (${callerUser?.role || 'guest'}) is not allowed to use the tool "${toolName}".` };
+  }
+
   const { Property, Tenant, Payment, MaintenanceTicket } = getModels();
 
   try {
@@ -238,7 +251,7 @@ Paybill: 400200 | Reference: [TENANT CODE or UNIT NUMBER] | Amount: KES [RENT AM
 }
 
 // ── Groq provider ─────────────────────────────────────────────────────────────
-async function callGroq(messages, withTools = false) {
+async function callGroq(messages, tools = null) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY not configured');
 
@@ -254,8 +267,8 @@ async function callGroq(messages, withTools = false) {
   };
 
   // Groq supports function calling — add tools if requested
-  if (withTools) {
-    payload.tools = TOOLS;
+  if (tools && tools.length > 0) {
+    payload.tools = tools;
     payload.tool_choice = 'auto';
   }
 
@@ -271,7 +284,7 @@ async function callGroq(messages, withTools = false) {
 }
 
 // ── Kimi provider ─────────────────────────────────────────────────────────────
-async function callKimi(messages, withTools = false) {
+async function callKimi(messages, tools = null) {
   const apiKey = process.env.KIMI_API_KEY;
   if (!apiKey) throw new Error('KIMI_API_KEY not configured');
 
@@ -284,8 +297,8 @@ async function callKimi(messages, withTools = false) {
     max_tokens: 4096
   };
 
-  if (withTools) {
-    payload.tools = TOOLS;
+  if (tools && tools.length > 0) {
+    payload.tools = tools;
     payload.tool_choice = 'auto';
   }
 
@@ -339,11 +352,11 @@ class AIService {
     session.rateWindow.push(now);
   }
 
-  async _callWithFallback(messages, withTools = false) {
+  async _callWithFallback(messages, tools = null) {
     // Try Kimi first (preferred for property management context)
     if (process.env.KIMI_API_KEY) {
       try {
-        const data = await callKimi(messages, withTools);
+        const data = await callKimi(messages, tools);
         logger.info('AI provider: Kimi (primary)');
         return { data, provider: 'kimi' };
       } catch (kimiErr) {
@@ -358,7 +371,7 @@ class AIService {
     // Fallback to Groq
     if (process.env.GROQ_API_KEY) {
       try {
-        const data = await callGroq(messages, withTools);
+        const data = await callGroq(messages, tools);
         logger.info('AI provider: Groq (fallback)');
         return { data, provider: 'groq' };
       } catch (groqErr) {
@@ -386,9 +399,11 @@ class AIService {
       { role: 'user', content: message }
     ];
 
+    const allowedTools = getToolsForRole(callerUser?.role);
+
     try {
-      // First call — with tools enabled
-      const { data: firstData, provider } = await this._callWithFallback(messages, true);
+      // First call — with role-gated tools enabled
+      const { data: firstData, provider } = await this._callWithFallback(messages, allowedTools);
       let assistantMessage = firstData.choices[0].message;
       let finalResponse = assistantMessage.content || '';
 
@@ -416,7 +431,7 @@ class AIService {
 
         // Second call with tool outputs — same provider, no tools needed
         const messagesWithTools = [...messages, ...toolMessages];
-        const { data: secondData } = await this._callWithFallback(messagesWithTools, false);
+        const { data: secondData } = await this._callWithFallback(messagesWithTools, null);
         assistantMessage = secondData.choices[0].message;
         finalResponse = assistantMessage.content || finalResponse;
       }

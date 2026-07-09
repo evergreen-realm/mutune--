@@ -54,3 +54,7 @@ frontend_job_log*.txt
 
 .vercel
 .env*
+
+# Agent system files (may contain sensitive data in transcripts)
+.agents/root_transcript.jsonl
+.agents/**/*.jsonl

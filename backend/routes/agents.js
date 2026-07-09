@@ -64,9 +64,22 @@ router.post('/checkin',
         });
       }
 
+      // 1. Device precision check: reject if accuracy > 200m
+      const accuracy = Number(location.accuracy);
+      if (accuracy > 200) {
+        return res.status(422).json({
+          success: false,
+          error: {
+            code: 'LOW_GPS_PRECISION',
+            message: `GPS accuracy too low (${Math.round(accuracy)}m). Accuracy must be under 200m to check in.`
+          }
+        });
+      }
+
       const [propLng, propLat] = property.location.coordinates;
       const distanceM = getDistanceMetres(propLat, propLng, lat, lng);
 
+      // 2. Location distance match check: warn if > 50m
       let location_warning = null;
       if (distanceM > 50) {
         logger.warn('Agent check-in outside 50m geofence', {
@@ -74,7 +87,7 @@ router.post('/checkin',
           propertyId: property_id,
           distanceM: Math.round(distanceM)
         });
-        location_warning = `Agent is ${Math.round(distanceM)}m from the property.`;
+        location_warning = `Agent is ${Math.round(distanceM)}m from the property (50m geofence limit).`;
       }
 
       // Persist agent's last known location

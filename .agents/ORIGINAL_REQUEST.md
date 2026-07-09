@@ -317,5 +317,82 @@ Please proceed with the following fixes immediately using the subagents or execu
 5. **Commit and Sync**:
    - Commit all changes to the repository with a clear message and push to remote.
 
+## Follow-up — 2026-07-06T08:40:09Z
 
+Complete, premium 3D and motion upgrade of the MutuneRent Pro platform across all roles (Admin, Landlord, Tenant, Agent, Guest) and pages. The platform must feature real-time 3D voxel graphics, smooth scroll-driven storytelling, cinematic loaders, dual-theme (light/dark) modes, and 100% complete backend integrations.
 
+Working directory: c:\Users\Admin\Desktop\mutune
+Integrity mode: demo
+
+## Requirements
+
+### R1. Universal 3D & Motion Enhancements
+- Integrate real-time 3D scene elements (using Three.js/React-Three-Fiber or Spline embeds where appropriate) in the hero section and property details page.
+- Implement an optimized canvas-based scroll-zoom image sequence fallback for mobile devices (screen width < 768px) to guarantee smooth 60fps rendering without WebGL lag.
+- Implement smooth scrolling globally using Lenis, integrated with GSAP ScrollTrigger for stagger reveals of all property cards.
+- Add a cinematic intro preloader (0-100% counter + SVG logo drawing + royal purple double panel wipe) capped at 2 seconds.
+
+### R2. Universal Dual-Theme Support (Light & Dark Mode)
+- Support both light and dark mode across all pages, views, modals, and charts.
+- Use a strict, cohesive OKLCH color palette (royal lavender primary, sunset gold secondary, deep navy slate/pure white surfaces) with high contrast to ensure WCAG readability.
+
+### R3. Universal Role & Page Integration
+- Upgrade all interfaces for all roles: Tenant Portal, Landlord Dashboard, Admin Portal, Agent Dashboard, and Guest landing pages.
+- Ensure all quick actions (inspections, check-ins, lease agreements, analytics export, settings toggles) are fully active and connected to matching backend Express endpoints.
+
+### R4. Complete Backend Routing (No Stubs or Placeholders)
+- Every button, toggle, forms, and chart must have complete backend integration.
+- No stubs, placeholders, mockups, dummy data arrays, or TODO comments are allowed in the final production-ready code.
+
+## Verification Plan
+
+### Automated Tests
+- Run backend test suite: `npx jest --runInBand --forceExit` in `backend` directory.
+- Verify frontend compilation: `npm run build` in `frontend` directory.
+- Run frontend linter: `npm run lint` in `frontend` directory.
+
+### Manual Verification
+- Toggle light/dark mode across all portal roles and pages to verify high contrast and styling alignment.
+- Verify smooth-scroll behaves naturally and GSAP animation triggers stagger in properties cards.
+- Test 3D interaction and ensure mobile fallback renders.
+
+## Acceptance Criteria
+
+### Visual & Motion Quality
+- [ ] The app loads with a custom 0-100% preloader and wipes smoothly into the homepage.
+- [ ] Lenis smooth-scroll runs globally, with cards and text sections animating in via GSAP.
+- [ ] Hero section features a spinning 3D voxel property model on desktop, with a smooth WebP sequence fallback on mobile.
+- [ ] Switching between light and dark themes updates all colors, texts, borders, and charts without any flash or layout shifts.
+
+### Functional Integration
+- [ ] All roles (tenant, admin, landlord, agent) have fully operational portal views.
+- [ ] Every form submission, toggle change, and action button connects to a live backend path, executing state updates without errors.
+- [ ] There are no TODO comments, stub routes, or mocked API responses in the frontend src/ or backend/ directories.
+
+## Follow-up — 2026-07-06T10:16:00Z
+
+Hello Teamwork Agent Coordinator,
+
+The user has updated the requirements and requested that you incorporate the following instructions into the active upgrade process:
+
+1. **Leverage Installed UI Skills:** Utilize the custom skills `huashu-design-skill`, `ui.ux-pro-max-skill`, and `awesome-skills` located in the agent environment to guide the visual, typography, spacing, and transition quality of the codebase.
+2. **Utilize Google Stitch MCP:** Use Google Stitch (`StitchMCP` remote server tools) to design, mock, and translate the frontend page designs.
+3. **Audit Context via Transcripts:** Scan the conversation transcript logs in `transcript.jsonl` to ensure all previous user requests and prompts concerning the frontend redesign and upgrade are fully addressed and implemented.
+4. **Universal Page & Role Upgrade:** The visual improvements, 3D elements (Three.js/Spline with mobile flat/sequence fallbacks), smooth scroll (GSAP + Lenis), and cinematic load transitions must be applied across **all pages** and **all portal roles** (Admin, Landlord, Tenant, Agent, Guest).
+5. **Dual-Theme Support:** Every screen must support both Light and Dark modes with high-contrast, WCAG-compliant readability.
+6. **Flawless Backend Integration:** All frontend buttons, toggles, forms, and charts must connect to corresponding functional backend routes. Stubs, placeholders, mockups, or TODO comments are strictly prohibited in the final production-ready code.
+
+Please pass these directives down to the Project Orchestrator and active Explorer/Worker subagents immediately.
+
+## Follow-up — 2026-07-06T10:20:00Z
+
+Hello Teamwork Agent Coordinator,
+
+Please instruct the Project Orchestrator and all active subagents that the following context files have been placed in the `.agents/` folder of the workspace root:
+
+1. `root_transcript.jsonl`: The complete JSONL logs of today's conversation between the user and the root agent.
+2. `video_watch_report.md`: The complete report of the frame extraction and transcripts of all videos in `C:\Users\Admin\Pictures\skill`.
+3. `design.md`: The current brand tokens, easing curves, and Google Stitch screen URLs.
+4. `implementation_plan.md`: The current implementation steps.
+
+Ensure all active agents read and parse these files to align 100% on the requirements (all pages, all roles, light/dark mode support, real-time 3D voxel graphics, smooth scroll-driven storytelling, and full backend integrations with no placeholders/stubs). Verify that all subagents are working on the updated milestone tasks based on this context.
