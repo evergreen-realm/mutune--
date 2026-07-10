@@ -4,7 +4,14 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Search, MapPin, Box, X, Maximize2, Minimize2, Globe } from 'lucide-react';
 import { fetchUnitGeoJSON } from '../lib/api';
 import { Suspense, lazy } from 'react';
-import * as THREE from 'three';
+
+// Deck.gl & Loaders.gl for Option B: SimpleMeshLayer
+import { MapboxOverlay } from '@deck.gl/mapbox';
+import { SimpleMeshLayer } from '@deck.gl/mesh-layers';
+import { GLTFLoader } from '@loaders.gl/gltf';
+import { registerLoaders } from '@loaders.gl/core';
+
+registerLoaders(GLTFLoader);
 
 const BuildingPreview3D = lazy(() => import('./BuildingPreview3D'));
 
@@ -24,12 +31,11 @@ function checkDeviceCapabilities() {
 }
 
 // Set Mapbox Access Token
-const rawToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
-const p1 = 'REDACTED_MAPBOX_TOKEN_PART1';
-const p2 = 'REDACTED_MAPBOX_TOKEN_PART2';
-mapboxgl.accessToken = (rawToken && rawToken.startsWith('pk.'))
-  ? rawToken
-  : `${p1}.${p2}`;
+const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+if (!mapboxToken) {
+  console.error('MapWidget: VITE_MAPBOX_TOKEN is not set. Add it to your .env file.');
+}
+mapboxgl.accessToken = mapboxToken || '';
 
 const statusColors = {
   paid: '#22c55e',
@@ -64,140 +70,18 @@ export function getPropertyCoords(prop) {
   return [39.6682 + lngJitter, -4.0435 + latJitter];
 }
 
-function getOccupancyColor(property) {
-  const occupiedCount = property.units?.filter((u) => u.status === 'occupied').length || 0;
-  const totalUnits = property.units?.length || 0;
-  const ratio = totalUnits > 0 ? occupiedCount / totalUnits : 0;
-  if (ratio > 0.8) return 0x22c55e; // emerald
-  if (ratio > 0.5) return 0xeab308; // yellow
-  return 0xef4444; // red
-}
 
-function createBuildingModel(property) {
-  const group = new THREE.Group();
-  const floors = property.units?.length || 6;
-  const height = floors * 0.5;
-  const width = 2.0;
-  const depth = 2.0;
-  
-  // Main body with color based on occupancy
-  const geometry = new THREE.BoxGeometry(width, height, depth);
-  const material = new THREE.MeshStandardMaterial({
-    color: getOccupancyColor(property),
-    roughness: 0.7,
-    metalness: 0.1
-  });
-  const body = new THREE.Mesh(geometry, material);
-  body.position.y = height / 2;
-  group.add(body);
-  
-  // Windows (grid of small boxes on each face)
-  const windowMat = new THREE.MeshStandardMaterial({
-    color: 0x88ccff,
-    emissive: 0x4488ff,
-    emissiveIntensity: 0.3
-  });
-  
-  const windowGeo = new THREE.BoxGeometry(0.15, 0.15, 0.02);
 
-  for (let f = 0; f < floors; f++) {
-    const y = (f * 0.5) + 0.25;
-    // Front face
-    for (let x = -0.6; x <= 0.6; x += 0.6) {
-      const win = new THREE.Mesh(windowGeo, windowMat);
-      win.position.set(x, y, (depth / 2) + 0.01);
-      group.add(win);
-    }
-    // Back face
-    for (let x = -0.6; x <= 0.6; x += 0.6) {
-      const win = new THREE.Mesh(windowGeo, windowMat);
-      win.position.set(x, y, -(depth / 2) - 0.01);
-      group.add(win);
-    }
-    // Right face
-    for (let z = -0.6; z <= 0.6; z += 0.6) {
-      const win = new THREE.Mesh(windowGeo, windowMat);
-      win.rotation.y = Math.PI / 2;
-      win.position.set((width / 2) + 0.01, y, z);
-      group.add(win);
-    }
-    // Left face
-    for (let z = -0.6; z <= 0.6; z += 0.6) {
-      const win = new THREE.Mesh(windowGeo, windowMat);
-      win.rotation.y = Math.PI / 2;
-      win.position.set(-(width / 2) - 0.01, y, z);
-      group.add(win);
-    }
-  }
-  
-  // Roof
-  const roofMat = new THREE.MeshStandardMaterial({
-    color: 0x444444,
-    roughness: 0.9
-  });
-  const roof = new THREE.Mesh(
-    new THREE.BoxGeometry(width * 1.05, 0.05, depth * 1.05),
-    roofMat
-  );
-  roof.position.y = height + 0.025;
-  group.add(roof);
-  
-  return group;
-}
 
-function renderMini3DScene(container, property) {
-  container.innerHTML = '';
-  
-  const width = container.clientWidth || 300;
-  const height = container.clientHeight || 140;
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0e1a);
 
-  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-  camera.position.set(6, 4.5, 6);
-  camera.lookAt(0, (property.units?.length || 6) * 0.25, 0);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  container.appendChild(renderer.domElement);
-
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-  scene.add(ambientLight);
-
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-  dirLight.position.set(5, 10, 5);
-  scene.add(dirLight);
-
-  const building = createBuildingModel(property);
-  building.scale.set(0.85, 0.85, 0.85);
-  scene.add(building);
-
-  let animationFrameId;
-  const animate = () => {
-    animationFrameId = requestAnimationFrame(animate);
-    building.rotation.y += 0.015;
-    renderer.render(scene, camera);
-  };
-  animate();
-
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains(container)) {
-      cancelAnimationFrame(animationFrameId);
-      renderer.dispose();
-      observer.disconnect();
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-}
 
 // ── Mapbox Map component ─────────────────────────────────────────────────────
 function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
-  const customLayerRef = useRef(null);
+  const deckOverlayRef = useRef(null);
 
   const mapStyle = theme === 'light'
     ? 'mapbox://styles/mapbox/light-v11'
@@ -220,6 +104,15 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     });
 
     mapRef.current = map;
+
+    // Initialize Deck.gl MapboxOverlay control
+    const deckOverlay = new MapboxOverlay({
+      interleaved: true,
+      layers: []
+    });
+    deckOverlayRef.current = deckOverlay;
+    map.addControl(deckOverlay);
+
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     map.on('load', () => {
@@ -333,11 +226,56 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
     return () => {
       if (mapRef.current) {
+        if (deckOverlayRef.current) {
+          try {
+            mapRef.current.removeControl(deckOverlayRef.current);
+          } catch (e) {}
+          deckOverlayRef.current = null;
+        }
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
   }, [theme]);
+
+  // Update Deck.gl layers when properties change (renders 3D GLB buildings via deck.gl)
+  useEffect(() => {
+    const deckOverlay = deckOverlayRef.current;
+    if (!deckOverlay || !properties) return;
+
+    deckOverlay.setProps({
+      layers: [
+        new SimpleMeshLayer({
+          id: 'property-meshes',
+          data: properties,
+          mesh: '/models/voxel_estate.glb',
+          loaders: [GLTFLoader],
+          getPosition: d => {
+            const coords = getPropertyCoords(d);
+            return [coords[0], coords[1], 15]; // Elevate slightly above standard extrusions
+          },
+          getOrientation: [0, 0, 90],
+          getScale: d => {
+            const unitCount = d.units?.length || 1;
+            const scaleVal = 0.5 + Math.min(2.5, unitCount * 0.1);
+            return [scaleVal, scaleVal, scaleVal];
+          },
+          getColor: d => {
+            const unitCount = d.units?.length || 1;
+            const occupiedCount = d.units?.filter(u => u.status === 'occupied').length || 0;
+            const ratio = occupiedCount / unitCount;
+            return ratio > 0.8 ? [34, 197, 94] : ratio > 0.5 ? [234, 179, 8] : [239, 68, 68];
+          },
+          pickable: true,
+          onClick: ({ object }) => {
+            if (object) {
+              onPropertySelect(object);
+            }
+          }
+        })
+      ]
+    });
+  }, [properties]);
 
   // Handle dynamically changing satellite mode
   useEffect(() => {
@@ -380,17 +318,11 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
   // Inject CSS styles for transparent markers and custom 3D popups on mount
   useEffect(() => {
-    const id = 'mapbox-cube-marker-styles';
+    const id = 'mapbox-popup-styles';
     if (!document.getElementById(id)) {
       const style = document.createElement('style');
       style.id = id;
       style.innerHTML = `
-        .cube-marker {
-          width: 32px;
-          height: 64px;
-          cursor: pointer;
-          background: transparent;
-        }
         
         .property-popup-3d .mapboxgl-popup-content {
           padding: 0 !important;
@@ -478,12 +410,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Remove custom 3D WebGL layer if it exists
-    const customLayerId = '3d-custom-buildings-layer';
-    if (map.getLayer(customLayerId)) {
-      map.removeLayer(customLayerId);
-    }
-    customLayerRef.current = null;
+
 
     // Remove boundary layers if they exist
     if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
@@ -493,107 +420,42 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     let zoomListener = null;
 
     if (activeTab === 'properties' || activeTab === 'units') {
-      // 1. Create the Three.js Custom WebGL Layer
-      const customLayer = {
-        id: customLayerId,
-        type: 'custom',
-        renderingMode: '3d',
-        onAdd: function (map, gl) {
-          this.camera = new THREE.Camera();
-          this.scene = new THREE.Scene();
-
-          // Create lights
-          const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-          this.scene.add(ambientLight);
-
-          const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-          dirLight.position.set(0, -70, 100).normalize();
-          this.scene.add(dirLight);
-
-          const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-          dirLight2.position.set(0, 70, 100).normalize();
-          this.scene.add(dirLight2);
-
-          // Build building meshes at mercator coordinates
-          properties.forEach((prop) => {
-            const coords = getPropertyCoords(prop);
-            const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
-            const meterScale = mercator.meterInMercatorCoordinateUnits();
-
-            const building = createBuildingModel(prop);
-            building.position.set(mercator.x, mercator.y, mercator.z);
-
-            const zoom = map.getZoom();
-            const zoomScale = Math.max(0.5, Math.min(2.5, (zoom - 10) / 4));
-            const finalScale = meterScale * zoomScale;
-            building.scale.set(finalScale, -finalScale, finalScale);
-
-            building.userData = {
-              propertyId: prop._id || prop.id,
-              meterScale: meterScale,
-              lng: coords[0],
-              lat: coords[1]
-            };
-
-            this.scene.add(building);
-          });
-
-          this.renderer = new THREE.WebGLRenderer({
-            canvas: map.getCanvas(),
-            context: gl,
-            antialias: true
-          });
-          this.renderer.autoClear = false;
-          this.map = map;
-        },
-        render: function (gl, matrix) {
-          const m = new THREE.Matrix4().fromArray(matrix);
-          this.camera.projectionMatrix = m;
-          this.renderer.resetState();
-          this.renderer.render(this.scene, this.camera);
-          this.map.triggerRepaint();
-        }
-      };
-
-      map.addLayer(customLayer);
-      customLayerRef.current = customLayer;
-
-      // 2. Add Map Zoom Listener for Zoom-Based Scaling
-      zoomListener = () => {
-        const zoom = map.getZoom();
-        const zoomScale = Math.max(0.5, Math.min(2.5, (zoom - 10) / 4));
-        if (customLayerRef.current && customLayerRef.current.scene) {
-          customLayerRef.current.scene.children.forEach((child) => {
-            if (child.userData && child.userData.meterScale) {
-              const finalScale = child.userData.meterScale * zoomScale;
-              child.scale.set(finalScale, -finalScale, finalScale);
-            }
-          });
-        }
-      };
-      map.on('zoom', zoomListener);
-
-      // 3. Create Invisible Mapbox Markers with Native 3D Popups
+      // Create visible property markers with info popups
       properties.forEach((prop) => {
         const coords = getPropertyCoords(prop);
         const el = document.createElement('div');
-        el.className = 'cube-marker';
-
+        
         const occupiedCount = prop.units?.filter((u) => u.status === 'occupied').length || 0;
         const totalUnits = prop.units?.length || 0;
-        const occupancyPct = totalUnits > 0 ? Math.round((occupiedCount / totalUnits) * 100) : 0;
+        const ratio = totalUnits > 0 ? occupiedCount / totalUnits : 0;
+        let markerColor = '#22c55e';
+        if (ratio < 0.5) markerColor = '#ef4444';
+        else if (ratio < 0.9) markerColor = '#eab308';
+
+        el.style.cssText = `
+          background: ${markerColor};
+          width: 16px; height: 16px;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 2px ${markerColor}40;
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        `;
+        el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.3)'; });
+        el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+
+        const occupancyPct = totalUnits > 0 ? Math.round(ratio * 100) : 0;
 
         const popup = new mapboxgl.Popup({
-          offset: [0, -45],
-          maxWidth: '320px',
+          offset: 25,
+          maxWidth: '280px',
           closeButton: true,
-          closeOnClick: false,
           className: 'property-popup-3d'
         }).setHTML(`
           <div class="popup-3d-container ${theme === 'dark' ? 'dark' : 'light'}">
-            <div class="popup-3d-preview" id="popup-3d-${prop._id || prop.id}"></div>
             <div class="popup-3d-info">
               <h4>${prop.name}</h4>
+              <p style="font-family: 'Fira Code', monospace; font-size: 10px; margin-bottom: 6px;">${prop.property_code || ''}</p>
               <p>${totalUnits} units · ${occupancyPct}% occupied</p>
               <button id="popup-btn-${prop._id || prop.id}">
                 View 3D Model
@@ -608,12 +470,6 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           .addTo(map);
 
         popup.on('open', () => {
-          // Render the rotating 3D building inside the popup
-          const container = document.getElementById(`popup-3d-${prop._id || prop.id}`);
-          if (container) {
-            renderMini3DScene(container, prop);
-          }
-          
           const btn = document.getElementById(`popup-btn-${prop._id || prop.id}`);
           if (btn) {
             btn.addEventListener('click', () => {
@@ -653,9 +509,6 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     return () => {
       if (zoomListener) {
         map.off('zoom', zoomListener);
-      }
-      if (map.getLayer(customLayerId)) {
-        map.removeLayer(customLayerId);
       }
     };
   }, [activeTab, properties, agentLocation, theme]);

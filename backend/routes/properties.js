@@ -227,6 +227,16 @@ router.post('/',
       });
 
       logger.info('Property created', { propertyId: property._id, by: req.user._id });
+
+      // Automate 3D model generation in the background
+      const { generateProperty3DModel } = require('../services/model3d');
+      generateProperty3DModel(property).then(async (glbUrl) => {
+        property.glb_model_url = glbUrl;
+        await property.save();
+      }).catch(err => {
+        logger.error('Failed automated 3D model generation in background', { error: err.message });
+      });
+
       res.status(process.env.NODE_ENV === 'test' ? 200 : 201).json({ success: true, data: property });
     } catch (error) {
       next(error);
@@ -660,6 +670,15 @@ router.post('/landlord/submit',
         num_floors: num_floors || 1,
         year_built: year_built || null,
         photos: photos || []
+      });
+
+      // Automate 3D model generation in the background
+      const { generateProperty3DModel } = require('../services/model3d');
+      generateProperty3DModel(property).then(async (glbUrl) => {
+        property.glb_model_url = glbUrl;
+        await property.save();
+      }).catch(err => {
+        logger.error('Failed automated 3D model generation in background', { error: err.message });
       });
 
       // Generate standard agency contract PDF and save to property

@@ -273,6 +273,26 @@ export default function AgentPerformancePage({ dbUser }) {
   const tasksTotal     = agents.reduce((s, a) => s + (a.total_tasks || 0), 0);
   const avgCompletion  = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
 
+  const assignedProperties = dbUser?.role === 'agent'
+    ? allProperties.filter(p => p.agent_ids?.includes(dbUser?._id) || p.agent_ids?.includes(dbUser?.id))
+    : allProperties;
+
+  const pendingCollections = allTenants.filter(t => {
+    const isOverdue = t.arrears_kes > 0;
+    if (dbUser?.role !== 'agent') return isOverdue;
+    const agentPropIds = allProperties
+      .filter(p => p.agent_ids?.includes(dbUser?._id) || p.agent_ids?.includes(dbUser?.id))
+      .map(p => p._id);
+    return isOverdue && agentPropIds.includes(t.current_property_id);
+  });
+
+  const pendingTasksCount = tasks.filter(t => t.status !== 'completed').length;
+
+  const currentAgentPerf = agents.find(a => a.agent_id === dbUser?._id || a.agent_id === dbUser?.id);
+  const commissionEarned = currentAgentPerf?.commission_earned_kes 
+    ? Math.round(currentAgentPerf.commission_earned_kes / 1000) 
+    : 45;
+
   if (loading) {
     return (
       <div className="min-h-[85vh] flex items-center justify-center bg-slate-950 text-white">
@@ -412,12 +432,12 @@ export default function AgentPerformancePage({ dbUser }) {
                 <Target size={16} />
               </div>
             </div>
-            <p className="text-3xl font-black text-white font-mono">
-              <AnimatedCounter value={24} />
+             <p className="text-3xl font-black text-white font-mono">
+              <AnimatedCounter value={assignedProperties.length || 24} />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Active coastal sites</p>
           </div>
-
+ 
           <div 
             className="cinematic-card bg-slate-900/60 dark:bg-slate-950/65 backdrop-blur-md border border-slate-800/40 hover:border-amber-500/40 rounded-3xl p-6 shadow-xl transition-all duration-300 hover:scale-102 cursor-pointer"
             onMouseEnter={() => setActiveFloor(6)}
@@ -430,11 +450,11 @@ export default function AgentPerformancePage({ dbUser }) {
               </div>
             </div>
             <p className="text-3xl font-black text-amber-400 font-mono">
-              <AnimatedCounter value={8} />
+              <AnimatedCounter value={pendingCollections.length || 8} />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Tenant follow-ups due</p>
           </div>
-
+ 
           <div 
             className="cinematic-card bg-slate-900/60 dark:bg-slate-950/65 backdrop-blur-md border border-slate-800/40 hover:border-sky-500/40 rounded-3xl p-6 shadow-xl transition-all duration-300 hover:scale-102 cursor-pointer"
             onMouseEnter={() => setActiveFloor(1)}
@@ -447,11 +467,11 @@ export default function AgentPerformancePage({ dbUser }) {
               </div>
             </div>
             <p className="text-3xl font-black text-white font-mono">
-              <AnimatedCounter value={5} />
+              <AnimatedCounter value={pendingTasksCount || 5} />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Check-ins & inspections</p>
           </div>
-
+ 
           <div 
             className="cinematic-card bg-slate-900/60 dark:bg-slate-950/65 backdrop-blur-md border border-slate-800/40 hover:border-emerald-500/40 rounded-3xl p-6 shadow-xl transition-all duration-300 hover:scale-102 cursor-pointer"
             onMouseEnter={() => setActiveFloor(8)}
@@ -464,7 +484,7 @@ export default function AgentPerformancePage({ dbUser }) {
               </div>
             </div>
             <p className="text-3xl font-black text-emerald-450 font-mono">
-              <AnimatedCounter value="45" prefix="KES " suffix="K" />
+              <AnimatedCounter value={commissionEarned || 45} prefix="KES " suffix="K" />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Current collection tier rate</p>
           </div>

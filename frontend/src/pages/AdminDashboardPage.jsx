@@ -905,7 +905,7 @@ export default function AdminDashboardPage({ dbUser }) {
             <div className="flex flex-col border-r border-border/40 bg-background/25">
               <div className="relative h-64 bg-slate-950 overflow-hidden flex items-center justify-center">
                 <div className="w-full h-full">
-                  <UnitDetailPopup unit={selectedUnit} />
+                  <UnitDetailPopup unit={selectedUnit} property={selectedProperty} theme={theme} />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent pointer-events-none" />
                 <div className="absolute bottom-4 left-4">

@@ -373,8 +373,15 @@ export default function LandlordDashboardPage() {
             <h3 className="text-xs font-black uppercase tracking-wider text-muted mb-2">My Coast Properties</h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {properties.slice(0, 4).map((prop) => {
-                const isHovered = hoveredPropertyId === prop._id;
+              {properties.length === 0 ? (
+                <div className="sm:col-span-2 border border-dashed border-border/80 rounded-3xl p-8 text-center text-muted bg-surface/10 flex flex-col items-center justify-center min-h-[220px]">
+                  <Building2 size={32} className="mb-2 opacity-50 text-brand-500" />
+                  <p className="font-bold text-xs text-foreground">No Properties Found</p>
+                  <p className="text-[10px] text-muted mt-1">Register a property using the "Add Property" button above to view cards here.</p>
+                </div>
+              ) : (
+                properties.slice(0, 4).map((prop) => {
+                  const isHovered = hoveredPropertyId === prop._id;
                 const activeUnitsCount = prop.units?.length || 0;
                 const occCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
                 const occPct = activeUnitsCount > 0 ? Math.round((occCount / activeUnitsCount) * 100) : 0;
@@ -425,7 +432,7 @@ export default function LandlordDashboardPage() {
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
 

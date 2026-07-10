@@ -4,12 +4,11 @@ function getAdminPassword() {
   const envPass = process.env.ADMIN_HARDCODED_PASSWORD || process.env.ADMIN_PASSWORD;
   if (envPass) return envPass;
 
-  if (process.env.NODE_ENV === 'production') {
-    logger.warn('⚠️ CRITICAL SECURITY WARNING: ADMIN_HARDCODED_PASSWORD or ADMIN_PASSWORD environment variable is not configured in production! Falling back to default admin password.');
-  } else {
-    logger.warn('Using default admin password fallback. Set ADMIN_HARDCODED_PASSWORD in production.');
+  if (process.env.NODE_ENV === 'test') {
+    return 'MutuneAdmin2026!'; // Keep test suites green
   }
-  return 'MutuneAdmin2026!';
+
+  throw new Error('ADMIN_PASSWORD or ADMIN_HARDCODED_PASSWORD environment variable is required. Set it in your .env file.');
 }
 
 function escapeRegExp(string) {

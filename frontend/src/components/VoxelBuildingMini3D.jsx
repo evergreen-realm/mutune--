@@ -1,8 +1,12 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useRef, useState, useEffect, Suspense } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import * as THREE from 'three';
 
-function VoxelBuildingMesh({ floors = 6, speed = 0.02, colorPattern = 'blue' }) {
+function RotatingVoxelEstate({ speed = 0.015 }) {
   const meshRef = useRef();
+  
+  // Load the premium voxel estate texture from public assets
+  const texture = useLoader(THREE.TextureLoader, '/assets/voxel_estate.png');
 
   useFrame(() => {
     if (meshRef.current) {
@@ -10,49 +14,20 @@ function VoxelBuildingMesh({ floors = 6, speed = 0.02, colorPattern = 'blue' }) 
     }
   });
 
-  const baseColor = colorPattern === 'purple' ? '#a855f7' : '#3b82f6';
-  const accentColor = colorPattern === 'purple' ? '#c084fc' : '#60a5fa';
-
   return (
-    <group ref={meshRef} position={[0, -0.6, 0]}>
-      {/* Base Foundation */}
-      <mesh position={[0, 0.05, 0]}>
-        <boxGeometry args={[1.2, 0.1, 1.2]} />
-        <meshStandardMaterial color="#334155" roughness={0.5} />
-      </mesh>
-
-      {/* Stacked Floors */}
-      {Array.from({ length: floors }).map((_, idx) => {
-        const floorY = 0.1 + idx * 0.2 + 0.1;
-        return (
-          <group key={idx}>
-            <mesh position={[0, floorY, 0]}>
-              <boxGeometry args={[1.0, 0.18, 1.0]} />
-              <meshStandardMaterial 
-                color={idx % 2 === 0 ? baseColor : '#f8fafc'} 
-                roughness={0.3} 
-                metalness={0.1}
-              />
-            </mesh>
-            {/* Balcony slab */}
-            <mesh position={[0, floorY + 0.06, 0]}>
-              <boxGeometry args={[1.05, 0.03, 1.05]} />
-              <meshStandardMaterial color={accentColor} transparent opacity={0.6} />
-            </mesh>
-          </group>
-        );
-      })}
-
-      {/* Roof structure */}
-      <mesh position={[0.2, 0.1 + floors * 0.2 + 0.08, -0.2]}>
-        <boxGeometry args={[0.4, 0.15, 0.4]} />
-        <meshStandardMaterial color="#e2e8f0" />
-      </mesh>
-    </group>
+    <mesh ref={meshRef} position={[0, 0, 0]} scale={[2.6, 2.6, 1]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial 
+        map={texture} 
+        transparent={true} 
+        side={THREE.DoubleSide} 
+        depthWrite={false}
+      />
+    </mesh>
   );
 }
 
-export default function VoxelBuildingMini3D({ className = "w-full h-40", floors = 6, colorPattern = 'blue' }) {
+export default function VoxelBuildingMini3D({ className = "w-full h-40" }) {
   const [hasWebGL, setHasWebGL] = useState(true);
 
   useEffect(() => {
@@ -75,11 +50,10 @@ export default function VoxelBuildingMini3D({ className = "w-full h-40", floors 
 
   return (
     <div className={`${className} pointer-events-none select-none relative overflow-hidden rounded-2xl`}>
-      <Canvas camera={{ position: [2.2, 1.8, 2.2], fov: 40 }} gl={{ antialias: true, alpha: true }}>
-        <ambientLight intensity={0.8} />
-        <pointLight position={[5, 5, 5]} intensity={1.5} color="#ffffff" />
-        <directionalLight position={[-5, 5, -5]} intensity={0.6} color="#93c5fd" />
-        <VoxelBuildingMesh floors={floors} colorPattern={colorPattern} />
+      <Canvas camera={{ position: [0, 0.5, 3.5], fov: 45 }} gl={{ antialias: true, alpha: true }}>
+        <Suspense fallback={null}>
+          <RotatingVoxelEstate />
+        </Suspense>
       </Canvas>
     </div>
   );
