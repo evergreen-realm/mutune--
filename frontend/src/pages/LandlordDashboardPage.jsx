@@ -69,15 +69,37 @@ export default function LandlordDashboardPage() {
   // Property Card Hover state
   const [hoveredPropertyId, setHoveredPropertyId] = useState(null);
 
-  // Recharts analytic data for financial insights
-  const financialData = [
-    { name: 'Jan', revenue: 420000 },
-    { name: 'Feb', revenue: 580000 },
-    { name: 'Mar', revenue: 720000 },
-    { name: 'Apr', revenue: 950000 },
-    { name: 'May', revenue: 1100000 },
-    { name: 'Jun', revenue: 1200000 }
-  ];
+  // Recharts analytic data for financial insights dynamically aggregated from live payments
+  const financialData = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const result = [];
+    const now = new Date();
+    
+    // Generate the last 6 months buckets
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      result.push({
+        name: months[d.getMonth()],
+        monthNum: d.getMonth(),
+        year: d.getFullYear(),
+        revenue: 0
+      });
+    }
+
+    // Accumulate confirmed payments for the landlord's properties
+    const propIds = properties.map(p => p._id);
+    payments.forEach(p => {
+      if (p.status !== 'confirmed') return;
+      if (p.property_id && !propIds.includes(p.property_id)) return;
+      const d = new Date(p.created_at);
+      const match = result.find(r => r.monthNum === d.getMonth() && r.year === d.getFullYear());
+      if (match) {
+        match.revenue += Number(p.amount_kes || 0);
+      }
+    });
+
+    return result.map(({ name, revenue }) => ({ name, revenue }));
+  }, [payments, properties]);
 
   const load = useCallback(async () => {
     setLoading(true);

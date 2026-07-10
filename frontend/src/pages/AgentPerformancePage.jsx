@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { toast } from 'react-toastify';
 import { useThemeStore } from '../store/themeStore';
 import {
   fetchAgentPerformance, fetchAllTasks, fetchMyTasks, fetchUsers, createTask, deleteTask, updateTaskStatus,
-  fetchProperties, fetchPropertyTiers, submitAgentReview, uploadDoc, updateUserProfilePicture, fetchTenants, initiatePayment
+  fetchProperties, fetchPropertyTiers, submitAgentReview, uploadDoc, updateUserProfilePicture, fetchTenants, initiatePayment,
+  fetchPayments
 } from '../lib/api';
 import {
   Trophy, TrendingUp, CheckCircle2, AlertTriangle, Clock,
@@ -94,6 +95,7 @@ export default function AgentPerformancePage({ dbUser }) {
   // Quick Collection Widget state
   const [allProperties, setAllProperties] = useState([]);
   const [allTenants, setAllTenants] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -106,17 +108,45 @@ export default function AgentPerformancePage({ dbUser }) {
   // Task List state
   const [expandedTaskId, setExpandedTaskId] = useState(null);
 
-  // Sparkline performance data (mocked to match the beautiful gradient spline on the prototype)
-  const chartData = [
-    { name: '1', performance: 8000 },
-    { name: '4', performance: 16000 },
-    { name: '8', performance: 12000 },
-    { name: '12', performance: 22000 },
-    { name: '18', performance: 18000 },
-    { name: '24', performance: 38000 },
-    { name: '28', performance: 28050 },
-    { name: '30', performance: 34000 }
-  ];
+  // Sparkline performance data dynamically aggregated from live payments
+  const chartData = useMemo(() => {
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    
+    const dailyCollected = Array.from({ length: daysInMonth }, (_, i) => ({
+      day: i + 1,
+      collected: 0
+    }));
+
+    // Filter confirmed payments for this month
+    const thisMonthPayments = payments.filter(p => {
+      if (p.status !== 'confirmed') return false;
+      const d = new Date(p.created_at);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    thisMonthPayments.forEach(p => {
+      const d = new Date(p.created_at);
+      const dayNum = d.getDate();
+      if (dailyCollected[dayNum - 1]) {
+        dailyCollected[dayNum - 1].collected += Number(p.amount_kes || 0);
+      }
+    });
+
+    let cumulative = 0;
+    const sampleDays = [1, 4, 8, 12, 18, 24, 28, daysInMonth];
+    
+    return sampleDays.map(day => {
+      const sumUpToDay = dailyCollected
+        .filter(d => d.day <= day)
+        .reduce((sum, d) => sum + d.collected, 0);
+        
+      return {
+        name: `${day}`,
+        performance: sumUpToDay
+      };
+    });
+  }, [payments]);
 
   useEffect(() => {
     if (dbUser?.profile_picture) {
@@ -155,14 +185,15 @@ export default function AgentPerformancePage({ dbUser }) {
     setLoading(true);
     const from = new Date(Date.now() - Number(period) * 86400000).toISOString().split('T')[0];
     try {
-      const [perf, t, users, props, tiers, allPropsRes, tenantsRes] = await Promise.allSettled([
+      const [perf, t, users, props, tiers, allPropsRes, tenantsRes, paymentsRes] = await Promise.allSettled([
         fetchAgentPerformance({ from }),
         dbUser?.role === 'agent' ? fetchMyTasks() : fetchAllTasks({ limit: 200 }),
         fetchUsers({ role: 'agent', is_active: true }),
         fetchProperties({ review_status: 'pending_agent' }),
         fetchPropertyTiers(),
         fetchProperties(),
-        fetchTenants()
+        fetchTenants(),
+        fetchPayments()
       ]);
       
       if (perf.status === 'fulfilled') setAgents(Array.isArray(perf.value?.data) ? perf.value.data : []);
@@ -172,6 +203,7 @@ export default function AgentPerformancePage({ dbUser }) {
       if (tiers.status === 'fulfilled') setActiveTiers(Array.isArray(tiers.value?.data) ? tiers.value.data : []);
       if (allPropsRes.status === 'fulfilled') setAllProperties(Array.isArray(allPropsRes.value?.data) ? allPropsRes.value.data : []);
       if (tenantsRes.status === 'fulfilled') setAllTenants(Array.isArray(tenantsRes.value?.data) ? tenantsRes.value.data : []);
+      if (paymentsRes.status === 'fulfilled') setPayments(Array.isArray(paymentsRes.value?.data) ? paymentsRes.value.data : []);
     } finally {
       setLoading(false);
     }
