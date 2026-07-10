@@ -25,7 +25,7 @@ router.post(
 
       const { message, session_id, context = {} } = req.body;
 
-      // Enrich context with tenant + property details when role is tenant
+      // Enrich context with tenant + property details when role is tenant, landlord, or agent
       const enrichedContext = { ...context };
       if (req.user.role === 'tenant') {
         const tenant = await Tenant.findOne({ user_id: req.user._id }).lean();
@@ -41,6 +41,22 @@ router.post(
               enrichedContext.propertyArea = property.address?.area;
             }
           }
+        }
+      } else if (req.user.role === 'landlord') {
+        const properties = await Property.find({ landlord_id: req.user._id }).select('name property_code address').lean();
+        if (properties.length > 0) {
+          enrichedContext.ownedProperties = properties.map(p => p.name);
+          enrichedContext.propertyCodes   = properties.map(p => p.property_code);
+          enrichedContext.propertyName    = properties[0].name;
+          enrichedContext.propertyCode    = properties[0].property_code;
+        }
+      } else if (req.user.role === 'agent') {
+        const properties = await Property.find({ agent_ids: req.user._id }).select('name property_code address').lean();
+        if (properties.length > 0) {
+          enrichedContext.assignedProperties = properties.map(p => p.name);
+          enrichedContext.propertyCodes      = properties.map(p => p.property_code);
+          enrichedContext.propertyName       = properties[0].name;
+          enrichedContext.propertyCode       = properties[0].property_code;
         }
       }
 

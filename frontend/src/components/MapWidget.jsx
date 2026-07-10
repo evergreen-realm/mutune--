@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Search, MapPin, Box, X, Maximize2, Minimize2, Globe } from 'lucide-react';
 import { fetchUnitGeoJSON } from '../lib/api';
 import { Suspense, lazy } from 'react';
+import * as THREE from 'three';
 
 const BuildingPreview3D = lazy(() => import('./BuildingPreview3D'));
 
@@ -63,11 +64,140 @@ export function getPropertyCoords(prop) {
   return [39.6682 + lngJitter, -4.0435 + latJitter];
 }
 
+function getOccupancyColor(property) {
+  const occupiedCount = property.units?.filter((u) => u.status === 'occupied').length || 0;
+  const totalUnits = property.units?.length || 0;
+  const ratio = totalUnits > 0 ? occupiedCount / totalUnits : 0;
+  if (ratio > 0.8) return 0x22c55e; // emerald
+  if (ratio > 0.5) return 0xeab308; // yellow
+  return 0xef4444; // red
+}
+
+function createBuildingModel(property) {
+  const group = new THREE.Group();
+  const floors = property.units?.length || 6;
+  const height = floors * 0.5;
+  const width = 2.0;
+  const depth = 2.0;
+  
+  // Main body with color based on occupancy
+  const geometry = new THREE.BoxGeometry(width, height, depth);
+  const material = new THREE.MeshStandardMaterial({
+    color: getOccupancyColor(property),
+    roughness: 0.7,
+    metalness: 0.1
+  });
+  const body = new THREE.Mesh(geometry, material);
+  body.position.y = height / 2;
+  group.add(body);
+  
+  // Windows (grid of small boxes on each face)
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0x88ccff,
+    emissive: 0x4488ff,
+    emissiveIntensity: 0.3
+  });
+  
+  const windowGeo = new THREE.BoxGeometry(0.15, 0.15, 0.02);
+
+  for (let f = 0; f < floors; f++) {
+    const y = (f * 0.5) + 0.25;
+    // Front face
+    for (let x = -0.6; x <= 0.6; x += 0.6) {
+      const win = new THREE.Mesh(windowGeo, windowMat);
+      win.position.set(x, y, (depth / 2) + 0.01);
+      group.add(win);
+    }
+    // Back face
+    for (let x = -0.6; x <= 0.6; x += 0.6) {
+      const win = new THREE.Mesh(windowGeo, windowMat);
+      win.position.set(x, y, -(depth / 2) - 0.01);
+      group.add(win);
+    }
+    // Right face
+    for (let z = -0.6; z <= 0.6; z += 0.6) {
+      const win = new THREE.Mesh(windowGeo, windowMat);
+      win.rotation.y = Math.PI / 2;
+      win.position.set((width / 2) + 0.01, y, z);
+      group.add(win);
+    }
+    // Left face
+    for (let z = -0.6; z <= 0.6; z += 0.6) {
+      const win = new THREE.Mesh(windowGeo, windowMat);
+      win.rotation.y = Math.PI / 2;
+      win.position.set(-(width / 2) - 0.01, y, z);
+      group.add(win);
+    }
+  }
+  
+  // Roof
+  const roofMat = new THREE.MeshStandardMaterial({
+    color: 0x444444,
+    roughness: 0.9
+  });
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(width * 1.05, 0.05, depth * 1.05),
+    roofMat
+  );
+  roof.position.y = height + 0.025;
+  group.add(roof);
+  
+  return group;
+}
+
+function renderMini3DScene(container, property) {
+  container.innerHTML = '';
+  
+  const width = container.clientWidth || 300;
+  const height = container.clientHeight || 140;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0e1a);
+
+  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+  camera.position.set(6, 4.5, 6);
+  camera.lookAt(0, (property.units?.length || 6) * 0.25, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  container.appendChild(renderer.domElement);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  dirLight.position.set(5, 10, 5);
+  scene.add(dirLight);
+
+  const building = createBuildingModel(property);
+  building.scale.set(0.85, 0.85, 0.85);
+  scene.add(building);
+
+  let animationFrameId;
+  const animate = () => {
+    animationFrameId = requestAnimationFrame(animate);
+    building.rotation.y += 0.015;
+    renderer.render(scene, camera);
+  };
+  animate();
+
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(container)) {
+      cancelAnimationFrame(animationFrameId);
+      renderer.dispose();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
 // ── Mapbox Map component ─────────────────────────────────────────────────────
 function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const customLayerRef = useRef(null);
 
   const mapStyle = theme === 'light'
     ? 'mapbox://styles/mapbox/light-v11'
@@ -248,7 +378,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     else map.once('load', doFly);
   }, [activeTab, selectedProperty]);
 
-  // Inject CSS 3D cube styles on mount
+  // Inject CSS styles for transparent markers and custom 3D popups on mount
   useEffect(() => {
     const id = 'mapbox-cube-marker-styles';
     if (!document.getElementById(id)) {
@@ -256,64 +386,83 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       style.id = id;
       style.innerHTML = `
         .cube-marker {
-          width: 28px;
-          height: 28px;
-          perspective: 1000px;
+          width: 32px;
+          height: 64px;
           cursor: pointer;
-          transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          background: transparent;
         }
-        .cube-marker:hover {
-          transform: scale(1.3);
+        
+        .property-popup-3d .mapboxgl-popup-content {
+          padding: 0 !important;
+          border-radius: 16px;
+          overflow: hidden;
+          background: transparent !important;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          border: 1px solid rgba(255,255,255,0.08);
         }
-        .cube {
-          width: 24px;
-          height: 24px;
+        
+        .popup-3d-container {
+          background: #0f172a;
+          color: #ffffff;
+          border-radius: 16px;
+          overflow: hidden;
+          width: 300px;
+          font-family: system-ui, sans-serif;
+        }
+
+        .popup-3d-container.dark {
+          background: #0f172a;
+          color: #ffffff;
+        }
+        
+        .popup-3d-container.light {
+          background: #ffffff;
+          color: #0f172a;
+        }
+
+        .popup-3d-preview {
+          height: 140px;
+          background: #0a0e1a;
           position: relative;
-          transform-style: preserve-3d;
-          transform: rotateX(-25deg) rotateY(45deg);
-          transition: transform 0.5s ease, width 0.5s ease, height 0.5s ease;
+          width: 100%;
         }
-        .cube-face {
-          position: absolute;
-          width: 24px;
-          height: 24px;
-          border: 1px solid rgba(59, 130, 246, 0.7);
-          box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
-          transition: all 0.5s ease;
+        
+        .popup-3d-info {
+          padding: 14px;
         }
-        .face-front  { transform: rotateY(  0deg) translateZ(12px); }
-        .face-back   { transform: rotateY(180deg) translateZ(12px); }
-        .face-right  { transform: rotateY( 90deg) translateZ(12px); }
-        .face-left   { transform: rotateY(-90deg) translateZ(12px); }
-        .face-top    { transform: rotateX( 90deg) translateZ(12px); }
-        .face-bottom { transform: rotateX(-90deg) translateZ(12px); }
 
-        /* Morphing Zoomed In Class */
-        .cube-marker.zoomed-in .cube {
-          transform: rotateX(-15deg) rotateY(45deg);
-          width: 32px;
-          height: 48px;
+        .popup-3d-info h4 {
+          font-weight: 800;
+          font-size: 14px;
+          margin: 0 0 4px 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-        .cube-marker.zoomed-in .cube-face {
-          width: 32px;
-          height: 48px;
-          border-color: rgba(96, 165, 250, 0.9);
-          box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-        }
-        .cube-marker.zoomed-in .face-front  { transform: rotateY(  0deg) translateZ(16px); }
-        .cube-marker.zoomed-in .face-back   { transform: rotateY(180deg) translateZ(16px); }
-        .cube-marker.zoomed-in .face-right  { transform: rotateY( 90deg) translateZ(16px); }
-        .cube-marker.zoomed-in .face-left   { transform: rotateY(-90deg) translateZ(16px); }
-        .cube-marker.zoomed-in .face-top    { transform: rotateX( 90deg) translateZ(24px); width: 32px; height: 32px; }
-        .cube-marker.zoomed-in .face-bottom { transform: rotateX(-90deg) translateZ(24px); width: 32px; height: 32px; }
 
-        /* Add windows inside face front on morph */
-        .cube-marker.zoomed-in .face-front::after {
-          content: '';
-          position: absolute;
-          top: 10%; left: 15%; right: 15%; bottom: 10%;
-          background-image: radial-gradient(circle, #fef08a 25%, transparent 25%);
-          background-size: 8px 10px;
+        .popup-3d-info p {
+          font-size: 11px;
+          color: #94a3b8;
+          margin: 0 0 12px 0;
+        }
+
+        .popup-3d-info button {
+          width: 100%;
+          border: 0;
+          background: #2563eb;
+          color: #ffffff;
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .popup-3d-info button:hover {
+          background: #1d4ed8;
         }
       `;
       document.head.appendChild(style);
@@ -329,87 +478,125 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
+    // Remove custom 3D WebGL layer if it exists
+    const customLayerId = '3d-custom-buildings-layer';
+    if (map.getLayer(customLayerId)) {
+      map.removeLayer(customLayerId);
+    }
+    customLayerRef.current = null;
+
     // Remove boundary layers if they exist
     if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
     if (map.getLayer('boundary-line')) map.removeLayer('boundary-line');
     if (map.getSource('property-boundary')) map.removeSource('property-boundary');
 
-    // Show property markers for PROPERTIES tab and UNITS tab (no selection = all properties shown)
+    let zoomListener = null;
+
     if (activeTab === 'properties' || activeTab === 'units') {
+      // 1. Create the Three.js Custom WebGL Layer
+      const customLayer = {
+        id: customLayerId,
+        type: 'custom',
+        renderingMode: '3d',
+        onAdd: function (map, gl) {
+          this.camera = new THREE.Camera();
+          this.scene = new THREE.Scene();
+
+          // Create lights
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+          this.scene.add(ambientLight);
+
+          const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+          dirLight.position.set(0, -70, 100).normalize();
+          this.scene.add(dirLight);
+
+          const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
+          dirLight2.position.set(0, 70, 100).normalize();
+          this.scene.add(dirLight2);
+
+          // Build building meshes at mercator coordinates
+          properties.forEach((prop) => {
+            const coords = getPropertyCoords(prop);
+            const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
+            const meterScale = mercator.meterInMercatorCoordinateUnits();
+
+            const building = createBuildingModel(prop);
+            building.position.set(mercator.x, mercator.y, mercator.z);
+
+            const zoom = map.getZoom();
+            const zoomScale = Math.max(0.5, Math.min(2.5, (zoom - 10) / 4));
+            const finalScale = meterScale * zoomScale;
+            building.scale.set(finalScale, -finalScale, finalScale);
+
+            building.userData = {
+              propertyId: prop._id || prop.id,
+              meterScale: meterScale,
+              lng: coords[0],
+              lat: coords[1]
+            };
+
+            this.scene.add(building);
+          });
+
+          this.renderer = new THREE.WebGLRenderer({
+            canvas: map.getCanvas(),
+            context: gl,
+            antialias: true
+          });
+          this.renderer.autoClear = false;
+          this.map = map;
+        },
+        render: function (gl, matrix) {
+          const m = new THREE.Matrix4().fromArray(matrix);
+          this.camera.projectionMatrix = m;
+          this.renderer.resetState();
+          this.renderer.render(this.scene, this.camera);
+          this.map.triggerRepaint();
+        }
+      };
+
+      map.addLayer(customLayer);
+      customLayerRef.current = customLayer;
+
+      // 2. Add Map Zoom Listener for Zoom-Based Scaling
+      zoomListener = () => {
+        const zoom = map.getZoom();
+        const zoomScale = Math.max(0.5, Math.min(2.5, (zoom - 10) / 4));
+        if (customLayerRef.current && customLayerRef.current.scene) {
+          customLayerRef.current.scene.children.forEach((child) => {
+            if (child.userData && child.userData.meterScale) {
+              const finalScale = child.userData.meterScale * zoomScale;
+              child.scale.set(finalScale, -finalScale, finalScale);
+            }
+          });
+        }
+      };
+      map.on('zoom', zoomListener);
+
+      // 3. Create Invisible Mapbox Markers with Native 3D Popups
       properties.forEach((prop) => {
         const coords = getPropertyCoords(prop);
-
         const el = document.createElement('div');
         el.className = 'cube-marker';
 
         const occupiedCount = prop.units?.filter((u) => u.status === 'occupied').length || 0;
         const totalUnits = prop.units?.length || 0;
-        const ratio = totalUnits > 0 ? occupiedCount / totalUnits : 0;
-        let color = 'rgba(59, 130, 246, 0.55)'; // default blue tint
-
-        const cube = document.createElement('div');
-        cube.className = 'cube';
-        
-        ['front', 'back', 'right', 'left', 'top', 'bottom'].forEach(face => {
-          const faceEl = document.createElement('div');
-          faceEl.className = `cube-face face-${face}`;
-          
-          if (face === 'top') {
-            faceEl.style.backgroundColor = 'rgba(96, 165, 250, 0.75)';
-          } else if (face === 'bottom') {
-            faceEl.style.backgroundColor = 'rgba(29, 78, 216, 0.75)';
-          } else {
-            faceEl.style.backgroundColor = color;
-          }
-          cube.appendChild(faceEl);
-        });
-        
-        el.appendChild(cube);
-
-        // Update morphing class on map zoom
-        const updateZoomMorph = () => {
-          if (map.getZoom() > 16.5) {
-            el.classList.add('zoomed-in');
-          } else {
-            el.classList.remove('zoomed-in');
-          }
-        };
-        map.on('zoom', updateZoomMorph);
-        updateZoomMorph();
-
-        // Property image popup with 3D background representation
-        const propImg = prop.images?.[0] || '/assets/3d_visual_building.jpg';
         const occupancyPct = totalUnits > 0 ? Math.round((occupiedCount / totalUnits) * 100) : 0;
 
-        const popup = new mapboxgl.Popup({ 
-          offset: 25, 
-          maxWidth: '280px',
-          className: 'custom-mapbox-popup'
+        const popup = new mapboxgl.Popup({
+          offset: [0, -45],
+          maxWidth: '320px',
+          closeButton: true,
+          closeOnClick: false,
+          className: 'property-popup-3d'
         }).setHTML(`
-          <div class="font-sans w-[250px] bg-slate-900/90 text-white rounded-xl overflow-hidden shadow-2xl border border-slate-800 backdrop-blur-md">
-            <div class="w-full h-[110px] overflow-hidden relative bg-slate-950 flex items-center justify-center">
-              <img src="${propImg}" alt="${prop.name}" class="w-full h-full object-cover opacity-60" onerror="this.src='/assets/3d_visual_building.jpg'" />
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none"></div>
-              <span class="absolute bottom-2 left-3 bg-blue-600 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow">
-                ${prop.type?.replace('_', ' ') || 'Apartment'}
-              </span>
-            </div>
-            <div class="p-3">
-              <h4 class="font-black text-xs leading-tight text-white truncate">${prop.name}</h4>
-              <p class="text-[9px] text-slate-400 font-mono tracking-wider mt-0.5">${prop.property_code}</p>
-              <p class="text-xs text-slate-350 mt-1.5 flex items-center gap-1">
-                <span>📍</span> <span class="truncate">${prop.address?.area || 'Mombasa'}</span>
-              </p>
-              <div class="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-800">
-                <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-450">
-                  ${totalUnits} units
-                </span>
-                <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
-                  ${occupancyPct}% occupied
-                </span>
-              </div>
-              <button id="mapbox-btn-${prop._id}" class="mt-3.5 w-full border-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-xs font-bold cursor-pointer transition-all active:scale-[0.98] shadow-md uppercase tracking-wider">
-                View Units &amp; 3D Model
+          <div class="popup-3d-container ${theme === 'dark' ? 'dark' : 'light'}">
+            <div class="popup-3d-preview" id="popup-3d-${prop._id || prop.id}"></div>
+            <div class="popup-3d-info">
+              <h4>${prop.name}</h4>
+              <p>${totalUnits} units · ${occupancyPct}% occupied</p>
+              <button id="popup-btn-${prop._id || prop.id}">
+                View 3D Model
               </button>
             </div>
           </div>
@@ -421,7 +608,13 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           .addTo(map);
 
         popup.on('open', () => {
-          const btn = document.getElementById(`mapbox-btn-${prop._id}`);
+          // Render the rotating 3D building inside the popup
+          const container = document.getElementById(`popup-3d-${prop._id || prop.id}`);
+          if (container) {
+            renderMini3DScene(container, prop);
+          }
+          
+          const btn = document.getElementById(`popup-btn-${prop._id || prop.id}`);
           if (btn) {
             btn.addEventListener('click', () => {
               popup.remove();
@@ -433,12 +626,11 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         markersRef.current.push(marker);
       });
 
-      // Fit map to show all properties
+      // Fit map bounds
       if (properties.length > 1) {
         const bounds = new mapboxgl.LngLatBounds();
-        properties.forEach(prop => {
-          const c = getPropertyCoords(prop);
-          bounds.extend(c);
+        properties.forEach((prop) => {
+          bounds.extend(getPropertyCoords(prop));
         });
         map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 1200 });
       }
@@ -457,7 +649,16 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         .addTo(map);
       markersRef.current.push(marker);
     }
-  }, [activeTab, properties, agentLocation]);
+
+    return () => {
+      if (zoomListener) {
+        map.off('zoom', zoomListener);
+      }
+      if (map.getLayer(customLayerId)) {
+        map.removeLayer(customLayerId);
+      }
+    };
+  }, [activeTab, properties, agentLocation, theme]);
 
   return (
     <div

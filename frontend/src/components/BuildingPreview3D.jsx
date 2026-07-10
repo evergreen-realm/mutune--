@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Environment } from '@react-three/drei';
 import { Box, X } from 'lucide-react';
+import * as THREE from 'three';
 
 const statusColors = {
   paid: '#22c55e',
@@ -42,32 +43,57 @@ function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
   const emissiveIntensity = isSelected ? 0.35 : hovered ? 0.2 : 0;
 
   return (
-    <mesh
-      position={[x, y, z]}
-      scale={scale}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        setHovered(true);
-        onHover?.(unit);
-      }}
-      onPointerOut={() => {
-        setHovered(false);
-        onHover?.(null);
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick?.(unit);
-      }}
-    >
-      <boxGeometry args={[1.3, 1.0, 1.3]} />
-      <meshStandardMaterial
-        color={color}
-        roughness={0.15}
-        metalness={0.2}
-        emissive={emissive}
-        emissiveIntensity={emissiveIntensity}
-      />
-    </mesh>
+    <group position={[x, y, z]}>
+      {/* Main Apartment Block */}
+      <mesh
+        scale={scale}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+          onHover?.(unit);
+        }}
+        onPointerOut={() => {
+          setHovered(false);
+          onHover?.(null);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.(unit);
+        }}
+      >
+        <boxGeometry args={[1.4, 1.0, 1.4]} />
+        <meshStandardMaterial
+          color={color}
+          roughness={0.4}
+          metalness={0.2}
+          transparent={status === 'vacant'}
+          opacity={status === 'vacant' ? 0.55 : 1.0}
+          emissive={emissive}
+          emissiveIntensity={emissiveIntensity}
+        />
+      </mesh>
+
+      {/* Glow Window on Facade */}
+      {status !== 'vacant' && (
+        <mesh position={[0, 0.1, 0.71]} scale={scale}>
+          <planeGeometry args={[0.4, 0.5]} />
+          <meshStandardMaterial
+            color={0x88ccff}
+            emissive={0x4488ff}
+            emissiveIntensity={0.8}
+            roughness={0.1}
+            metalness={0.9}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+      
+      {/* Window Frame / Trim */}
+      <mesh position={[0, 0.1, 0.705]} scale={scale}>
+        <planeGeometry args={[0.5, 0.6]} />
+        <meshBasicMaterial color={0x1e293b} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
   );
 }
 
@@ -91,7 +117,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
 
   const units = property.units || [];
   const groundColor = isLight ? '#e2e8f0' : '#0b0f19';
-  const gridColor1 = isLight ? '#2563eb' : '#2563eb';
+  const gridColor1 = '#2563eb';
   const gridColor2 = isLight ? '#cbd5e1' : '#334155';
 
   return (
@@ -107,7 +133,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
               ? 'bg-blue-50 border-blue-200 text-blue-600'
               : 'bg-surface-bright border-border text-muted font-semibold'
           }`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> {viewMode === 'image' ? 'Realistic 3D Design' : 'Interactive 3D Blocks'}
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> {viewMode === 'image' ? 'Cinematic Render' : 'Interactive 3D Blocks'}
           </span>
         </div>
       </div>
@@ -122,7 +148,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
                 : 'text-muted hover:text-foreground hover:bg-surface-bright'
             }`}
           >
-            Realistic Render
+            Cinematic Render
           </button>
           <button
             onClick={() => setViewMode('interactive')}
@@ -147,22 +173,51 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
         isLight ? 'bg-surface-bright border-border' : 'bg-background border-border'
       }`}>
         {viewMode === 'image' ? (
-          <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center p-4 relative">
-            <img
-              src="/assets/voxel_estate.png"
-              alt="Realistic 3D Architectural Model"
-              className="w-full h-full object-contain hover:scale-[1.02] transition-transform duration-500"
+          <Canvas camera={{ position: [8, 6, 8], fov: 45 }}>
+            <ambientLight intensity={isLight ? 0.6 : 0.4} />
+            <directionalLight position={[10, 20, 10]} intensity={1.5} />
+            <Environment preset="city" />
+            <group position={[0, -1, 0]}>
+              {units.length === 0 ? (
+                <mesh position={[0, 1.5, 0]}>
+                  <boxGeometry args={[3.2, 3.0, 3.2]} />
+                  <meshStandardMaterial color="#3b82f6" wireframe roughness={0.3} />
+                </mesh>
+              ) : (
+                units.map((unit, idx) => (
+                  <Unit3DBlock
+                    key={unit._id || idx}
+                    unit={unit}
+                    index={idx}
+                    isSelected={selectedUnit?._id === unit._id}
+                    onHover={setHoveredUnit}
+                    onClick={onUnitSelect}
+                  />
+                ))
+              )}
+
+              <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
+              <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[15, 15]} />
+                <meshStandardMaterial color={groundColor} roughness={0.9} />
+              </mesh>
+            </group>
+
+            <OrbitControls
+              autoRotate
+              autoRotateSpeed={1.5}
+              enableDamping
+              dampingFactor={0.05}
+              maxPolarAngle={Math.PI / 2 - 0.05}
+              minDistance={3}
+              maxDistance={20}
             />
-            <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-1 text-[9px] text-white/80 font-mono">
-              Approximated from high-fidelity Mombasa site blueprints
-            </div>
-          </div>
+          </Canvas>
         ) : (
           <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
             <ambientLight intensity={isLight ? 0.6 : 0.4} />
-            <pointLight position={[10, 10, 10]} intensity={isLight ? 1.2 : 1.5} />
-            <directionalLight position={[-5, 8, -5]} intensity={0.6} />
-
+            <directionalLight position={[10, 20, 10]} intensity={1.5} />
+            <Environment preset="city" />
             <group position={[0, -1, 0]}>
               {units.length === 0 ? (
                 <mesh position={[0, 1.5, 0]}>

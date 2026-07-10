@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useThemeStore } from '../store/themeStore';
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
-import VoxelLogo3D from '../components/VoxelLogo3D';
 import 'leaflet/dist/leaflet.css';
 import {
   fetchMyProfile, fetchMyPayments, fetchMyNotices,
@@ -1651,11 +1650,8 @@ export default function TenantPortalPage() {
       {showSuccessOverlay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[32px] shadow-2xl p-6 relative text-center">
-            <div className="w-24 h-24 mx-auto mb-4 relative flex items-center justify-center">
-              <VoxelLogo3D className="w-20 h-20" isSpinningFast={true} scale={2.0} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <CheckCircle2 size={32} className="text-emerald-450 drop-shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
-              </div>
+            <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/25 rounded-full animate-bounce">
+              <CheckCircle2 size={36} className="text-emerald-450 drop-shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
             </div>
             
             <h3 className="text-white text-base font-black uppercase tracking-wider mb-2">STK Push Triggered</h3>

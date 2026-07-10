@@ -21,6 +21,7 @@ import {
 } from '../lib/api';
 import MapWidget, { getPropertyCoords } from '../components/MapWidget';
 import AgentPerformancePage from './AgentPerformancePage';
+import UnitDetailPopup from '../components/UnitDetailPopup';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -431,6 +432,17 @@ export default function AdminDashboardPage({ dbUser }) {
           Overview
         </button>
         <button
+          onClick={() => { setAdminTab('units'); setMapActiveTab('units'); }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'units'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <Box size={13} />
+          3D Building Viewer
+        </button>
+        <button
           onClick={() => setAdminTab('agents')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
             adminTab === 'agents'
@@ -666,6 +678,29 @@ export default function AdminDashboardPage({ dbUser }) {
         </>
       )}
 
+      {/* ── 3D BUILDING VIEWER TAB ────────────────────────────────────────────── */}
+      {adminTab === 'units' && (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-primary font-extrabold uppercase tracking-widest block">Interactive 3D Voxel Directory</span>
+            <h2 className="text-lg font-black text-foreground">3D Building & Units Previewer</h2>
+            <p className="text-xs text-muted mt-0.5">Select a Mombasa property marker on the map, then explore its stacked unit blocks in the "Units" tab inside the widget.</p>
+          </div>
+          <div className="bg-surface border border-border rounded-[24px] overflow-hidden shadow-sm p-4 relative z-10">
+            <MapWidget 
+              properties={properties} 
+              isAdmin={true} 
+              theme={theme} 
+              onPropertySelect={(p) => setSelectedProperty(p)}
+              activeTab={mapActiveTab}
+              onActiveTabChange={setMapActiveTab}
+              selectedProperty={selectedProperty}
+              onSelectedPropertyChange={setSelectedProperty}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── AGENT PERFORMANCE TAB ────────────────────────────────────────────── */}
       {adminTab === 'agents' && (
         <AgentPerformancePage dbUser={dbUser} />
@@ -868,9 +903,11 @@ export default function AdminDashboardPage({ dbUser }) {
 
             {/* Left Panel: Floor Plan Gallery & Spec */}
             <div className="flex flex-col border-r border-border/40 bg-background/25">
-              <div className="relative h-64 bg-slate-950 overflow-hidden flex items-center justify-center p-3">
-                <img src="/assets/voxel_floorplan.png" alt="3D Floorplan" className="w-full h-full object-contain hover:scale-[1.02] transition-transform duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+              <div className="relative h-64 bg-slate-950 overflow-hidden flex items-center justify-center">
+                <div className="w-full h-full">
+                  <UnitDetailPopup unit={selectedUnit} />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent pointer-events-none" />
                 <div className="absolute bottom-4 left-4">
                   <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border ${
                     selectedUnit.status === 'occupied' ? 'bg-emerald-500/90 text-white border-emerald-400/20' : 'bg-amber-600/90 text-white border-amber-400/20'
