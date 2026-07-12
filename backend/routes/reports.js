@@ -4,6 +4,7 @@ const { query, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const Payment = require('../models/Payment');
+const Expense = require('../models/Expense');
 const logger = require('../utils/logger');
 
 /**
@@ -242,7 +243,27 @@ router.get('/income-statement',
 
       const totalRevenue = revenueBreakdown.reduce((s, r) => s + r.gross_kes, 0);
 
-      logger.info('Income statement generated', { month, totalRevenue, generatedBy: req.user._id });
+      // Aggregate expenses by category
+      const expenseAgg = await Expense.aggregate([
+        { $match: { payment_date: { $gte: start, $lte: end }, status: 'paid' } },
+        {
+          $group: {
+            _id: '$category',
+            total: { $sum: '$amount_kes' },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { total: -1 } }
+      ]);
+
+      const totalExpenses = expenseAgg.reduce((s, r) => s + r.total, 0);
+      const expenseBreakdown = expenseAgg.map(row => ({
+        category: row._id,
+        amount_kes: row.total,
+        count: row.count
+      }));
+
+      logger.info('Income statement generated', { month, totalRevenue, totalExpenses, generatedBy: req.user._id });
 
       res.json({
         success: true,
@@ -253,11 +274,10 @@ router.get('/income-statement',
             breakdown: revenueBreakdown
           },
           expenses: {
-            total: 0,
-            breakdown: [],
-            note: 'Expense tracking not yet implemented. Use manual journal entries.'
+            total: totalExpenses,
+            breakdown: expenseBreakdown
           },
-          netIncome: totalRevenue,
+          netIncome: totalRevenue - totalExpenses,
           taxLiability: {
             mri: totalMRI,
             wht: totalWHT

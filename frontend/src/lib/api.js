@@ -255,10 +255,12 @@ export const autoInitiatePayment      = ()                => api.post('/payments
 export const voidPayment              = (id, reason)      => api.post(`/payments/${id}/void`, { reason });
 
 export const geocodeAddress = async (street, area, city = 'Mombasa') => {
+  const token = import.meta.env.VITE_MAPBOX_TOKEN;
+  if (!token) {
+    console.error('geocodeAddress: VITE_MAPBOX_TOKEN is not set. Add it to your .env file.');
+    return { lng: 39.6682, lat: -4.0435 }; // Mombasa default
+  }
   const query = `${street ? street + ', ' : ''}${area}, ${city}, Kenya`;
-  const p1 = 'REDACTED_MAPBOX_TOKEN_PART1';
-  const p2 = 'REDACTED_MAPBOX_TOKEN_PART2';
-  const token = import.meta.env.VITE_MAPBOX_TOKEN || `${p1}.${p2}`;
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1`;
   try {
     const res = await fetch(url);

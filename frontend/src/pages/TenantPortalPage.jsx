@@ -1189,9 +1189,11 @@ export default function TenantPortalPage() {
                         <p className="font-bold text-foreground">{FMT_DATE(profile?.lease_end)}</p>
                       </div>
                       <div>
-                        <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">Landlord Contact</span>
-                        <p className="font-bold text-foreground">{profile?.current_property_id?.landlord_id?.email || 'landlord@gmail.com'}</p>
-                        <p className="text-[10px] text-muted mt-0.5">08123567879</p>
+                        <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-1">{profile?.current_property_id?.landlord_id ? 'Landlord Contact' : 'Agency Contact'}</span>
+                        <p className="font-bold text-foreground">{profile?.current_property_id?.landlord_id?.email || profile?.current_property_id?.landlord_id?.full_name || 'Mutune Estate Agency'}</p>
+                        {(profile?.current_property_id?.landlord_id?.phone || customerCare) && (
+                          <p className="text-[10px] text-muted mt-0.5">{profile?.current_property_id?.landlord_id?.phone || customerCare}</p>
+                        )}
                       </div>
                     </div>
                   </div>

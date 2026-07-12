@@ -447,8 +447,11 @@ router.get('/my/profile', requireAuth, requirePermission('view:own_unit'), async
   try {
     const populateOpts = {
       path: 'current_property_id',
-      select: 'name property_code address tier_id photos units agent_ids',
-      populate: { path: 'tier_id', select: 'name' }
+      select: 'name property_code address tier_id photos units agent_ids landlord_id',
+      populate: [
+        { path: 'tier_id', select: 'name' },
+        { path: 'landlord_id', select: 'full_name email phone' }
+      ]
     };
 
     // Strategy 1: match by user_id (MongoDB ObjectId)

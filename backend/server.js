@@ -1,3 +1,4 @@
+require("./instrument.js");
 require('dotenv').config();
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']);
@@ -11,6 +12,7 @@ const { initSentry } = require('./utils/sentry');
 const mongoSanitize = require('./middleware/sanitize');
 
 initSentry();
+
 
 const app = express();
 
@@ -91,20 +93,16 @@ app.use('/api/v1/inventory', require('./routes/inventory'));          // Phase 4
 app.use('/api/v1/notifications', require('./routes/notifications')); // Phase 4: In-app notifications
 app.use('/api/v1/upload',        require('./routes/upload'));         // Phase 5: Verification doc upload (R2)
 
+const Sentry = require("@sentry/node");
+
+app.get("/debug-sentry", function mainHandler(req, res) {
+  throw new Error("My first Sentry error!");
+});
+
+Sentry.setupExpressErrorHandler(app);
+
 app.use((err, req, res, _next) => {
   logger.error('Unhandled error', { path: req.path, method: req.method, message: err.message, stack: err.stack });
-
-  if (process.env.SENTRY_DSN) {
-    const { Sentry } = require('./utils/sentry');
-    Sentry.withScope((scope) => {
-      if (req.user) {
-        scope.setUser({ id: req.user._id?.toString(), email: req.user.email, role: req.user.role });
-      }
-      scope.setExtra('path', req.path);
-      scope.setExtra('method', req.method);
-      Sentry.captureException(err);
-    });
-  }
 
   const status = err.status || 500;
   const isProduction = process.env.NODE_ENV === 'production';

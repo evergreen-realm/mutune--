@@ -72,6 +72,7 @@ const propertySchema = new mongoose.Schema({
   tier_approved_at: Date,
   review_status: { type: String, enum: ['pending_agent', 'pending_admin', 'approved', 'rejected'], default: 'pending_agent' },
   photos: [String],
+  glb_model_url: String,
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
 });

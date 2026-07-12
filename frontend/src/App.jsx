@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import posthog from 'posthog-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -13,26 +14,26 @@ import {
 } from '@clerk/clerk-react';
 
 
-// Pages
-import DashboardPage     from './pages/DashboardPage';
-import TenantsPage       from './pages/TenantsPage';
-import PaymentsPage      from './pages/PaymentsPage';
-import AddPropertyPage   from './pages/AddPropertyPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import TenantPortalPage  from './pages/TenantPortalPage';
-import NoticesPage       from './pages/NoticesPage';
-import LoginPage         from './pages/LoginPage';
-import SignUpPage        from './pages/SignUpPage';
-import PropertiesPage    from './pages/PropertiesPage';
-import PropertyDetailPage from './pages/PropertyDetailPage';
-import OnboardingPage    from './pages/OnboardingPage';
-import MaintenancePage   from './pages/MaintenancePage';
-import LandlordDashboardPage from './pages/LandlordDashboardPage';
-import LandlordAddPropertyPage from './pages/LandlordAddPropertyPage';
-import AgentPerformancePage from './pages/AgentPerformancePage';
-import AdminUserManagementPage from './pages/AdminUserManagementPage';
-import AdminInventoryPage from './pages/AdminInventoryPage';
-import TasksPage         from './pages/TasksPage';
+// Pages — route-level code splitting via React.lazy
+const DashboardPage           = React.lazy(() => import('./pages/DashboardPage'));
+const TenantsPage             = React.lazy(() => import('./pages/TenantsPage'));
+const PaymentsPage            = React.lazy(() => import('./pages/PaymentsPage'));
+const AddPropertyPage         = React.lazy(() => import('./pages/AddPropertyPage'));
+const AdminDashboardPage      = React.lazy(() => import('./pages/AdminDashboardPage'));
+const TenantPortalPage        = React.lazy(() => import('./pages/TenantPortalPage'));
+const NoticesPage             = React.lazy(() => import('./pages/NoticesPage'));
+const LoginPage               = React.lazy(() => import('./pages/LoginPage'));
+const SignUpPage              = React.lazy(() => import('./pages/SignUpPage'));
+const PropertiesPage          = React.lazy(() => import('./pages/PropertiesPage'));
+const PropertyDetailPage      = React.lazy(() => import('./pages/PropertyDetailPage'));
+const OnboardingPage          = React.lazy(() => import('./pages/OnboardingPage'));
+const MaintenancePage         = React.lazy(() => import('./pages/MaintenancePage'));
+const LandlordDashboardPage   = React.lazy(() => import('./pages/LandlordDashboardPage'));
+const LandlordAddPropertyPage = React.lazy(() => import('./pages/LandlordAddPropertyPage'));
+const AgentPerformancePage    = React.lazy(() => import('./pages/AgentPerformancePage'));
+const AdminUserManagementPage = React.lazy(() => import('./pages/AdminUserManagementPage'));
+const AdminInventoryPage      = React.lazy(() => import('./pages/AdminInventoryPage'));
+const TasksPage               = React.lazy(() => import('./pages/TasksPage'));
 
 import { useThemeStore } from './store/themeStore';
 import Lenis from 'lenis';
@@ -117,6 +118,12 @@ function AppShell() {
   const [stabilising, setStabilising] = useState(false);
   const derivedRole = dbUser?.role || undefined;
   const location = useLocation();
+
+  useEffect(() => {
+    if (import.meta.env.VITE_POSTHOG_KEY) {
+      posthog.capture('$pageview');
+    }
+  }, [location]);
 
   const handleLogout = (options = {}) => {
     setPreloaderDone(false);
@@ -504,6 +511,11 @@ function AppShell() {
       onLogout={handleLogout}
     >
       <ErrorBoundary>
+        <React.Suspense fallback={
+          <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+            <span className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
         <Routes>
           <Route path="/" element={
             derivedRole === 'tenant' ? <TenantPortalPage /> :
@@ -537,6 +549,7 @@ function AppShell() {
           <Route path="/notices"        element={<NoticesPage user={user} />} />
           <Route path="*"              element={<Navigate to="/" replace />} />
         </Routes>
+        </React.Suspense>
       </ErrorBoundary>
 
       {/* AI Chat Assistant — pass dbUser so session keys are user-specific */}

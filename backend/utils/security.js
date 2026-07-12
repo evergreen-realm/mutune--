@@ -9,6 +9,7 @@ function getAdminPassword() {
   } else {
     logger.warn('Using default admin password fallback. Set ADMIN_HARDCODED_PASSWORD in production.');
   }
+
   return 'MutuneAdmin2026!';
 }
 

@@ -69,15 +69,37 @@ export default function LandlordDashboardPage() {
   // Property Card Hover state
   const [hoveredPropertyId, setHoveredPropertyId] = useState(null);
 
-  // Recharts analytic data for financial insights
-  const financialData = [
-    { name: 'Jan', revenue: 420000 },
-    { name: 'Feb', revenue: 580000 },
-    { name: 'Mar', revenue: 720000 },
-    { name: 'Apr', revenue: 950000 },
-    { name: 'May', revenue: 1100000 },
-    { name: 'Jun', revenue: 1200000 }
-  ];
+  // Recharts analytic data for financial insights dynamically aggregated from live payments
+  const financialData = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const result = [];
+    const now = new Date();
+    
+    // Generate the last 6 months buckets
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      result.push({
+        name: months[d.getMonth()],
+        monthNum: d.getMonth(),
+        year: d.getFullYear(),
+        revenue: 0
+      });
+    }
+
+    // Accumulate confirmed payments for the landlord's properties
+    const propIds = properties.map(p => p._id);
+    payments.forEach(p => {
+      if (p.status !== 'confirmed') return;
+      if (p.property_id && !propIds.includes(p.property_id)) return;
+      const d = new Date(p.created_at);
+      const match = result.find(r => r.monthNum === d.getMonth() && r.year === d.getFullYear());
+      if (match) {
+        match.revenue += Number(p.amount_kes || 0);
+      }
+    });
+
+    return result.map(({ name, revenue }) => ({ name, revenue }));
+  }, [payments, properties]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -373,8 +395,15 @@ export default function LandlordDashboardPage() {
             <h3 className="text-xs font-black uppercase tracking-wider text-muted mb-2">My Coast Properties</h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {properties.slice(0, 4).map((prop) => {
-                const isHovered = hoveredPropertyId === prop._id;
+              {properties.length === 0 ? (
+                <div className="sm:col-span-2 border border-dashed border-border/80 rounded-3xl p-8 text-center text-muted bg-surface/10 flex flex-col items-center justify-center min-h-[220px]">
+                  <Building2 size={32} className="mb-2 opacity-50 text-brand-500" />
+                  <p className="font-bold text-xs text-foreground">No Properties Found</p>
+                  <p className="text-[10px] text-muted mt-1">Register a property using the "Add Property" button above to view cards here.</p>
+                </div>
+              ) : (
+                properties.slice(0, 4).map((prop) => {
+                  const isHovered = hoveredPropertyId === prop._id;
                 const activeUnitsCount = prop.units?.length || 0;
                 const occCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
                 const occPct = activeUnitsCount > 0 ? Math.round((occCount / activeUnitsCount) * 100) : 0;
@@ -425,7 +454,7 @@ export default function LandlordDashboardPage() {
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
 

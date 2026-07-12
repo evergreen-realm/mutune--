@@ -20,19 +20,72 @@ function getUnitStatus(unit) {
   return 'vacant';
 }
 
-function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
-  const unitStr = String(unit.unit_number || '');
-  const floorMatch = unitStr.match(/^(\d+)/);
-  const floor = floorMatch ? parseInt(floorMatch[1], 10) : Math.floor(index / 4);
+function DetailedBuildingModelR3F({ property, color = '#2563eb' }) {
+  const floors = property?.units?.length || 6;
+  const height = floors * 0.5;
+  const width = 2.0;
+  const depth = 2.0;
 
-  const colMatch = unitStr.match(/([a-zA-Z]+)$/);
-  const colStr = colMatch ? colMatch[1].toUpperCase() : 'A';
-  const col = colStr.charCodeAt(0) - 65;
+  const windowElements = [];
+  for (let f = 0; f < floors; f++) {
+    const y = (f * 0.5) + 0.25;
+    // Front face
+    for (let x = -0.6; x <= 0.6; x += 0.6) {
+      windowElements.push(
+        <mesh key={`f-${f}-${x}`} position={[x, y, (depth / 2) + 0.01]}>
+          <boxGeometry args={[0.15, 0.15, 0.02]} />
+          <meshStandardMaterial color="#fffbeb" emissive="#fef08a" emissiveIntensity={0.8} />
+        </mesh>
+      );
+    }
+    // Back face
+    for (let x = -0.6; x <= 0.6; x += 0.6) {
+      windowElements.push(
+        <mesh key={`b-${f}-${x}`} position={[x, y, -(depth / 2) - 0.01]}>
+          <boxGeometry args={[0.15, 0.15, 0.02]} />
+          <meshStandardMaterial color="#fffbeb" emissive="#fef08a" emissiveIntensity={0.8} />
+        </mesh>
+      );
+    }
+    // Right face
+    for (let z = -0.6; z <= 0.6; z += 0.6) {
+      windowElements.push(
+        <mesh key={`r-${f}-${z}`} position={[(width / 2) + 0.01, y, z]} rotation={[0, Math.PI / 2, 0]}>
+          <boxGeometry args={[0.15, 0.15, 0.02]} />
+          <meshStandardMaterial color="#fffbeb" emissive="#fef08a" emissiveIntensity={0.8} />
+        </mesh>
+      );
+    }
+    // Left face
+    for (let z = -0.6; z <= 0.6; z += 0.6) {
+      windowElements.push(
+        <mesh key={`l-${f}-${z}`} position={[-(width / 2) - 0.01, y, z]} rotation={[0, Math.PI / 2, 0]}>
+          <boxGeometry args={[0.15, 0.15, 0.02]} />
+          <meshStandardMaterial color="#fffbeb" emissive="#fef08a" emissiveIntensity={0.8} />
+        </mesh>
+      );
+    }
+  }
 
-  const x = col * 1.6 - 0.8;
-  const y = floor * 1.2 + 0.6;
-  const z = 0;
+  return (
+    <group position={[0, 0, 0]}>
+      {/* Main Body */}
+      <mesh position={[0, height / 2, 0]}>
+        <boxGeometry args={[width, height, depth]} />
+        <meshStandardMaterial color={color} roughness={0.5} metalness={0.2} />
+      </mesh>
+      {/* Windows */}
+      {windowElements}
+      {/* Roof */}
+      <mesh position={[0, height + 0.025, 0]}>
+        <boxGeometry args={[width * 1.05, 0.05, depth * 1.05]} />
+        <meshStandardMaterial color="#1e293b" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
 
+function Unit3DBlock({ unit, position, isSelected, onHover, onClick }) {
   const status = getUnitStatus(unit);
   const color = statusColors[status] || '#6b7280';
 
@@ -43,8 +96,8 @@ function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
   const emissiveIntensity = isSelected ? 0.35 : hovered ? 0.2 : 0;
 
   return (
-    <group position={[x, y, z]}>
-      {/* Main Apartment Block */}
+    <group position={position}>
+      {/* Main Apartment Block (no windows/roofs) */}
       <mesh
         scale={scale}
         onPointerOver={(e) => {
@@ -72,27 +125,6 @@ function Unit3DBlock({ unit, index, isSelected, onHover, onClick }) {
           emissiveIntensity={emissiveIntensity}
         />
       </mesh>
-
-      {/* Glow Window on Facade */}
-      {status !== 'vacant' && (
-        <mesh position={[0, 0.1, 0.71]} scale={scale}>
-          <planeGeometry args={[0.4, 0.5]} />
-          <meshStandardMaterial
-            color={0x88ccff}
-            emissive={0x4488ff}
-            emissiveIntensity={0.8}
-            roughness={0.1}
-            metalness={0.9}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      )}
-      
-      {/* Window Frame / Trim */}
-      <mesh position={[0, 0.1, 0.705]} scale={scale}>
-        <planeGeometry args={[0.5, 0.6]} />
-        <meshBasicMaterial color={0x1e293b} side={THREE.DoubleSide} />
-      </mesh>
     </group>
   );
 }
@@ -116,6 +148,57 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
   }
 
   const units = property.units || [];
+  
+  const getUnitFloor = (unit, idx) => {
+    const unitStr = String(unit.unit_number || '');
+    const match = unitStr.match(/^(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num >= 100) {
+        return Math.floor(num / 100);
+      }
+      return num;
+    }
+    return Math.floor(idx / 4);
+  };
+
+  const floorsList = units.map((u, idx) => getUnitFloor(u, idx));
+  const minFloor = floorsList.length > 0 ? Math.min(...floorsList) : 0;
+
+  const floorCounts = {};
+  units.forEach((unit, idx) => {
+    const fl = getUnitFloor(unit, idx);
+    floorCounts[fl] = (floorCounts[fl] || 0) + 1;
+  });
+  const maxUnitsPerFloor = Math.max(...Object.values(floorCounts), 1);
+  const W = maxUnitsPerFloor <= 4 ? 2 : maxUnitsPerFloor <= 9 ? 3 : 4;
+
+  const spacingX = 1.6;
+  const spacingY = 1.2;
+  const spacingZ = 1.6;
+  const colCount = W;
+  const rowCount = Math.ceil(maxUnitsPerFloor / W);
+  
+  const xOffset = -(colCount - 1) * spacingX / 2;
+  const zOffset = -(rowCount - 1) * spacingZ / 2;
+
+  const floorIndices = {};
+  const unitPositions = units.map((unit, idx) => {
+    const fl = getUnitFloor(unit, idx);
+    const floorNorm = fl - minFloor;
+    const floorIndex = floorIndices[fl] || 0;
+    floorIndices[fl] = floorIndex + 1;
+
+    const col = floorIndex % W;
+    const row = Math.floor(floorIndex / W);
+
+    const x = col * spacingX + xOffset;
+    const y = floorNorm * spacingY + 0.5;
+    const z = row * spacingZ + zOffset;
+
+    return [x, y, z];
+  });
+
   const groundColor = isLight ? '#e2e8f0' : '#0b0f19';
   const gridColor1 = '#2563eb';
   const gridColor2 = isLight ? '#cbd5e1' : '#334155';
@@ -179,16 +262,13 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
             <Environment preset="city" />
             <group position={[0, -1, 0]}>
               {units.length === 0 ? (
-                <mesh position={[0, 1.5, 0]}>
-                  <boxGeometry args={[3.2, 3.0, 3.2]} />
-                  <meshStandardMaterial color="#3b82f6" wireframe roughness={0.3} />
-                </mesh>
+                <DetailedBuildingModelR3F property={property} color="#2563eb" />
               ) : (
                 units.map((unit, idx) => (
                   <Unit3DBlock
                     key={unit._id || idx}
                     unit={unit}
-                    index={idx}
+                    position={unitPositions[idx]}
                     isSelected={selectedUnit?._id === unit._id}
                     onHover={setHoveredUnit}
                     onClick={onUnitSelect}
@@ -220,16 +300,13 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
             <Environment preset="city" />
             <group position={[0, -1, 0]}>
               {units.length === 0 ? (
-                <mesh position={[0, 1.5, 0]}>
-                  <boxGeometry args={[3.2, 3.0, 3.2]} />
-                  <meshStandardMaterial color="#3b82f6" wireframe roughness={0.3} />
-                </mesh>
+                <DetailedBuildingModelR3F property={property} color="#2563eb" />
               ) : (
                 units.map((unit, idx) => (
                   <Unit3DBlock
                     key={unit._id || idx}
                     unit={unit}
-                    index={idx}
+                    position={unitPositions[idx]}
                     isSelected={selectedUnit?._id === unit._id}
                     onHover={setHoveredUnit}
                     onClick={onUnitSelect}

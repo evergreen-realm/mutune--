@@ -210,6 +210,7 @@ export default function AdminDashboardPage({ dbUser }) {
 
   // Controlled MapWidget Tab/Focus states
   const [mapActiveTab, setMapActiveTab] = useState('properties');
+  const [mapSelectedProperty, setMapSelectedProperty] = useState(null);
 
   // Edit Property Form states
   const [editingProperty, setEditingProperty] = useState(null);
@@ -498,11 +499,11 @@ export default function AdminDashboardPage({ dbUser }) {
               properties={properties} 
               isAdmin={true} 
               theme={theme} 
-              onPropertySelect={(p) => setSelectedProperty(p)}
+              onPropertySelect={(p) => { setSelectedProperty(p); setMapSelectedProperty(p); }}
               activeTab={mapActiveTab}
               onActiveTabChange={setMapActiveTab}
-              selectedProperty={selectedProperty}
-              onSelectedPropertyChange={setSelectedProperty}
+              selectedProperty={mapSelectedProperty}
+              onSelectedPropertyChange={setMapSelectedProperty}
             />
           </div>
 
@@ -691,11 +692,11 @@ export default function AdminDashboardPage({ dbUser }) {
               properties={properties} 
               isAdmin={true} 
               theme={theme} 
-              onPropertySelect={(p) => setSelectedProperty(p)}
+              onPropertySelect={(p) => { setSelectedProperty(p); setMapSelectedProperty(p); }}
               activeTab={mapActiveTab}
               onActiveTabChange={setMapActiveTab}
-              selectedProperty={selectedProperty}
-              onSelectedPropertyChange={setSelectedProperty}
+              selectedProperty={mapSelectedProperty}
+              onSelectedPropertyChange={setMapSelectedProperty}
             />
           </div>
         </div>
@@ -781,6 +782,7 @@ export default function AdminDashboardPage({ dbUser }) {
                 <button
                   onClick={() => {
                     setMapActiveTab('3d');
+                    setMapSelectedProperty(selectedProperty);
                     setSelectedProperty(null);
                     toast.success(`Zoomed into 3D view for ${selectedProperty.name}`);
                   }}
@@ -905,7 +907,7 @@ export default function AdminDashboardPage({ dbUser }) {
             <div className="flex flex-col border-r border-border/40 bg-background/25">
               <div className="relative h-64 bg-slate-950 overflow-hidden flex items-center justify-center">
                 <div className="w-full h-full">
-                  <UnitDetailPopup unit={selectedUnit} />
+                  <UnitDetailPopup unit={selectedUnit} property={selectedProperty} theme={theme} />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-transparent pointer-events-none" />
                 <div className="absolute bottom-4 left-4">
