@@ -23,13 +23,16 @@ function checkDeviceCapabilities() {
   return false;
 }
 
-// Set Mapbox Access Token
+// Set Mapbox Access Token — requires VITE_MAPBOX_TOKEN env var
 const rawToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
-const p1 = 'REDACTED_MAPBOX_TOKEN_PART1';
-const p2 = 'REDACTED_MAPBOX_TOKEN_PART2';
-mapboxgl.accessToken = (rawToken && rawToken.startsWith('pk.'))
-  ? rawToken
-  : `${p1}.${p2}`;
+if (!rawToken || !rawToken.startsWith('pk.')) {
+  console.error(
+    '[MapWidget] VITE_MAPBOX_TOKEN is missing or invalid. ' +
+    'Set it in your .env file or Vercel project environment variables. ' +
+    'The map will not load without a valid Mapbox access token.'
+  );
+}
+mapboxgl.accessToken = rawToken;
 
 const statusColors = {
   paid: '#22c55e',
