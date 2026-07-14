@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchProperties, fetchAdminStats } from '../lib/api';
 import PropertyList from '../components/PropertyList';
-import MapWidget from '../components/MapWidget';
+const MapWidget = React.lazy(() => import('../components/MapWidget'));
 import { StatCardSkeleton, TableSkeleton, MapSkeleton } from '../components/SkeletonLoader';
 import { Home, Users, DollarSign, TrendingUp, Landmark, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
@@ -213,7 +213,9 @@ export default function DashboardPage() {
           <PropertyList properties={properties} />
         </div>
         <div>
-          <MapWidget properties={properties} theme={theme} />
+          <React.Suspense fallback={<MapSkeleton />}>
+            <MapWidget properties={properties} theme={theme} />
+          </React.Suspense>
         </div>
       </div>
     </div>

@@ -30,6 +30,10 @@ export default defineConfig({
           'vendor-map': ['leaflet', 'react-leaflet'],
           // Charts (Recharts is ~300kB)
           'vendor-charts': ['recharts'],
+          // 3D Rendering (ThreeJS and R3F are heavy)
+          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
+          // Mapbox (Mapbox-gl is heavy)
+          'vendor-mapbox': ['mapbox-gl'],
           // Icons
           'vendor-icons': ['lucide-react'],
           // HTTP client

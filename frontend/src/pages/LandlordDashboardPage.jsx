@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { gsap } from 'gsap';
-import VoxelBuildingMini3D from '../components/VoxelBuildingMini3D';
+const VoxelBuildingMini3D = React.lazy(() => import('../components/VoxelBuildingMini3D'));
+const MapWidget = React.lazy(() => import('../components/MapWidget'));
 
 const FMT_KES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 const FMT_DATE = (d) => {
@@ -418,7 +419,9 @@ export default function LandlordDashboardPage() {
                     {/* Hover 3D Mini building canvas overlay */}
                     {isHovered ? (
                       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center animate-fade-in z-20">
-                        <VoxelBuildingMini3D floors={6} colorPattern="purple" className="w-full h-full" />
+                        <React.Suspense fallback={<div className="w-full h-full bg-slate-950/50 rounded-2xl animate-pulse" />}>
+                          <VoxelBuildingMini3D floors={6} colorPattern="purple" className="w-full h-full" />
+                        </React.Suspense>
                         <div className="absolute bottom-2.5 left-4 right-4 flex justify-between items-center text-[9px] text-white/80 font-mono">
                           <span>Interactive 3D isometric</span>
                           <span>Unit occupancy matches colors</span>

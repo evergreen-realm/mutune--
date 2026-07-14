@@ -19,7 +19,8 @@ import {
   fetchLateFeeRules, createLateFeeRule, updateLateFeeRule, deleteLateFeeRule,
   fetchProperties, updateProperty, addUnit
 } from '../lib/api';
-import MapWidget, { getPropertyCoords } from '../components/MapWidget';
+import { getPropertyCoords } from '../utils/geoUtils';
+const MapWidget = React.lazy(() => import('../components/MapWidget'));
 import AgentPerformancePage from './AgentPerformancePage';
 import UnitDetailPopup from '../components/UnitDetailPopup';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
@@ -495,16 +496,23 @@ export default function AdminDashboardPage({ dbUser }) {
 
           {/* Property Map Section for Admins */}
           <div className="bg-surface border border-border rounded-[24px] overflow-hidden shadow-sm p-4 relative z-10">
-            <MapWidget 
-              properties={properties} 
-              isAdmin={true} 
-              theme={theme} 
-              onPropertySelect={(p) => { setSelectedProperty(p); setMapSelectedProperty(p); }}
-              activeTab={mapActiveTab}
-              onActiveTabChange={setMapActiveTab}
-              selectedProperty={mapSelectedProperty}
-              onSelectedPropertyChange={setMapSelectedProperty}
-            />
+            <React.Suspense fallback={
+              <div className="w-full h-[580px] bg-slate-900/10 dark:bg-slate-900/50 rounded-2xl flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="text-xs text-muted">Loading Mombasa 3D Map Widget…</span>
+              </div>
+            }>
+              <MapWidget 
+                properties={properties} 
+                isAdmin={true} 
+                theme={theme} 
+                onPropertySelect={(p) => { setSelectedProperty(p); setMapSelectedProperty(p); }}
+                activeTab={mapActiveTab}
+                onActiveTabChange={setMapActiveTab}
+                selectedProperty={mapSelectedProperty}
+                onSelectedPropertyChange={setMapSelectedProperty}
+              />
+            </React.Suspense>
           </div>
 
           {/* Charts Section */}
@@ -688,16 +696,23 @@ export default function AdminDashboardPage({ dbUser }) {
             <p className="text-xs text-muted mt-0.5">Select a Mombasa property marker on the map, then explore its stacked unit blocks in the "Units" tab inside the widget.</p>
           </div>
           <div className="bg-surface border border-border rounded-[24px] overflow-hidden shadow-sm p-4 relative z-10">
-            <MapWidget 
-              properties={properties} 
-              isAdmin={true} 
-              theme={theme} 
-              onPropertySelect={(p) => { setSelectedProperty(p); setMapSelectedProperty(p); }}
-              activeTab={mapActiveTab}
-              onActiveTabChange={setMapActiveTab}
-              selectedProperty={mapSelectedProperty}
-              onSelectedPropertyChange={setMapSelectedProperty}
-            />
+            <React.Suspense fallback={
+              <div className="w-full h-[580px] bg-slate-900/10 dark:bg-slate-900/50 rounded-2xl flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="text-xs text-muted">Loading Mombasa 3D Map Widget…</span>
+              </div>
+            }>
+              <MapWidget 
+                properties={properties} 
+                isAdmin={true} 
+                theme={theme} 
+                onPropertySelect={(p) => { setSelectedProperty(p); setMapSelectedProperty(p); }}
+                activeTab={mapActiveTab}
+                onActiveTabChange={setMapActiveTab}
+                selectedProperty={mapSelectedProperty}
+                onSelectedPropertyChange={setMapSelectedProperty}
+              />
+            </React.Suspense>
           </div>
         </div>
       )}

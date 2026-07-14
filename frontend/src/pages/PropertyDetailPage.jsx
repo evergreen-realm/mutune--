@@ -16,6 +16,7 @@ import {
   lockPropertyUnit, checkInAgent 
 } from '../lib/api';
 import { TableSkeleton } from '../components/SkeletonLoader';
+const MapWidget = React.lazy(() => import('../components/MapWidget'));
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
