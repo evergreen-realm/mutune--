@@ -292,15 +292,19 @@ function renderMini3DScene(container, property, activeTab = 'properties') {
     const realModel = gltf.scene;
     
     // Color by occupancy
+    // Color by occupancy
     const colorHex = getOccupancyColor(property);
+    const tint = new THREE.Color(colorHex);
     realModel.traverse((child) => {
       if (child.isMesh) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: colorHex,
-          roughness: 0.5,
-          metalness: 0.1,
-          side: THREE.DoubleSide
-        });
+        const mat = child.material.clone();
+        mat.color.lerp(tint, 0.25); // Subtle 25% color wash
+        mat.emissive = tint;
+        mat.emissiveIntensity = 0.15; // Subtle emissive glow
+        mat.roughness = 0.5;
+        mat.metalness = 0.15;
+        mat.side = THREE.DoubleSide;
+        child.material = mat;
       }
     });
 
@@ -827,14 +831,17 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
               // Apply occupancy color
               const colorHex = getOccupancyColor(prop);
+              const tint = new THREE.Color(colorHex);
               building.traverse((child) => {
                 if (child.isMesh) {
-                  child.material = new THREE.MeshStandardMaterial({
-                    color: colorHex,
-                    roughness: 0.5,
-                    metalness: 0.1,
-                    side: THREE.DoubleSide
-                  });
+                  const mat = child.material.clone();
+                  mat.color.lerp(tint, 0.25); // Subtle 25% color wash
+                  mat.emissive = tint;
+                  mat.emissiveIntensity = 0.15; // Subtle emissive glow
+                  mat.roughness = 0.5;
+                  mat.metalness = 0.15;
+                  mat.side = THREE.DoubleSide;
+                  child.material = mat;
                 }
               });
 

@@ -37,14 +37,17 @@ function RotatingBuildingModel({ floors, color = '#a855f7' }) { // purple defaul
     const clone = scene.clone();
     clone.traverse((child) => {
       if (child.isMesh) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(color),
-          roughness: 0.4,
-          metalness: 0.1,
-          transparent: true,
-          opacity: 0.9,
-          side: THREE.DoubleSide
-        });
+        const mat = child.material.clone();
+        const tint = new THREE.Color(color);
+        mat.color.lerp(tint, 0.40); // 40% color wash
+        mat.emissive = tint;
+        mat.emissiveIntensity = 0.15; // Subtle emissive glow
+        mat.roughness = 0.4;
+        mat.metalness = 0.15;
+        mat.transparent = true;
+        mat.opacity = 0.9;
+        mat.side = THREE.DoubleSide;
+        child.material = mat;
       }
     });
     return clone;

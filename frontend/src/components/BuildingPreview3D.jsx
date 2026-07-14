@@ -40,15 +40,23 @@ function GLTFBuildingModel({ unitCount, color = '#2563eb', wireframe = false, op
     const clone = scene.clone();
     clone.traverse((child) => {
       if (child.isMesh) {
-        child.material = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(color),
-          roughness: 0.5,
-          metalness: 0.1,
-          transparent: opacity < 1.0 || wireframe,
-          opacity: opacity,
-          wireframe: wireframe,
-          side: THREE.DoubleSide
-        });
+        // Clone the material to keep original textures, applying color blend and emissive glow
+        const mat = child.material.clone();
+        const tint = new THREE.Color(color);
+        mat.color.lerp(tint, 0.25); // Subtle 25% color wash
+        mat.emissive = tint;
+        mat.emissiveIntensity = 0.15; // Subtle emissive glow
+        mat.roughness = 0.5;
+        mat.metalness = 0.15;
+        if (opacity < 1.0 || wireframe) {
+          mat.transparent = true;
+          mat.opacity = opacity;
+        }
+        if (wireframe) {
+          mat.wireframe = true;
+        }
+        mat.side = THREE.DoubleSide;
+        child.material = mat;
       }
     });
     return clone;
@@ -293,7 +301,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
               ? 'bg-blue-50 border-blue-200 text-blue-600'
               : 'bg-surface-bright border-border text-muted font-semibold'
           }`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> {viewMode === 'image' ? 'Cinematic Render' : 'Interactive 3D Blocks'}
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> {viewMode === 'image' ? 'Cinematic Render' : 'Simple View'}
           </span>
         </div>
       </div>
@@ -318,7 +326,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
                 : 'text-muted hover:text-foreground hover:bg-surface-bright'
             }`}
           >
-            Interactive Blocks
+            Simple View
           </button>
         </div>
         <button
@@ -388,15 +396,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
                 <directionalLight position={[10, 20, 10]} intensity={1.5} />
                 <Environment preset="city" />
                 <group position={[0, -1.0, 0]}>
-                  {/* Ghost Building Shell */}
-                  <GLTFBuildingModel 
-                    unitCount={units.length} 
-                    color="#94a3b8" 
-                    wireframe={false} 
-                    opacity={0.15} 
-                  />
-
-                  {/* Interactive Unit Blocks */}
+                  {/* Simple View: Render ONLY the lightweight interactive blocks (no GLB) */}
                   {units.map((unit, idx) => (
                     <Unit3DBlock
                       key={unit._id || idx}
