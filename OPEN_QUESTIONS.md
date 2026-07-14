@@ -27,3 +27,7 @@
 **What's ready now:** `@react-three/drei` is installed with `useGLTF`. Once `.glb` files are placed in `frontend/public/models/`, the components can be updated to use `useGLTF('/models/building_small.glb')` etc.
 
 **Blocking question:** Which model source do you want to use? Drop `.glb` files into `frontend/public/models/` and I'll wire them up.
+
+## Phase 1: 3D Buildings
+- 3D models are static CC0 packs (Task 1.1–1.2). Meshy/Tripo3D keys are scaffolded in `.env.example` for a possible future switch to per-property AI-generated models; not active.
+- **Backend Model 3D Call**: `backend/services/model3d.js` is currently imported and called inside `backend/routes/properties.js` (lines 232 and 676) upon property creation and submission. Since the backend is off-limits under current rules, these references have been left intact but flagged.
