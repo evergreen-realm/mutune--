@@ -70,4 +70,6 @@ services:
         sync: false
       - key: FRONTEND_URL
         value: https://mutunerent-web-mishael-s-alpha.vercel.app
+      - key: SENTRY_DSN
+        sync: false
     healthCheckPath: /api/v1/health
