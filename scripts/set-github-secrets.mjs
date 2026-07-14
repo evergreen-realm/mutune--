@@ -5,17 +5,66 @@
 import https from 'https';
 import { Buffer } from 'buffer';
 
-const GH_TOKEN   = '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';
+// Imports and Setup
+
+// Helper to load env variables from a local .env file without external dependencies
+function loadEnvFile(envPath) {
+  if (!fs.existsSync(envPath)) return {};
+  const content = fs.readFileSync(envPath, 'utf8');
+  const env = {};
+  content.split(/\r?\n/).forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const match = trimmed.match(/^([^=]+)=(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      let val = match[2].trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      env[key] = val;
+    }
+  });
+  return env;
+}
+
+// Load env values from root .env or backend/.env or process env
+const rootEnv = loadEnvFile(path.resolve('..', '.env'));
+const backendEnv = loadEnvFile(path.resolve('backend', '.env'));
+const localEnv = loadEnvFile(path.resolve('.env'));
+
+const getEnv = (key) => process.env[key] || localEnv[key] || backendEnv[key] || rootEnv[key];
+
+const GH_TOKEN = getEnv('GITHUB_TOKEN') || getEnv('GH_TOKEN');
+if (!GH_TOKEN) {
+  throw new Error(
+    'CRITICAL CONFIGURATION ERROR: GITHUB_TOKEN or GH_TOKEN is missing. ' +
+    'Please set it in your environment or local .env file to configure repository secrets.'
+  );
+}
+
 const REPO_OWNER = 'evergreen-realm';
 const REPO_NAME  = 'mutune--';
 
 const secrets = {
-  RENDER_API_KEY:    'rnd_zEeYAd8T7eO95Azr49l1Z3GrJN3F',
-  RENDER_SERVICE_ID: 'PENDING_MANUAL_SETUP',           // update after Render service created
-  VERCEL_TOKEN:      process.env.VERCEL_TOKEN || '',
-  VERCEL_ORG_ID:     'team_R6Kqhq8YeE61SwWGEdZ9vUJI',
-  VERCEL_PROJECT_ID: 'prj_2evu8fKOr2Kk7sxDreMuYVCLwVvt',
+  RENDER_API_KEY:    getEnv('RENDER_API_KEY'),
+  RENDER_SERVICE_ID: getEnv('RENDER_SERVICE_ID') || 'srv-crhfl428ii6s7386dvt0',
+  VERCEL_TOKEN:      getEnv('VERCEL_TOKEN'),
+  VERCEL_ORG_ID:     getEnv('VERCEL_ORG_ID') || 'team_R6Kqhq8YeE61SwWGEdZ9vUJI',
+  VERCEL_PROJECT_ID: getEnv('VERCEL_PROJECT_ID') || 'prj_2evu8fKOr2Kk7sxDreMuYVCLwVvt',
 };
+
+// Validate that required deployment secrets are present
+const missingSecrets = Object.entries(secrets)
+  .filter(([_, val]) => !val)
+  .map(([name]) => name);
+
+if (missingSecrets.length > 0) {
+  throw new Error(
+    `CRITICAL CONFIGURATION ERROR: The following required deployment secrets are missing: ${missingSecrets.join(', ')}. ` +
+    'Please define them in your environment or local .env file before running this script.'
+  );
+}
 
 function apiRequest(method, path, body = null) {
   return new Promise((resolve, reject) => {
