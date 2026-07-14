@@ -25,6 +25,7 @@ beforeAll(async () => {
   mongod = await MongoMemoryServer.create({
     instance: {
       ip: '127.0.0.1',
+      version: '6.0.14',
       launchTimeout: 120000 // 120 seconds timeout for slow Windows/VM startup
     }
   });
