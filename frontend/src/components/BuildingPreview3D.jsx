@@ -1,8 +1,85 @@
-import { useState } from 'react';
+import React, { useState, Suspense, useMemo, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import { Box, X } from 'lucide-react';
 import * as THREE from 'three';
+import { useBuildingModel } from '../hooks/useBuildingModel';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("3D Preview Render Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="flex flex-col items-center justify-center h-full w-full bg-slate-950/20 text-slate-500 p-4 text-center">
+          <p className="text-xs font-bold font-mono text-rose-500 mb-1">3D RENDER FAILURE</p>
+          <p className="text-[10px] text-muted-foreground">WebGL error or failed model resource download</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function GLTFBuildingModel({ unitCount, color = '#2563eb', wireframe = false, opacity = 1.0 }) {
+  const groupRef = useRef();
+  const { scene } = useBuildingModel(unitCount);
+
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone();
+    clone.traverse((child) => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(color),
+          roughness: 0.5,
+          metalness: 0.1,
+          transparent: opacity < 1.0 || wireframe,
+          opacity: opacity,
+          wireframe: wireframe,
+          side: THREE.DoubleSide
+        });
+      }
+    });
+    return clone;
+  }, [scene, color, wireframe, opacity]);
+
+  useEffect(() => {
+    if (groupRef.current) {
+      const box = new THREE.Box3().setFromObject(clonedScene);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      
+      // Center the model's geometry horizontally and place bottom at Y=0
+      clonedScene.position.x = -center.x;
+      clonedScene.position.y = -box.min.y;
+      clonedScene.position.z = -center.z;
+      
+      // Scale to fit target dimensions (e.g. 2.5 height max)
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const targetHeight = 2.5;
+      const scale = targetHeight / (size.y || 1.0);
+      groupRef.current.scale.set(scale, scale, scale);
+    }
+  }, [clonedScene]);
+
+  return (
+    <group ref={groupRef}>
+      <primitive object={clonedScene} />
+    </group>
+  );
+}
+
 
 const statusColors = {
   paid: '#22c55e',
@@ -255,81 +332,100 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
       <div className={`w-full h-80 rounded-lg overflow-hidden border mt-10 relative ${
         isLight ? 'bg-surface-bright border-border' : 'bg-background border-border'
       }`}>
-        {viewMode === 'image' ? (
-          <Canvas camera={{ position: [8, 6, 8], fov: 45 }}>
-            <ambientLight intensity={isLight ? 0.6 : 0.4} />
-            <directionalLight position={[10, 20, 10]} intensity={1.5} />
-            <Environment preset="city" />
-            <group position={[0, -1, 0]}>
-              {units.length === 0 ? (
-                <DetailedBuildingModelR3F property={property} color="#2563eb" />
-              ) : (
-                units.map((unit, idx) => (
-                  <Unit3DBlock
-                    key={unit._id || idx}
-                    unit={unit}
-                    position={unitPositions[idx]}
-                    isSelected={selectedUnit?._id === unit._id}
-                    onHover={setHoveredUnit}
-                    onClick={onUnitSelect}
+        <ErrorBoundary fallback={
+          <div className="flex flex-col items-center justify-center h-full w-full bg-rose-950/20 text-rose-500/80 p-4 text-center">
+            <Box size={24} className="mb-2 opacity-50" />
+            <p className="text-xs font-bold font-mono">3D VIEW UNAVAILABLE</p>
+            <p className="text-[10px] opacity-70">WebGL context loss or connection error</p>
+          </div>
+        }>
+          <Suspense fallback={
+            <div className="flex flex-col items-center justify-center h-full w-full bg-slate-900/40 text-muted-foreground p-4 text-center">
+              <span className="w-6 h-6 border-2 border-t-brand-500 border-r-transparent border-slate-700 rounded-full animate-spin mb-2" />
+              <p className="text-xs font-mono">LOADING 3D ASSETS...</p>
+            </div>
+          }>
+            {viewMode === 'image' ? (
+              <Canvas camera={{ position: [8, 6, 8], fov: 45 }}>
+                <ambientLight intensity={isLight ? 0.7 : 0.5} />
+                <directionalLight position={[10, 20, 10]} intensity={1.5} />
+                <Environment preset="city" />
+                <group position={[0, -1.0, 0]}>
+                  {/* Cinematic Render shows the colored GLB model */}
+                  <GLTFBuildingModel 
+                    unitCount={units.length} 
+                    color={
+                      (() => {
+                        const occupiedCount = units.filter((u) => u.status === 'occupied').length;
+                        const ratio = units.length > 0 ? occupiedCount / units.length : 0;
+                        if (ratio > 0.8) return '#22c55e';
+                        if (ratio > 0.5) return '#eab308';
+                        return '#ef4444';
+                      })()
+                    } 
                   />
-                ))
-              )}
 
-              <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
-              <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[15, 15]} />
-                <meshStandardMaterial color={groundColor} roughness={0.9} />
-              </mesh>
-            </group>
+                  <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
+                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[15, 15]} />
+                    <meshStandardMaterial color={groundColor} roughness={0.9} />
+                  </mesh>
+                </group>
 
-            <OrbitControls
-              autoRotate
-              autoRotateSpeed={1.5}
-              enableDamping
-              dampingFactor={0.05}
-              maxPolarAngle={Math.PI / 2 - 0.05}
-              minDistance={3}
-              maxDistance={20}
-            />
-          </Canvas>
-        ) : (
-          <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
-            <ambientLight intensity={isLight ? 0.6 : 0.4} />
-            <directionalLight position={[10, 20, 10]} intensity={1.5} />
-            <Environment preset="city" />
-            <group position={[0, -1, 0]}>
-              {units.length === 0 ? (
-                <DetailedBuildingModelR3F property={property} color="#2563eb" />
-              ) : (
-                units.map((unit, idx) => (
-                  <Unit3DBlock
-                    key={unit._id || idx}
-                    unit={unit}
-                    position={unitPositions[idx]}
-                    isSelected={selectedUnit?._id === unit._id}
-                    onHover={setHoveredUnit}
-                    onClick={onUnitSelect}
+                <OrbitControls
+                  autoRotate
+                  autoRotateSpeed={1.5}
+                  enableDamping
+                  dampingFactor={0.05}
+                  maxPolarAngle={Math.PI / 2 - 0.05}
+                  minDistance={3}
+                  maxDistance={20}
+                />
+              </Canvas>
+            ) : (
+              <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
+                <ambientLight intensity={isLight ? 0.7 : 0.5} />
+                <directionalLight position={[10, 20, 10]} intensity={1.5} />
+                <Environment preset="city" />
+                <group position={[0, -1.0, 0]}>
+                  {/* Ghost Building Shell */}
+                  <GLTFBuildingModel 
+                    unitCount={units.length} 
+                    color="#94a3b8" 
+                    wireframe={false} 
+                    opacity={0.15} 
                   />
-                ))
-              )}
 
-              <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
-              <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[15, 15]} />
-                <meshStandardMaterial color={groundColor} roughness={0.9} />
-              </mesh>
-            </group>
+                  {/* Interactive Unit Blocks */}
+                  {units.map((unit, idx) => (
+                    <Unit3DBlock
+                      key={unit._id || idx}
+                      unit={unit}
+                      position={unitPositions[idx]}
+                      isSelected={selectedUnit?._id === unit._id}
+                      onHover={setHoveredUnit}
+                      onClick={onUnitSelect}
+                    />
+                  ))}
 
-            <OrbitControls
-              enableDamping
-              dampingFactor={0.05}
-              maxPolarAngle={Math.PI / 2 - 0.05}
-              minDistance={3}
-              maxDistance={20}
-            />
-          </Canvas>
-        )}
+                  <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
+                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[15, 15]} />
+                    <meshStandardMaterial color={groundColor} roughness={0.9} />
+                  </mesh>
+                </group>
+
+                <OrbitControls
+                  enableDamping
+                  dampingFactor={0.05}
+                  maxPolarAngle={Math.PI / 2 - 0.05}
+                  minDistance={3}
+                  maxDistance={20}
+                />
+              </Canvas>
+            )}
+          </Suspense>
+        </ErrorBoundary>
       </div>
 
       <div className="mt-4 flex flex-col md:flex-row justify-between items-stretch gap-3 border-t border-border pt-3">

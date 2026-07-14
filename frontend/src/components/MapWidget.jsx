@@ -5,6 +5,7 @@ import { Search, MapPin, Box, X, Maximize2, Minimize2, Globe } from 'lucide-reac
 import { fetchUnitGeoJSON } from '../lib/api';
 import { Suspense, lazy } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const BuildingPreview3D = lazy(() => import('./BuildingPreview3D'));
 
@@ -252,14 +253,86 @@ function renderMini3DScene(container, property, activeTab = 'properties') {
   dirLight.position.set(5, 10, 5);
   scene.add(dirLight);
 
-  const building = createBuildingModel(property, activeTab);
+  // 1. Create and add the fallback box building first
+  let building = createBuildingModel(property, activeTab);
   building.scale.set(modelScale, modelScale, modelScale);
   scene.add(building);
+
+  // 2. Load the optimized GLB model asynchronously
+  const loader = new GLTFLoader();
+  const totalUnits = property.units?.length || 0;
+  let modelUrl = '/models/b_small.glb';
+  if (totalUnits > 4 && totalUnits <= 10) modelUrl = '/models/b_medium.glb';
+  else if (totalUnits > 10 && totalUnits <= 20) modelUrl = '/models/b_large.glb';
+  else if (totalUnits > 20) modelUrl = '/models/b_tower.glb';
+
+  loader.load(modelUrl, (gltf) => {
+    // Remove fallback
+    scene.remove(building);
+    
+    // Dispose fallback resources
+    const disposedGeometries = new Set();
+    const disposedMaterials = new Set();
+    building.traverse((object) => {
+      if (object.geometry && !disposedGeometries.has(object.geometry)) {
+        object.geometry.dispose();
+        disposedGeometries.add(object.geometry);
+      }
+      if (object.material) {
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((mat) => {
+          if (mat && !disposedMaterials.has(mat)) {
+            mat.dispose();
+            disposedMaterials.add(mat);
+          }
+        });
+      }
+    });
+
+    const realModel = gltf.scene;
+    
+    // Color by occupancy
+    const colorHex = getOccupancyColor(property);
+    realModel.traverse((child) => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshStandardMaterial({
+          color: colorHex,
+          roughness: 0.5,
+          metalness: 0.1,
+          side: THREE.DoubleSide
+        });
+      }
+    });
+
+    // Center and scale the GLTF model
+    const box = new THREE.Box3().setFromObject(realModel);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    realModel.position.x = -center.x;
+    realModel.position.y = -box.min.y - size.y / 2; // Center vertically
+    realModel.position.z = -center.z;
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 2.0 / (maxDim || 1.0);
+    
+    // Create a wrapper group to rotate and center properly
+    const wrapper = new THREE.Group();
+    wrapper.add(realModel);
+    wrapper.position.y = (buildingHeight * modelScale) / 2;
+    
+    scene.add(wrapper);
+    building = wrapper; // update reference for rotating in animate loop
+  }, undefined, (err) => {
+    console.error("Failed to load GLTF in renderMini3DScene, keeping fallback", err);
+  });
 
   let animationFrameId;
   const animate = () => {
     animationFrameId = requestAnimationFrame(animate);
-    building.rotation.y += 0.015;
+    if (building) {
+      building.rotation.y += 0.015;
+    }
     renderer.render(scene, camera);
   };
   animate();
@@ -672,7 +745,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           dirLight2.position.set(0, 70, 100).normalize();
           this.scene.add(dirLight2);
 
-          // Build building meshes
+          // Build building meshes (Fallback box representation first)
           properties.forEach((prop) => {
             const coords = getPropertyCoords(prop);
             const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
@@ -682,6 +755,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
             
             // Rotate model upright (Three.js Y-up -> Mapbox Z-up)
             building.rotation.x = Math.PI / 2;
+            building.name = `fallback-${prop._id || prop.id}`;
 
             building.userData = {
               propertyId: prop._id || prop.id,
@@ -694,6 +768,106 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
             };
 
             this.scene.add(building);
+          });
+
+          // Load optimized GLB models asynchronously in the background
+          const loader = new GLTFLoader();
+          const modelCache = {};
+
+          const loadModel = (key, url) => {
+            return new Promise((resolve) => {
+              loader.load(url, (gltf) => {
+                modelCache[key] = gltf.scene;
+                resolve();
+              }, undefined, (err) => {
+                console.error(`Failed to load Mapbox 3D model: ${url}`, err);
+                resolve(); // Resolve to avoid blocking others
+              });
+            });
+          };
+
+          Promise.all([
+            loadModel('small', '/models/b_small.glb'),
+            loadModel('medium', '/models/b_medium.glb'),
+            loadModel('large', '/models/b_large.glb'),
+            loadModel('tower', '/models/b_tower.glb')
+          ]).then(() => {
+            // Swap fallbacks with real models
+            properties.forEach((prop) => {
+              const propId = prop._id || prop.id;
+              const fallback = this.scene.getObjectByName(`fallback-${propId}`);
+              if (fallback) {
+                this.scene.remove(fallback);
+                // Clean up fallback geometries and materials
+                fallback.traverse((object) => {
+                  if (object.geometry) object.geometry.dispose();
+                  if (object.material) {
+                    const materials = Array.isArray(object.material) ? object.material : [object.material];
+                    materials.forEach(m => m && m.dispose());
+                  }
+                });
+              }
+
+              const coords = getPropertyCoords(prop);
+              const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
+              const meterScale = mercator.meterInMercatorCoordinateUnits();
+
+              // Determine model key
+              const totalUnits = prop.units?.length || 0;
+              let modelKey = 'small';
+              if (totalUnits > 4 && totalUnits <= 10) modelKey = 'medium';
+              else if (totalUnits > 10 && totalUnits <= 20) modelKey = 'large';
+              else if (totalUnits > 20) modelKey = 'tower';
+
+              const sourceScene = modelCache[modelKey];
+              if (!sourceScene) return;
+
+              const building = sourceScene.clone();
+              building.rotation.x = Math.PI / 2;
+
+              // Apply occupancy color
+              const colorHex = getOccupancyColor(prop);
+              building.traverse((child) => {
+                if (child.isMesh) {
+                  child.material = new THREE.MeshStandardMaterial({
+                    color: colorHex,
+                    roughness: 0.5,
+                    metalness: 0.1,
+                    side: THREE.DoubleSide
+                  });
+                }
+              });
+
+              // Scale to fit target dimensions envelope (~30m horizontal envelope)
+              const box = new THREE.Box3().setFromObject(building);
+              const size = box.getSize(new THREE.Vector3());
+              const maxDim = Math.max(size.x, size.z);
+              const targetEnvelope = 30.0;
+              const scaleFactor = targetEnvelope / (maxDim || 1.0);
+              building.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+              // Center geometry relative to coordinates
+              const center = box.getCenter(new THREE.Vector3());
+              building.position.x = -center.x * scaleFactor;
+              building.position.z = -center.z * scaleFactor;
+
+              // Wrapper to contain and offset center coordinates
+              const wrapper = new THREE.Group();
+              wrapper.add(building);
+
+              wrapper.userData = {
+                propertyId: propId,
+                meterScale: meterScale,
+                lng: coords[0],
+                lat: coords[1],
+                mercatorX: mercator.x,
+                mercatorY: mercator.y,
+                mercatorZ: mercator.z
+              };
+
+              this.scene.add(wrapper);
+            });
+            map.triggerRepaint();
           });
 
           this.renderer = new THREE.WebGLRenderer({
