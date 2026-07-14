@@ -381,15 +381,15 @@ export default function AdminUserManagementPage() {
 
   const tabStyle = (t) => ({
     padding: '8px 20px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, transition: 'all 0.2s',
-    background: tab === t ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.06)',
-    color: tab === t ? '#fff' : 'rgba(255,255,255,0.45)'
+    background: tab === t ? 'var(--tab-bg-active)' : 'var(--tab-bg-inactive)',
+    color: tab === t ? 'var(--tab-text-active)' : 'var(--tab-text-inactive)'
   });
 
   if (loading) return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f0c29, #24243e)' }}>
+    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--page-bg-gradient)' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(16,185,129,0.3)', borderTop: '3px solid #10b981', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading Administrative panel data…</p>
+        <p style={{ color: 'var(--subtitle-text)', fontSize: 13 }}>Loading Administrative panel data…</p>
       </div>
     </div>
   );
@@ -404,10 +404,10 @@ export default function AdminUserManagementPage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, marginBottom: 4 }}>User & System Management</h1>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Approve agents, manage late fees, and monitor system profiles</p>
+            <h1 style={{ color: 'var(--title-text)', fontSize: 26, fontWeight: 900, marginBottom: 4 }}>User & System Management</h1>
+            <p style={{ color: 'var(--subtitle-text)', fontSize: 14 }}>Approve agents, manage late fees, and monitor system profiles</p>
           </div>
-          <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--foreground)', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
             <RefreshCw size={14} /> Refresh Panel
           </button>
         </div>
@@ -1106,11 +1106,11 @@ export default function AdminUserManagementPage() {
 
 const inputStyle = {
   width: '100%',
-  background: 'rgba(255,255,255,0.08)',
-  border: '1px solid rgba(255,255,255,0.15)',
+  background: 'var(--input-bg)',
+  border: '1px solid var(--input-border)',
   borderRadius: 12,
   padding: '10px 14px',
-  color: '#fff',
+  color: 'var(--input-text)',
   fontSize: 13,
   outline: 'none',
   boxSizing: 'border-box'
@@ -1119,7 +1119,7 @@ const inputStyle = {
 const styleInputFix = (
   <style>{`
     @keyframes spin { to { transform: rotate(360deg); } }
-    input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
-    select option { background: #1a1a3e; }
+    input::placeholder, textarea::placeholder { color: var(--muted); }
+    select option { background: var(--surface); color: var(--foreground); }
   `}</style>
 );

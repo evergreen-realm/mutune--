@@ -29,6 +29,20 @@
   --brand-800: #1e40af;
   --brand-900: #1e3a8a;
   --brand-950: #172554;
+
+  /* Global page/input styles for theme-awareness */
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --input-bg: rgba(255, 255, 255, 0.08);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --input-text: #ffffff;
+  --title-text: #ffffff;
+  --subtitle-text: rgba(255, 255, 255, 0.45);
+  --page-bg-gradient: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  --tab-bg-active: rgba(16, 185, 129, 0.3);
+  --tab-bg-inactive: rgba(255, 255, 255, 0.06);
+  --tab-text-active: #ffffff;
+  --tab-text-inactive: rgba(255, 255, 255, 0.45);
 }
 
 .light {
@@ -58,6 +72,20 @@
   --brand-800: #1e40af;
   --brand-900: #1e3a8a;
   --brand-950: #172554;
+
+  /* Global page/input styles for light mode theme-awareness */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-text: #0f172a;
+  --title-text: #0f172a;
+  --subtitle-text: #475569;
+  --page-bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --tab-bg-active: rgba(16, 185, 129, 0.15);
+  --tab-bg-inactive: rgba(0, 0, 0, 0.04);
+  --tab-text-active: #047857;
+  --tab-text-inactive: #4b5563;
 }
 
 /* Backwards compatibility for .dark selector */
@@ -75,6 +103,81 @@
   --muted: #c9c4d0;
   --success: #22c55e;
   --success-bg: rgba(34, 197, 94, 0.1);
+
+  /* Global page/input styles for dark mode theme-awareness */
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --input-bg: rgba(255, 255, 255, 0.08);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --input-text: #ffffff;
+  --title-text: #ffffff;
+  --subtitle-text: rgba(255, 255, 255, 0.45);
+  --page-bg-gradient: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  --tab-bg-active: rgba(16, 185, 129, 0.3);
+  --tab-bg-inactive: rgba(255, 255, 255, 0.06);
+  --tab-text-active: #ffffff;
+  --tab-text-inactive: rgba(255, 255, 255, 0.45);
+}
+
+/* Helper utility classes for theme-awareness */
+.btn-indigo-secondary {
+  align-self: flex-start;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 10px;
+  padding: 6px 12px;
+  color: #a78bfa;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.light .btn-indigo-secondary {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: #4f46e5;
+}
+
+.btn-trash-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border: none;
+  color: #f87171;
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.light .btn-trash-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.unit-card-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px;
+}
+.light .unit-card-box {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.summary-card-indigo {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+}
+.summary-card-indigo h4 {
+  color: #a78bfa;
+}
+.light .summary-card-indigo {
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+}
+.light .summary-card-indigo h4 {
+  color: #4f46e5;
 }
 
 /* ── Global base ─────────────────────────────────────────────────────────── */

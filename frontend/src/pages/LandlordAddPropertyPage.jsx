@@ -9,21 +9,21 @@ import { Building2, Home, ChevronRight, ChevronLeft, Check, Trash2, Plus } from 
 const STEPS = ['Property Details', 'Units', 'Photos', 'Contract & Sign'];
 
 const glassCard = {
-  background: 'rgba(255,255,255,0.06)',
+  background: 'var(--glass-bg)',
   backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  border: '1px solid var(--glass-border)',
   borderRadius: 24,
   padding: 32
 };
 
 const inputStyle = {
-  width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 12, padding: '12px 16px', color: '#fff', fontSize: 14, outline: 'none',
+  width: '100%', background: 'var(--input-bg)', border: '1px solid var(--input-border)',
+  borderRadius: 12, padding: '12px 16px', color: 'var(--input-text)', fontSize: 14, outline: 'none',
   boxSizing: 'border-box', fontFamily: 'inherit'
 };
 
 const labelStyle = {
-  color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 700, display: 'block',
+  color: 'var(--muted)', fontSize: 12, fontWeight: 700, display: 'block',
   marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em'
 };
 
@@ -208,7 +208,7 @@ export default function LandlordAddPropertyPage() {
   const back = () => setStep(s => Math.max(s - 1, 0));
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)', padding: '24px', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--page-bg-gradient)', padding: '24px', position: 'relative' }}>
       <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
         <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)', filter: 'blur(40px)' }} />
       </div>
@@ -216,10 +216,10 @@ export default function LandlordAddPropertyPage() {
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 720, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
-          <h1 style={{ color: '#fff', fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>
+          <h1 style={{ color: 'var(--title-text)', fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 6 }}>
             Add Your Property
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>Submit a property for management by Mutune Estate Agency</p>
+          <p style={{ color: 'var(--subtitle-text)', fontSize: 14 }}>Submit a property for management by Mutune Estate Agency</p>
         </div>
 
         {/* Step indicator */}
@@ -230,16 +230,16 @@ export default function LandlordAddPropertyPage() {
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 12, fontWeight: 800, transition: 'all 0.3s',
-                  background: i < step ? '#10b981' : i === step ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255,255,255,0.1)',
-                  color: i <= step ? '#fff' : 'rgba(255,255,255,0.35)',
+                  background: i < step ? '#10b981' : i === step ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'var(--tab-bg-inactive)',
+                  color: i <= step ? '#fff' : 'var(--tab-text-inactive)',
                   boxShadow: i === step ? '0 4px 16px rgba(99,102,241,0.5)' : 'none'
                 }}>
                   {i < step ? <Check size={14} /> : i + 1}
                 </div>
-                <span style={{ color: i === step ? '#fff' : 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: i === step ? 700 : 400 }}>{label}</span>
+                <span style={{ color: i === step ? 'var(--title-text)' : 'var(--tab-text-inactive)', fontSize: 12, fontWeight: i === step ? 700 : 400 }}>{label}</span>
               </div>
               {i < STEPS.length - 1 && (
-                <div style={{ flex: 1, height: 2, background: i < step ? '#10b981' : 'rgba(255,255,255,0.1)', margin: '0 8px', transition: 'all 0.3s' }} />
+                <div style={{ flex: 1, height: 2, background: i < step ? '#10b981' : 'var(--glass-border)', margin: '0 8px', transition: 'all 0.3s' }} />
               )}
             </React.Fragment>
           ))}
@@ -251,7 +251,7 @@ export default function LandlordAddPropertyPage() {
           {/* STEP 0: Property Details */}
           {step === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Property Details</h2>
+              <h2 style={{ color: 'var(--title-text)', fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Property Details</h2>
               <div>
                 <label style={labelStyle}>Property Name *</label>
                 <input value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Westgate Apartments" style={inputStyle} />
@@ -261,7 +261,7 @@ export default function LandlordAddPropertyPage() {
                   <label style={labelStyle}>Type *</label>
                   <select value={form.type} onChange={e => setField('type', e.target.value)} style={inputStyle}>
                     {['apartment', 'house', 'commercial', 'bedsitter', 'single', 'studio'].map(t => (
-                      <option key={t} value={t} style={{ background: '#1a1a3e' }}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                      <option key={t} value={t} style={{ background: 'var(--surface)', color: 'var(--foreground)' }}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                     ))}
                   </select>
                 </div>
@@ -285,10 +285,10 @@ export default function LandlordAddPropertyPage() {
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
+              <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 16 }}>
                 <label style={labelStyle}>Location Setup Method</label>
                 <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#fff', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--title-text)', cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="locationMethod"
@@ -298,7 +298,7 @@ export default function LandlordAddPropertyPage() {
                     />
                     Area Estimate
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#fff', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--title-text)', cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="locationMethod"
@@ -363,13 +363,13 @@ export default function LandlordAddPropertyPage() {
                           toast.error('Geolocation is not supported by your browser');
                         }
                       }}
-                      style={{ alignSelf: 'flex-start', background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 10, padding: '6px 12px', color: '#a78bfa', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                      className="btn-indigo-secondary"
                     >
                       📍 Detect My Current Location
                     </button>
                   </div>
                 ) : (
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontStyle: 'italic', margin: '4px 0 0 0' }}>
+                  <p style={{ color: 'var(--subtitle-text)', fontSize: 12, fontStyle: 'italic', margin: '4px 0 0 0' }}>
                     Will automatically estimate location from area/street address standard coordinates when saved.
                   </p>
                 )}
@@ -381,18 +381,18 @@ export default function LandlordAddPropertyPage() {
           {step === 1 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 20 }}>
-                <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Define Units ({form.units.length})</h2>
-                <button onClick={addUnit} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99,102,241,0.3)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 10, padding: '8px 14px', color: '#a78bfa', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                <h2 style={{ color: 'var(--title-text)', fontSize: 18, fontWeight: 800 }}>Define Units ({form.units.length})</h2>
+                <button onClick={addUnit} className="btn-indigo-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Plus size={14} /> Add Unit
                 </button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 480, overflowY: 'auto' }}>
                 {form.units.map((unit, i) => (
-                  <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: 20 }}>
+                  <div key={i} className="unit-card-box">
                     <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 14 }}>
-                      <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700 }}>Unit {i + 1}</span>
+                      <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 700 }}>Unit {i + 1}</span>
                       {form.units.length > 1 && (
-                        <button onClick={() => removeUnit(i)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: 6, cursor: 'pointer' }}>
+                        <button onClick={() => removeUnit(i)} className="btn-trash-danger">
                           <Trash2 size={13} />
                         </button>
                       )}
@@ -406,7 +406,7 @@ export default function LandlordAddPropertyPage() {
                         <label style={labelStyle}>Type</label>
                         <select value={unit.type} onChange={e => updateUnit(i, 'type', e.target.value)} style={inputStyle}>
                           {['bedsitter', 'single', 'studio', '1-bedroom', '2-bedroom', '3-bedroom', 'commercial'].map(t => (
-                            <option key={t} value={t} style={{ background: '#1a1a3e' }}>{t}</option>
+                            <option key={t} value={t} style={{ background: 'var(--surface)', color: 'var(--foreground)' }}>{t}</option>
                           ))}
                         </select>
                       </div>
@@ -428,8 +428,8 @@ export default function LandlordAddPropertyPage() {
           {/* STEP 2: Photos */}
           {step === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Property Photos</h2>
-              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, lineHeight: 1.6 }}>
+              <h2 style={{ color: 'var(--title-text)', fontSize: 18, fontWeight: 800 }}>Property Photos</h2>
+              <p style={{ color: 'var(--subtitle-text)', fontSize: 14, lineHeight: 1.6 }}>
                 Upload high-quality images of the property. Drag and drop local images or capture directly via your webcam.
               </p>
               
@@ -445,33 +445,33 @@ export default function LandlordAddPropertyPage() {
           {/* STEP 3: Contract & Sign */}
           {step === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>Management Agreement</h2>
-              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 20, maxHeight: 200, overflowY: 'auto' }}>
-                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{form.contract_terms}</p>
+              <h2 style={{ color: 'var(--title-text)', fontSize: 18, fontWeight: 800 }}>Management Agreement</h2>
+              <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 16, padding: 20, maxHeight: 200, overflowY: 'auto' }}>
+                <p style={{ color: 'var(--foreground)', fontSize: 13, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{form.contract_terms}</p>
               </div>
 
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 10 }}>
                   <label style={labelStyle}>Your Signature *</label>
                   {hasSigned && (
-                    <button onClick={clearSignature} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(239,68,68,0.15)', border: 'none', color: '#f87171', borderRadius: 8, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
+                    <button onClick={clearSignature} className="btn-trash-danger" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: 12 }}>
                       <Trash2 size={12} /> Clear
                     </button>
                   )}
                 </div>
-                <div style={{ border: '1px solid rgba(255,255,255,0.15)', borderRadius: 16, overflow: 'hidden', cursor: 'crosshair', userSelect: 'none' }}>
+                <div style={{ border: '1px solid var(--glass-border)', borderRadius: 16, overflow: 'hidden', cursor: 'crosshair', userSelect: 'none' }}>
                   <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: 160, touchAction: 'none' }}
                     onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
                     onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
                 </div>
-                <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 6, textAlign: 'center' }}>
+                <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6, textAlign: 'center' }}>
                   {hasSigned ? '✓ Signed' : 'Draw your signature above'}
                 </p>
               </div>
 
               {/* Summary */}
-              <div style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 16, padding: 20 }}>
-                <h4 style={{ color: '#a78bfa', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Submission Summary</h4>
+              <div className="summary-card-indigo">
+                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Submission Summary</h4>
                 <div style={{ display: 'grid', gap: 6 }}>
                   {[
                     ['Property', form.name || '—'],
@@ -481,8 +481,8 @@ export default function LandlordAddPropertyPage() {
                     ['Photos', `${form.photos?.length || 0} uploaded`]
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: 'flex', justifycontent: 'space-between', fontSize: 13 }}>
-                      <span style={{ color: 'rgba(255,255,255,0.45)' }}>{k}</span>
-                      <span style={{ color: '#fff', fontWeight: 600 }}>{v}</span>
+                      <span style={{ color: 'var(--subtitle-text)' }}>{k}</span>
+                      <span style={{ color: 'var(--title-text)', fontWeight: 600 }}>{v}</span>
                     </div>
                   ))}
                 </div>
@@ -494,8 +494,8 @@ export default function LandlordAddPropertyPage() {
           <div style={{ display: 'flex', justifycontent: 'space-between', marginTop: 32, gap: 12 }}>
             <button onClick={back} disabled={step === 0} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '12px 24px',
-              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-              color: step === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)',
+              background: 'var(--input-bg)', border: '1px solid var(--input-border)',
+              color: step === 0 ? 'var(--muted)' : 'var(--foreground)',
               borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: step === 0 ? 'not-allowed' : 'pointer'
             }}>
               <ChevronLeft size={16} /> Back
@@ -526,8 +526,8 @@ export default function LandlordAddPropertyPage() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.2); }
-        select option { background: #1a1a3e; }
+        input::placeholder, textarea::placeholder { color: var(--muted); }
+        select option { background: var(--surface); color: var(--foreground); }
       `}</style>
     </div>
   );
