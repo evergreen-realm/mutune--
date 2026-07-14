@@ -33,10 +33,16 @@ router.get('/kra',
       const start = new Date(Date.UTC(year, mon - 1, 1));
       const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
 
-      const payments = await Payment.find({
+      const queryFilter = {
         status: 'confirmed',
         created_at: { $gte: start, $lte: end }
-      })
+      };
+
+      if (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) {
+        queryFilter.property_id = { $in: req.user.assigned_property_ids };
+      }
+
+      const payments = await Payment.find(queryFilter)
         .populate('tenant_id', 'full_name tenant_code national_id')
         .populate('property_id', 'property_code name type address')
         .sort({ created_at: 1 })
@@ -139,15 +145,23 @@ router.get('/summary',
       const start = new Date(Date.UTC(year, mon - 1, 1));
       const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
 
+      const matchStage = {
+        created_at: { $gte: start, $lte: end }
+      };
+
+      if (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) {
+        matchStage.property_id = { $in: req.user.assigned_property_ids };
+      }
+
       const [confirmedAgg, pendingCount, failedCount, propertyBreakdown] = await Promise.all([
         Payment.aggregate([
-          { $match: { status: 'confirmed', created_at: { $gte: start, $lte: end } } },
+          { $match: { ...matchStage, status: 'confirmed' } },
           { $group: { _id: null, total: { $sum: '$amount_kes' }, count: { $sum: 1 } } }
         ]),
-        Payment.countDocuments({ status: 'pending', created_at: { $gte: start, $lte: end } }),
-        Payment.countDocuments({ status: 'failed', created_at: { $gte: start, $lte: end } }),
+        Payment.countDocuments({ ...matchStage, status: 'pending' }),
+        Payment.countDocuments({ ...matchStage, status: 'failed' }),
         Payment.aggregate([
-          { $match: { status: 'confirmed', created_at: { $gte: start, $lte: end } } },
+          { $match: { ...matchStage, status: 'confirmed' } },
           { $group: { _id: '$property_id', total: { $sum: '$amount_kes' }, count: { $sum: 1 } } },
           { $lookup: { from: 'properties', localField: '_id', foreignField: '_id', as: 'prop' } },
           { $unwind: '$prop' },
@@ -199,9 +213,24 @@ router.get('/income-statement',
       const COMMERCIAL_WHT_RATE   = 0.10;
       const RESIDENTIAL_MRI_RATE  = 0.075;
 
+      const paymentMatch = {
+        status: 'confirmed',
+        created_at: { $gte: start, $lte: end }
+      };
+
+      const expenseMatch = {
+        payment_date: { $gte: start, $lte: end },
+        status: 'paid'
+      };
+
+      if (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) {
+        paymentMatch.property_id = { $in: req.user.assigned_property_ids };
+        expenseMatch.property_id = { $in: req.user.assigned_property_ids };
+      }
+
       // Aggregate confirmed payments broken down by property type
       const revenueAgg = await Payment.aggregate([
-        { $match: { status: 'confirmed', created_at: { $gte: start, $lte: end } } },
+        { $match: paymentMatch },
         {
           $lookup: {
             from: 'properties',
@@ -210,7 +239,7 @@ router.get('/income-statement',
             as: 'prop'
           }
         },
-        { $unwind: { path: '$prop', preserveNullAndEmpty: true } },
+        { $unwind: { path: '$prop', preserveNullAndEmptyArrays: true } },
         {
           $group: {
             _id: { type: { $ifNull: ['$prop.type', 'unknown'] } },
@@ -245,7 +274,7 @@ router.get('/income-statement',
 
       // Aggregate expenses by category
       const expenseAgg = await Expense.aggregate([
-        { $match: { payment_date: { $gte: start, $lte: end }, status: 'paid' } },
+        { $match: expenseMatch },
         {
           $group: {
             _id: '$category',

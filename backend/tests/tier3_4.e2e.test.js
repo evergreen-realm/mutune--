@@ -1332,4 +1332,141 @@ describe('Tier 4: Real-world Application Scenarios', () => {
       expect(reportRes.text).toContain('TOTAL');
     });
   });
+
+  describe('Scenario 2: Reports Scoping & Access Control Verification', () => {
+    test('Ensures reports are scoped to assigned_property_ids for restricted users, and global for unrestricted users', async () => {
+      // 1. Create two properties
+      const propA = await Property.create({
+        name: 'Nyali East Heights',
+        property_code: 'MUT-NYL-008',
+        type: 'apartment',
+        address: { street: 'Beach Rd', area: 'Nyali' },
+        status: 'active'
+      });
+
+      const propB = await Property.create({
+        name: 'Mombasa Gateway Mall',
+        property_code: 'MUT-MSA-009',
+        type: 'commercial',
+        address: { street: 'Nyerere Ave', area: 'Mombasa Town' },
+        status: 'active'
+      });
+
+      // 2. Create payments for both properties
+      const monthString = new Date().toISOString().slice(0, 7);
+
+      // Payment for Property A
+      await Payment.create({
+        transaction_id: 'TXN-REP-SCOPING-A',
+        tenant_id: new mongoose.Types.ObjectId(),
+        property_id: propA._id,
+        unit_id: new mongoose.Types.ObjectId(),
+        amount_kes: 40000,
+        payment_type: 'rent',
+        channel: 'mpesa_stk',
+        status: 'confirmed',
+        created_at: new Date()
+      });
+
+      // Payment for Property B
+      await Payment.create({
+        transaction_id: 'TXN-REP-SCOPING-B',
+        tenant_id: new mongoose.Types.ObjectId(),
+        property_id: propB._id,
+        unit_id: new mongoose.Types.ObjectId(),
+        amount_kes: 150000,
+        payment_type: 'rent',
+        channel: 'mpesa_stk',
+        status: 'confirmed',
+        created_at: new Date()
+      });
+
+      // 3. Create expenses for both properties
+      const Expense = require('../models/Expense');
+      await Expense.create({
+        property_id: propA._id,
+        category: 'maintenance',
+        amount_kes: 5000,
+        description: 'Nyali maintenance work',
+        payment_date: new Date(),
+        status: 'paid'
+      });
+
+      await Expense.create({
+        property_id: propB._id,
+        category: 'utilities',
+        amount_kes: 25000,
+        description: 'Gateway Mall water & power',
+        payment_date: new Date(),
+        status: 'paid'
+      });
+
+      // 4. Create scoped accountant user (assigned only to Property A)
+      const scopedAccountant = await User.create({
+        clerk_id: 'clerk_accountant_scoped',
+        email: 'scoped_accountant@mutune.test',
+        full_name: 'Scoped Accountant',
+        phone: '254700000088',
+        role: 'accountant',
+        is_active: true,
+        assigned_property_ids: [propA._id],
+        user_code: 'USR-ACC-Scoped'
+      });
+
+      // 5. Test scoped user viewing summary, income-statement, and KRA CSV
+      mockClerkId = 'clerk_accountant_scoped';
+
+      // Verify Summary Report Scoping
+      const summaryRes = await request(app)
+        .get(`/api/v1/reports/summary?month=${monthString}`);
+      expect(summaryRes.status).toBe(200);
+      expect(summaryRes.body.data.confirmedRevenue).toBe(40000); // Only Property A payment
+      expect(summaryRes.body.data.topProperties.length).toBe(1);
+      expect(summaryRes.body.data.topProperties[0].name).toBe('Nyali East Heights');
+
+      // Verify Income Statement Report Scoping
+      const incomeRes = await request(app)
+        .get(`/api/v1/reports/income-statement?month=${monthString}`);
+      expect(incomeRes.status).toBe(200);
+      expect(incomeRes.body.data.revenue.total).toBe(40000); // Gross revenue of Property A (residential MRI tax rate applies)
+      expect(incomeRes.body.data.expenses.total).toBe(5000);   // Only Property A expense
+      expect(incomeRes.body.data.netIncome).toBe(35000);        // 40000 - 5000
+
+      // Verify KRA Reconciliation CSV Report Scoping
+      const kraRes = await request(app)
+        .get(`/api/v1/reports/kra?month=${monthString}`);
+      expect(kraRes.status).toBe(200);
+      expect(kraRes.text).toContain('Nyali East Heights');
+      expect(kraRes.text).not.toContain('Mombasa Gateway Mall');
+      expect(kraRes.text).toContain('40000');
+      expect(kraRes.text).not.toContain('150000');
+
+      // 6. Test global user (super_admin) viewing reports (should see both combined)
+      mockClerkId = 'clerk_admin_400';
+
+      // Verify Global Summary Report
+      const [year, mon] = monthString.split('-').map(Number);
+      const start = new Date(Date.UTC(year, mon - 1, 1));
+      const end = new Date(Date.UTC(year, mon, 0, 23, 59, 59, 999));
+
+      const allConfirmedPayments = await Payment.find({ status: 'confirmed', created_at: { $gte: start, $lte: end } });
+      const expectedGlobalRevenue = allConfirmedPayments.reduce((sum, p) => sum + p.amount_kes, 0);
+
+      const globalSummaryRes = await request(app)
+        .get(`/api/v1/reports/summary?month=${monthString}`);
+      expect(globalSummaryRes.status).toBe(200);
+      expect(globalSummaryRes.body.data.confirmedRevenue).toBe(expectedGlobalRevenue);
+
+      // Verify Global Income Statement Report
+      const allPaidExpenses = await Expense.find({ payment_date: { $gte: start, $lte: end }, status: 'paid' });
+      const expectedGlobalExpenses = allPaidExpenses.reduce((sum, e) => sum + e.amount_kes, 0);
+
+      const globalIncomeRes = await request(app)
+        .get(`/api/v1/reports/income-statement?month=${monthString}`);
+      expect(globalIncomeRes.status).toBe(200);
+      expect(globalIncomeRes.body.data.revenue.total).toBe(expectedGlobalRevenue);
+      expect(globalIncomeRes.body.data.expenses.total).toBe(expectedGlobalExpenses);
+      expect(globalIncomeRes.body.data.netIncome).toBe(expectedGlobalRevenue - expectedGlobalExpenses);
+    });
+  });
 });
