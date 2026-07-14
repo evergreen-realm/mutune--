@@ -72,4 +72,6 @@ services:
         value: https://mutunerent-web-mishael-s-alpha.vercel.app
       - key: SENTRY_DSN
         sync: false
+      - key: ADMIN_HARDCODED_PASSWORD
+        sync: false
     healthCheckPath: /api/v1/health

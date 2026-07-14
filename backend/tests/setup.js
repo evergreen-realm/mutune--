@@ -1,4 +1,5 @@
 process.env.NODE_ENV = 'test';
+process.env.ADMIN_HARDCODED_PASSWORD = 'MutuneAdmin2026!';
 process.env.JWT_SECRET = 'test-secret-256-bit-key-for-jwt-signing-only';
 process.env.ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef';
 process.env.MPESA_CONSUMER_KEY = 'test-consumer-key';
