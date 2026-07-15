@@ -7,6 +7,8 @@ import { Suspense, lazy } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+import { getBuildingModelPath } from '../hooks/useBuildingModel';
+
 const BuildingPreview3D = lazy(() => import('./BuildingPreview3D'));
 
 function checkDeviceCapabilities() {
@@ -371,7 +373,7 @@ function renderMini3DScene(container, property, activeTab = 'properties') {
 }
 
 // ── Mapbox Map component ─────────────────────────────────────────────────────
-function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode }) {
+function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode, isLiteView }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -386,10 +388,12 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
   const mapStyleModeRef = useRef(mapStyleMode);
   const themeRef = useRef(theme);
   const propertiesRef = useRef(properties);
+  const isLiteViewRef = useRef(isLiteView);
 
   useEffect(() => { mapStyleModeRef.current = mapStyleMode; }, [mapStyleMode]);
   useEffect(() => { themeRef.current = theme; }, [theme]);
   useEffect(() => { propertiesRef.current = properties; }, [properties]);
+  useEffect(() => { isLiteViewRef.current = isLiteView; }, [isLiteView]);
 
   // Setup/Refresh standard style-bound layers and sources
   const setupMapStyleResources = useCallback((map) => {
@@ -448,7 +452,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
               14, 0,
               14.5, ['get', 'min_height']
             ],
-            'fill-extrusion-opacity': 0.5
+            'fill-extrusion-opacity': isLiteViewRef.current ? 0.0 : 0.5
           }
         },
         labelLayerId
@@ -517,8 +521,8 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       style: mapStyle,
       center: mapCenter,
       zoom: zoom || 13,
-      pitch: 50,
-      bearing: -17.6,
+      pitch: isLiteViewRef.current ? 0 : 50,
+      bearing: isLiteViewRef.current ? 0 : -17.6,
       antialias: true
     });
 
@@ -560,6 +564,46 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       );
     }
   }, [mapStyleMode, styleLoaded]);
+
+  // Handle dynamically changing Lite View mode on the map
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleLoaded) return;
+
+    if (isLiteView) {
+      // Smoothly transition map to a flat 2D top-down view
+      map.easeTo({
+        pitch: 0,
+        bearing: 0,
+        duration: 1000,
+        essential: true
+      });
+      // Hide standard Mapbox 3D buildings
+      if (map.getLayer('3d-buildings')) {
+        map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.0);
+      }
+      // Hide custom 3D WebGL layer
+      if (map.getLayer('3d-custom-buildings-layer')) {
+        map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'none');
+      }
+    } else {
+      // Smoothly transition map to angled 3D view
+      map.easeTo({
+        pitch: 50,
+        bearing: -17.6,
+        duration: 1000,
+        essential: true
+      });
+      // Show standard Mapbox 3D buildings
+      if (map.getLayer('3d-buildings')) {
+        map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.5);
+      }
+      // Show custom 3D WebGL layer
+      if (map.getLayer('3d-custom-buildings-layer')) {
+        map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'visible');
+      }
+    }
+  }, [isLiteView, styleLoaded]);
 
   // Handle properties changes dynamically
   useEffect(() => {
@@ -778,10 +822,10 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           const loader = new GLTFLoader();
           const modelCache = {};
 
-          const loadModel = (key, url) => {
+          const loadModel = (url) => {
             return new Promise((resolve) => {
               loader.load(url, (gltf) => {
-                modelCache[key] = gltf.scene;
+                modelCache[url] = gltf.scene;
                 resolve();
               }, undefined, (err) => {
                 console.error(`Failed to load Mapbox 3D model: ${url}`, err);
@@ -791,10 +835,10 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           };
 
           Promise.all([
-            loadModel('small', '/models/b_small.glb'),
-            loadModel('medium', '/models/b_medium.glb'),
-            loadModel('large', '/models/b_large.glb'),
-            loadModel('tower', '/models/b_tower.glb')
+            loadModel('/models/b_small.glb'),
+            loadModel('/models/b_medium.glb'),
+            loadModel('/models/b_large.glb'),
+            loadModel('/models/b_tower.glb')
           ]).then(() => {
             // Swap fallbacks with real models
             properties.forEach((prop) => {
@@ -816,14 +860,9 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
               const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
               const meterScale = mercator.meterInMercatorCoordinateUnits();
 
-              // Determine model key
-              const totalUnits = prop.units?.length || 0;
-              let modelKey = 'small';
-              if (totalUnits > 4 && totalUnits <= 10) modelKey = 'medium';
-              else if (totalUnits > 10 && totalUnits <= 20) modelKey = 'large';
-              else if (totalUnits > 20) modelKey = 'tower';
-
-              const sourceScene = modelCache[modelKey];
+              // Determine model path using unified hook function
+              const modelUrl = getBuildingModelPath(prop.units?.length || 0);
+              const sourceScene = modelCache[modelUrl];
               if (!sourceScene) return;
 
               const building = sourceScene.clone();
@@ -948,6 +987,9 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       };
 
       map.addLayer(customLayer);
+      if (isLiteViewRef.current) {
+        map.setLayoutProperty(customLayerId, 'visibility', 'none');
+      }
       customLayerRef.current = customLayer;
 
       // Fit map bounds
@@ -1300,19 +1342,25 @@ export default function MapWidget({
 
           <button
             onClick={toggleLiteView}
-            className="px-2.5 py-1.5 rounded-lg border border-border bg-surface text-muted hover:text-foreground hover:bg-surface-bright transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer"
-            title={isLiteView ? 'Switch to 3D View' : 'Switch to Lite View'}
+            className={`px-2.5 py-1.5 rounded-lg border transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+              isLiteView
+                ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400'
+                : 'bg-indigo-550/10 text-indigo-600 border-indigo-550/30 dark:bg-indigo-500/20 dark:text-indigo-400'
+            }`}
+            title={isLiteView ? 'Lite Mode active — Click to switch to 3D View' : '3D View active — Click to switch to Lite Mode'}
           >
             <Box size={13} />
-            <span>{isLiteView ? '3D View' : 'Lite Mode'}</span>
+            <span>{isLiteView ? 'Lite Mode' : '3D View'}</span>
           </button>
 
           <button
             onClick={() => setMapStyleMode(prev => prev === 'vector' ? 'satellite' : 'vector')}
-            className={`px-2.5 py-1.5 rounded-lg border border-border transition-colors text-xs font-medium flex items-center gap-1.5 cursor-pointer ${
-              mapStyleMode === 'satellite' ? 'bg-brand-500 text-white border-transparent' : 'bg-surface text-muted hover:text-foreground hover:bg-surface-bright'
+            className={`px-2.5 py-1.5 rounded-lg border transition-colors text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+              mapStyleMode === 'satellite'
+                ? 'bg-emerald-600/10 text-emerald-600 border-emerald-600/30 dark:bg-emerald-500/20 dark:text-emerald-400'
+                : 'bg-slate-500/10 text-slate-600 border-slate-500/30 dark:bg-slate-500/20 dark:text-slate-400'
             }`}
-            title="Toggle Satellite / Vector style"
+            title={mapStyleMode === 'satellite' ? 'Satellite View active — Click to switch to Vector View' : 'Vector View active — Click to switch to Satellite View'}
           >
             <Globe size={13} />
             <span>{mapStyleMode === 'satellite' ? 'Satellite View' : 'Vector View'}</span>
@@ -1348,6 +1396,7 @@ export default function MapWidget({
             isFullscreen={isFullscreen}
             theme={theme}
             mapStyleMode={mapStyleMode}
+            isLiteView={isLiteView}
           />
 
           {/* Floating screen-based card popup overlay for selected property */}
