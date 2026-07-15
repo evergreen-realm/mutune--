@@ -456,8 +456,8 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     }
 
     // 3. Add custom 3D property building extrusions with dynamic heights based on unit count
-    if (currentProperties?.length > 0 && !map.getSource('property-buildings')) {
-      const propFeatures = currentProperties.map(prop => {
+    if (!map.getSource('property-buildings')) {
+      const propFeatures = (currentProperties || []).map(prop => {
         const coords = getPropertyCoords(prop);
         const unitCount = prop.units?.length || 1;
         const height = Math.max(15, unitCount * 5);
