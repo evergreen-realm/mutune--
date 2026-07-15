@@ -412,21 +412,21 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
     )?.id;
 
-    // 1. Add free, high-resolution Esri World Imagery satellite layer
-    if (!map.getSource('esri-satellite')) {
-      map.addSource('esri-satellite', {
+    // 1. Add free, high-resolution Google Satellite layer
+    if (!map.getSource('google-satellite')) {
+      map.addSource('google-satellite', {
         type: 'raster',
         tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+          'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
         ],
         tileSize: 256,
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        attribution: '&copy; Google Maps'
       });
 
       map.addLayer({
-        id: 'esri-satellite-layer',
+        id: 'google-satellite-layer',
         type: 'raster',
-        source: 'esri-satellite',
+        source: 'google-satellite',
         paint: {
           'raster-opacity': currentMapStyleMode === 'satellite' ? 1.0 : 0.0
         }
@@ -539,6 +539,10 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
 
     map.on('style.load', handleStyleLoad);
 
+    if (map.isStyleLoaded()) {
+      handleStyleLoad();
+    }
+
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
@@ -559,9 +563,9 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleLoaded) return;
-    if (map.getLayer('esri-satellite-layer')) {
+    if (map.getLayer('google-satellite-layer')) {
       map.setPaintProperty(
-        'esri-satellite-layer',
+        'google-satellite-layer',
         'raster-opacity',
         mapStyleMode === 'satellite' ? 1.0 : 0.0
       );
@@ -1202,7 +1206,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
         // Safe to ignore
       }
     };
-  }, [activeTab, properties, agentLocation, theme, onPropertySelect, styleLoaded, isLiteView]);
+  }, [activeTab, properties, agentLocation, theme, onPropertySelect, styleLoaded, isLiteView, loadedModels]);
 
   return (
     <div

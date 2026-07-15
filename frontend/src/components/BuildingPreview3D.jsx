@@ -357,73 +357,79 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
           }>
             {viewMode === 'image' ? (
               <Canvas camera={{ position: [8, 6, 8], fov: 45 }}>
-                <ambientLight intensity={isLight ? 0.7 : 0.5} />
-                <directionalLight position={[10, 20, 10]} intensity={1.5} />
-                <Environment preset="city" />
-                <group position={[0, -1.0, 0]}>
-                  {/* Cinematic Render shows the colored GLB model */}
-                  <GLTFBuildingModel 
-                    unitCount={units.length} 
-                    color={
-                      (() => {
-                        const occupiedCount = units.filter((u) => u.status === 'occupied').length;
-                        const ratio = units.length > 0 ? occupiedCount / units.length : 0;
-                        if (ratio > 0.8) return '#22c55e';
-                        if (ratio > 0.5) return '#eab308';
-                        return '#ef4444';
-                      })()
-                    } 
+                <Suspense fallback={null}>
+                  <ambientLight intensity={isLight ? 0.6 : 0.4} />
+                  <hemisphereLight intensity={0.4} groundColor="#000000" color="#ffffff" />
+                  <directionalLight position={[10, 20, 10]} intensity={1.2} />
+                  <directionalLight position={[-10, 10, -10]} intensity={0.6} />
+                  <group position={[0, -1.0, 0]}>
+                    {/* Cinematic Render shows the colored GLB model */}
+                    <GLTFBuildingModel 
+                      unitCount={units.length} 
+                      color={
+                        (() => {
+                          const occupiedCount = units.filter((u) => u.status === 'occupied').length;
+                          const ratio = units.length > 0 ? occupiedCount / units.length : 0;
+                          if (ratio > 0.8) return '#22c55e';
+                          if (ratio > 0.5) return '#eab308';
+                          return '#ef4444';
+                        })()
+                      } 
+                    />
+
+                    <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
+                    <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                      <planeGeometry args={[15, 15]} />
+                      <meshStandardMaterial color={groundColor} roughness={0.9} />
+                    </mesh>
+                  </group>
+
+                  <OrbitControls
+                    autoRotate
+                    autoRotateSpeed={1.5}
+                    enableDamping
+                    dampingFactor={0.05}
+                    maxPolarAngle={Math.PI / 2 - 0.05}
+                    minDistance={3}
+                    maxDistance={20}
                   />
-
-                  <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
-                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                    <planeGeometry args={[15, 15]} />
-                    <meshStandardMaterial color={groundColor} roughness={0.9} />
-                  </mesh>
-                </group>
-
-                <OrbitControls
-                  autoRotate
-                  autoRotateSpeed={1.5}
-                  enableDamping
-                  dampingFactor={0.05}
-                  maxPolarAngle={Math.PI / 2 - 0.05}
-                  minDistance={3}
-                  maxDistance={20}
-                />
+                </Suspense>
               </Canvas>
             ) : (
               <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
-                <ambientLight intensity={isLight ? 0.7 : 0.5} />
-                <directionalLight position={[10, 20, 10]} intensity={1.5} />
-                <Environment preset="city" />
-                <group position={[0, -1.0, 0]}>
-                  {/* Simple View: Render ONLY the lightweight interactive blocks (no GLB) */}
-                  {units.map((unit, idx) => (
-                    <Unit3DBlock
-                      key={unit._id || idx}
-                      unit={unit}
-                      position={unitPositions[idx]}
-                      isSelected={selectedUnit?._id === unit._id}
-                      onHover={setHoveredUnit}
-                      onClick={onUnitSelect}
-                    />
-                  ))}
+                <Suspense fallback={null}>
+                  <ambientLight intensity={isLight ? 0.6 : 0.4} />
+                  <hemisphereLight intensity={0.4} groundColor="#000000" color="#ffffff" />
+                  <directionalLight position={[10, 20, 10]} intensity={1.2} />
+                  <directionalLight position={[-10, 10, -10]} intensity={0.6} />
+                  <group position={[0, -1.0, 0]}>
+                    {/* Simple View: Render ONLY the lightweight interactive blocks (no GLB) */}
+                    {units.map((unit, idx) => (
+                      <Unit3DBlock
+                        key={unit._id || idx}
+                        unit={unit}
+                        position={unitPositions[idx]}
+                        isSelected={selectedUnit?._id === unit._id}
+                        onHover={setHoveredUnit}
+                        onClick={onUnitSelect}
+                      />
+                    ))}
 
-                  <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
-                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                    <planeGeometry args={[15, 15]} />
-                    <meshStandardMaterial color={groundColor} roughness={0.9} />
-                  </mesh>
-                </group>
+                    <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
+                    <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                      <planeGeometry args={[15, 15]} />
+                      <meshStandardMaterial color={groundColor} roughness={0.9} />
+                    </mesh>
+                  </group>
 
-                <OrbitControls
-                  enableDamping
-                  dampingFactor={0.05}
-                  maxPolarAngle={Math.PI / 2 - 0.05}
-                  minDistance={3}
-                  maxDistance={20}
-                />
+                  <OrbitControls
+                    enableDamping
+                    dampingFactor={0.05}
+                    maxPolarAngle={Math.PI / 2 - 0.05}
+                    minDistance={3}
+                    maxDistance={20}
+                  />
+                </Suspense>
               </Canvas>
             )}
           </Suspense>
