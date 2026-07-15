@@ -98,6 +98,7 @@ const statusColors = {
 };
 
 function getUnitStatus(unit) {
+  if (!unit) return 'vacant';
   if (unit.lock_status === 'locked') return 'paid';
   if (unit.lock_status === 'payment_confirmed') return 'pending';
   if (unit.status === 'maintenance') return 'maintenance';
@@ -235,6 +236,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
   const units = property.units || [];
   
   const getUnitFloor = (unit, idx) => {
+    if (!unit) return Math.floor(idx / 4);
     const unitStr = String(unit.unit_number || '');
     const match = unitStr.match(/^(\d+)/);
     if (match) {

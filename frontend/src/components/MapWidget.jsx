@@ -5,9 +5,8 @@ import { Search, MapPin, Box, X, Maximize2, Minimize2, Globe } from 'lucide-reac
 import { fetchUnitGeoJSON } from '../lib/api';
 import { Suspense, lazy } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { getBuildingModelPath } from '../hooks/useBuildingModel';
+import { useBuildingModel, getBuildingModelPath } from '../hooks/useBuildingModel';
 
 const BuildingPreview3D = lazy(() => import('./BuildingPreview3D'));
 
@@ -46,6 +45,7 @@ const statusColors = {
 };
 
 function getUnitStatus(unit) {
+  if (!unit) return 'vacant';
   if (unit.lock_status === 'locked') return 'paid';
   if (unit.lock_status === 'payment_confirmed') return 'pending';
   if (unit.status === 'maintenance') return 'maintenance';
@@ -84,6 +84,7 @@ function createBuildingModel(property, activeTab = 'properties') {
   
   if (activeTab === 'units' && property.units && property.units.length > 0) {
     const getUnitFloor = (unit, idx) => {
+      if (!unit) return Math.floor(idx / 4);
       const unitStr = String(unit.unit_number || '');
       const match = unitStr.match(/^(\d+)/);
       if (match) {
@@ -372,8 +373,8 @@ function renderMini3DScene(container, property, activeTab = 'properties') {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
-// ── Mapbox Map component ─────────────────────────────────────────────────────
-function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode, isLiteView }) {
+// ── Mapbox Map Inner Component ────────────────────────────────────────────────
+function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode, isLiteView, loadedModels }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -389,11 +390,13 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
   const themeRef = useRef(theme);
   const propertiesRef = useRef(properties);
   const isLiteViewRef = useRef(isLiteView);
+  const loadedModelsRef = useRef(loadedModels);
 
   useEffect(() => { mapStyleModeRef.current = mapStyleMode; }, [mapStyleMode]);
   useEffect(() => { themeRef.current = theme; }, [theme]);
   useEffect(() => { propertiesRef.current = properties; }, [properties]);
   useEffect(() => { isLiteViewRef.current = isLiteView; }, [isLiteView]);
+  useEffect(() => { loadedModelsRef.current = loadedModels; }, [loadedModels]);
 
   // Setup/Refresh standard style-bound layers and sources
   const setupMapStyleResources = useCallback((map) => {
@@ -406,7 +409,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
     const layers = map.getStyle()?.layers;
     if (!layers) return;
     const labelLayerId = layers.find(
-      (layer) => layer.type === 'symbol' && layer.layout['text-field']
+      (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
     )?.id;
 
     // 1. Add free, high-resolution Esri World Imagery satellite layer
@@ -504,7 +507,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           'fill-extrusion-color': ['get', 'color'],
           'fill-extrusion-height': ['get', 'height'],
           'fill-extrusion-base': ['get', 'min_height'],
-          'fill-extrusion-opacity': 0.0
+          'fill-extrusion-opacity': isLiteViewRef.current ? 0.85 : 0.0
         }
       });
     }
@@ -582,6 +585,10 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       if (map.getLayer('3d-buildings')) {
         map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.0);
       }
+      // Show custom property extrusions with 0.85 opacity in Lite Mode
+      if (map.getLayer('property-extrusions')) {
+        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.85);
+      }
       // Hide custom 3D WebGL layer
       if (map.getLayer('3d-custom-buildings-layer')) {
         map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'none');
@@ -597,6 +604,10 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       // Show standard Mapbox 3D buildings
       if (map.getLayer('3d-buildings')) {
         map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.5);
+      }
+      // Hide custom property extrusions (keep as invisible click targets) in 3D Mode
+      if (map.getLayer('property-extrusions')) {
+        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.0);
       }
       // Show custom 3D WebGL layer
       if (map.getLayer('3d-custom-buildings-layer')) {
@@ -644,6 +655,96 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
 
     source.setData({ type: 'FeatureCollection', features: propFeatures });
   }, [properties, styleLoaded]);
+
+  // Handle dynamically updating GLB models in the Three.js scene when loadedModels becomes available
+  useEffect(() => {
+    const map = mapRef.current;
+    const customLayer = customLayerRef.current;
+    if (!map || !customLayer || !customLayer.scene || !loadedModels) return;
+
+    properties.forEach((prop) => {
+      const propId = prop._id || prop.id;
+      // If we already added the GLB model, skip
+      if (customLayer.scene.getObjectByName(`glb-${propId}`)) return;
+
+      if (activeTab === 'units') return; // Don't add GLB model on units tab!
+
+      const modelUrl = getBuildingModelPath(prop.units?.length || 0);
+      let modelKey = 'small';
+      if (modelUrl.includes('medium')) modelKey = 'medium';
+      else if (modelUrl.includes('large')) modelKey = 'large';
+      else if (modelUrl.includes('tower')) modelKey = 'tower';
+
+      const sourceScene = loadedModels[modelKey];
+      if (!sourceScene) return;
+
+      // Remove fallback if exists
+      const fallback = customLayer.scene.getObjectByName(`fallback-${propId}`);
+      if (fallback) {
+        customLayer.scene.remove(fallback);
+        fallback.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+          if (object.material) {
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+            materials.forEach((mat) => mat && mat.dispose());
+          }
+        });
+      }
+
+      // Clone and add GLB model
+      const building = sourceScene.clone();
+      building.rotation.x = Math.PI / 2;
+      building.name = `glb-${propId}`;
+
+      // Color by occupancy
+      const colorHex = getOccupancyColor(prop);
+      const tint = new THREE.Color(colorHex);
+      building.traverse((child) => {
+        if (child.isMesh) {
+          const mat = child.material.clone();
+          mat.color.lerp(tint, 0.25); // Subtle 25% color wash
+          mat.emissive = tint;
+          mat.emissiveIntensity = 0.15; // Subtle emissive glow
+          mat.roughness = 0.5;
+          mat.metalness = 0.15;
+          mat.side = THREE.DoubleSide;
+          child.material = mat;
+        }
+      });
+
+      const box = new THREE.Box3().setFromObject(building);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.z);
+      const targetEnvelope = 30.0;
+      const scaleFactor = targetEnvelope / (maxDim || 1.0);
+      building.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+      const center = box.getCenter(new THREE.Vector3());
+      building.position.x = -center.x * scaleFactor;
+      building.position.z = -center.z * scaleFactor;
+
+      const coords = getPropertyCoords(prop);
+      const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
+      const meterScale = mercator.meterInMercatorCoordinateUnits();
+
+      const wrapper = new THREE.Group();
+      wrapper.add(building);
+      wrapper.name = `glb-${propId}`;
+      wrapper.userData = {
+        propertyId: propId,
+        meterScale: meterScale,
+        lng: coords[0],
+        lat: coords[1],
+        mercatorX: mercator.x,
+        mercatorY: mercator.y,
+        mercatorZ: mercator.z
+      };
+
+      customLayer.scene.add(wrapper);
+    });
+
+    map.triggerRepaint();
+  }, [loadedModels, properties, activeTab]);
 
   // Handle center updates
   useEffect(() => {
@@ -793,80 +894,28 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           dirLight2.position.set(0, 70, 100).normalize();
           this.scene.add(dirLight2);
 
+          const models = loadedModelsRef.current;
+
           // Build building meshes (Fallback box representation first)
           properties.forEach((prop) => {
+            const propId = prop._id || prop.id;
             const coords = getPropertyCoords(prop);
             const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
             const meterScale = mercator.meterInMercatorCoordinateUnits();
 
-            const building = createBuildingModel(prop, activeTab);
-            
-            // Rotate model upright (Three.js Y-up -> Mapbox Z-up)
-            building.rotation.x = Math.PI / 2;
-            building.name = `fallback-${prop._id || prop.id}`;
+            const modelUrl = getBuildingModelPath(prop.units?.length || 0);
+            let modelKey = 'small';
+            if (modelUrl.includes('medium')) modelKey = 'medium';
+            else if (modelUrl.includes('large')) modelKey = 'large';
+            else if (modelUrl.includes('tower')) modelKey = 'tower';
 
-            building.userData = {
-              propertyId: prop._id || prop.id,
-              meterScale: meterScale,
-              lng: coords[0],
-              lat: coords[1],
-              mercatorX: mercator.x,
-              mercatorY: mercator.y,
-              mercatorZ: mercator.z
-            };
+            const sourceScene = models?.[modelKey];
 
-            this.scene.add(building);
-          });
-
-          // Load optimized GLB models asynchronously in the background
-          const loader = new GLTFLoader();
-          const modelCache = {};
-
-          const loadModel = (url) => {
-            return new Promise((resolve) => {
-              loader.load(url, (gltf) => {
-                modelCache[url] = gltf.scene;
-                resolve();
-              }, undefined, (err) => {
-                console.error(`Failed to load Mapbox 3D model: ${url}`, err);
-                resolve(); // Resolve to avoid blocking others
-              });
-            });
-          };
-
-          Promise.all([
-            loadModel('/models/b_small.glb'),
-            loadModel('/models/b_medium.glb'),
-            loadModel('/models/b_large.glb'),
-            loadModel('/models/b_tower.glb')
-          ]).then(() => {
-            // Swap fallbacks with real models
-            properties.forEach((prop) => {
-              const propId = prop._id || prop.id;
-              const fallback = this.scene.getObjectByName(`fallback-${propId}`);
-              if (fallback) {
-                this.scene.remove(fallback);
-                // Clean up fallback geometries and materials
-                fallback.traverse((object) => {
-                  if (object.geometry) object.geometry.dispose();
-                  if (object.material) {
-                    const materials = Array.isArray(object.material) ? object.material : [object.material];
-                    materials.forEach(m => m && m.dispose());
-                  }
-                });
-              }
-
-              const coords = getPropertyCoords(prop);
-              const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
-              const meterScale = mercator.meterInMercatorCoordinateUnits();
-
-              // Determine model path using unified hook function
-              const modelUrl = getBuildingModelPath(prop.units?.length || 0);
-              const sourceScene = modelCache[modelUrl];
-              if (!sourceScene) return;
-
+            if (sourceScene && activeTab !== 'units') {
+              // GLB model is available and we are NOT on units tab
               const building = sourceScene.clone();
               building.rotation.x = Math.PI / 2;
+              building.name = `glb-${propId}`;
 
               // Apply occupancy color
               const colorHex = getOccupancyColor(prop);
@@ -900,6 +949,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
               // Wrapper to contain and offset center coordinates
               const wrapper = new THREE.Group();
               wrapper.add(building);
+              wrapper.name = `glb-${propId}`;
 
               wrapper.userData = {
                 propertyId: propId,
@@ -912,8 +962,26 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
               };
 
               this.scene.add(wrapper);
-            });
-            map.triggerRepaint();
+            } else {
+              // Use fallback box (or stacked cubes for units tab)
+              const building = createBuildingModel(prop, activeTab);
+              
+              // Rotate model upright (Three.js Y-up -> Mapbox Z-up)
+              building.rotation.x = Math.PI / 2;
+              building.name = `fallback-${propId}`;
+
+              building.userData = {
+                propertyId: propId,
+                meterScale: meterScale,
+                lng: coords[0],
+                lat: coords[1],
+                mercatorX: mercator.x,
+                mercatorY: mercator.y,
+                mercatorZ: mercator.z
+              };
+
+              this.scene.add(building);
+            }
           });
 
           this.renderer = new THREE.WebGLRenderer({
@@ -1048,13 +1116,16 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
       markersRef.current.push(marker);
     }
 
-    // Render custom premium HTML markers if activeTab is not properties or units
-    if (activeTab !== 'properties' && activeTab !== 'units') {
+    // Render custom premium HTML markers if activeTab is not properties or units, OR if we are in Lite View
+    if (isLiteView || (activeTab !== 'properties' && activeTab !== 'units')) {
       properties.forEach((prop) => {
         const coords = getPropertyCoords(prop);
         const el = document.createElement('div');
-        el.className = 'property-map-marker';
-        el.style.cssText = `
+        el.className = 'property-map-marker-container';
+        
+        const innerEl = document.createElement('div');
+        innerEl.className = 'property-map-marker';
+        innerEl.style.cssText = `
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -1087,22 +1158,23 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
           font-family: system-ui, sans-serif;
         `;
         
-        el.appendChild(dot);
-        el.appendChild(text);
+        innerEl.appendChild(dot);
+        innerEl.appendChild(text);
+        el.appendChild(innerEl);
 
         // Hover animations
-        el.style.transformOrigin = 'center';
-        el.addEventListener('mouseenter', () => {
-          el.style.transform = 'scale(1.05)';
-          el.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        innerEl.style.transformOrigin = 'center';
+        innerEl.addEventListener('mouseenter', () => {
+          innerEl.style.transform = 'scale(1.05)';
+          innerEl.style.borderColor = 'rgba(255, 255, 255, 0.3)';
         });
-        el.addEventListener('mouseleave', () => {
-          el.style.transform = 'scale(1)';
-          el.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        innerEl.addEventListener('mouseleave', () => {
+          innerEl.style.transform = 'scale(1)';
+          innerEl.style.borderColor = 'rgba(255, 255, 255, 0.15)';
         });
 
         // Click handler to select property and switch to units tab
-        el.addEventListener('click', () => {
+        innerEl.addEventListener('click', () => {
           onPropertySelect?.(prop);
         });
 
@@ -1130,7 +1202,7 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         // Safe to ignore
       }
     };
-  }, [activeTab, properties, agentLocation, theme, onPropertySelect, styleLoaded]);
+  }, [activeTab, properties, agentLocation, theme, onPropertySelect, styleLoaded, isLiteView]);
 
   return (
     <div
@@ -1142,6 +1214,37 @@ function MapboxMap({ center, zoom, properties, selectedProperty, unitGeoJSON, ac
         borderRadius: 'inherit'
       }}
     />
+  );
+}
+
+// ── Mapbox Map component with Suspense loading for 3D View models ─────────────
+function MapboxMapWithModels(props) {
+  const smallModel = useBuildingModel(4);
+  const mediumModel = useBuildingModel(10);
+  const largeModel = useBuildingModel(20);
+  const towerModel = useBuildingModel(30);
+
+  const loadedModels = useMemo(() => ({
+    small: smallModel?.scene,
+    medium: mediumModel?.scene,
+    large: largeModel?.scene,
+    tower: towerModel?.scene
+  }), [smallModel, mediumModel, largeModel, towerModel]);
+
+  return <MapboxMapInner {...props} loadedModels={loadedModels} />;
+}
+
+function MapboxMap(props) {
+  if (props.isLiteView) {
+    return <MapboxMapInner {...props} loadedModels={null} />;
+  }
+
+  return (
+    <Suspense fallback={
+      <MapboxMapInner {...props} loadedModels={null} />
+    }>
+      <MapboxMapWithModels {...props} />
+    </Suspense>
   );
 }
 
@@ -1283,12 +1386,6 @@ export default function MapWidget({
     }
   }, [onPropertySelect, onSelectedPropertyChange, onActiveTabChange, externalSelectedProperty, externalActiveTab]);
 
-  // Auto-sync map style with active tab:
-  // Properties & Units = vector, 3D = satellite
-  useEffect(() => {
-    if (activeTab === '3d') setMapStyleMode('satellite');
-    else setMapStyleMode('vector');
-  }, [activeTab]);
 
   const tabs = [
     { id: 'properties', label: `Properties (${filtered.length})`, icon: MapPin },
