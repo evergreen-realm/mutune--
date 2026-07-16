@@ -413,44 +413,17 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
     )?.id;
 
-    // 1. Add satellite layers: ESRI fallback underneath, Google primary on top
-    if (!map.getSource('esri-satellite')) {
-      map.addSource('esri-satellite', {
+    // 1. Add Mapbox satellite layer (uses existing access token, no CORS issues)
+    if (!map.getSource('mapbox-satellite')) {
+      map.addSource('mapbox-satellite', {
         type: 'raster',
-        tiles: [
-          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-        ],
-        tileSize: 256,
-        maxzoom: 19,
-        attribution: '&copy; Esri, USDA, USGS, AEX, GeoEye, Getmapping'
+        url: 'mapbox://mapbox.satellite',
+        tileSize: 256
       });
       map.addLayer({
-        id: 'esri-satellite-layer',
+        id: 'satellite-layer',
         type: 'raster',
-        source: 'esri-satellite',
-        paint: {
-          'raster-opacity': currentMapStyleMode === 'satellite' ? 1.0 : 0.0
-        }
-      }, labelLayerId);
-    }
-
-    if (!map.getSource('google-satellite')) {
-      map.addSource('google-satellite', {
-        type: 'raster',
-        tiles: [
-          'https://mt0.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-          'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-          'https://mt2.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-          'https://mt3.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
-        ],
-        tileSize: 256,
-        maxzoom: 21,
-        attribution: '&copy; Google Maps'
-      });
-      map.addLayer({
-        id: 'google-satellite-layer',
-        type: 'raster',
-        source: 'google-satellite',
+        source: 'mapbox-satellite',
         paint: {
           'raster-opacity': currentMapStyleMode === 'satellite' ? 1.0 : 0.0
         }
@@ -464,7 +437,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
           id: '3d-buildings',
           source: 'composite',
           'source-layer': 'building',
-          filter: ['==', 'extrude', 'true'],
+          filter: ['has', 'type'],
           type: 'fill-extrusion',
           minzoom: 14,
           paint: {
@@ -472,12 +445,12 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
             'fill-extrusion-height': [
               'interpolate', ['linear'], ['zoom'],
               14, 0,
-              14.5, ['get', 'height']
+              14.5, ['coalesce', ['get', 'height'], 10]
             ],
             'fill-extrusion-base': [
               'interpolate', ['linear'], ['zoom'],
               14, 0,
-              14.5, ['get', 'min_height']
+              14.5, ['coalesce', ['get', 'min_height'], 0]
             ],
             'fill-extrusion-opacity': isLiteViewRef.current ? 0.0 : 0.5
           }
@@ -588,11 +561,8 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     const map = mapRef.current;
     if (!map || !styleLoaded) return;
     const satOpacity = mapStyleMode === 'satellite' ? 1.0 : 0.0;
-    if (map.getLayer('esri-satellite-layer')) {
-      map.setPaintProperty('esri-satellite-layer', 'raster-opacity', satOpacity);
-    }
-    if (map.getLayer('google-satellite-layer')) {
-      map.setPaintProperty('google-satellite-layer', 'raster-opacity', satOpacity);
+    if (map.getLayer('satellite-layer')) {
+      map.setPaintProperty('satellite-layer', 'raster-opacity', satOpacity);
     }
   }, [mapStyleMode, styleLoaded]);
 
