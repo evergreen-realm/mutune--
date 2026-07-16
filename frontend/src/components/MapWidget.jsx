@@ -413,17 +413,40 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
     )?.id;
 
-    // 1. Add free, high-resolution Google Satellite layer
+    // 1. Add satellite layers: ESRI fallback underneath, Google primary on top
+    if (!map.getSource('esri-satellite')) {
+      map.addSource('esri-satellite', {
+        type: 'raster',
+        tiles: [
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        ],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: '&copy; Esri, USDA, USGS, AEX, GeoEye, Getmapping'
+      });
+      map.addLayer({
+        id: 'esri-satellite-layer',
+        type: 'raster',
+        source: 'esri-satellite',
+        paint: {
+          'raster-opacity': currentMapStyleMode === 'satellite' ? 1.0 : 0.0
+        }
+      }, labelLayerId);
+    }
+
     if (!map.getSource('google-satellite')) {
       map.addSource('google-satellite', {
         type: 'raster',
         tiles: [
-          'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
+          'https://mt0.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+          'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+          'https://mt2.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+          'https://mt3.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
         ],
         tileSize: 256,
+        maxzoom: 21,
         attribution: '&copy; Google Maps'
       });
-
       map.addLayer({
         id: 'google-satellite-layer',
         type: 'raster',
@@ -564,12 +587,12 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleLoaded) return;
+    const satOpacity = mapStyleMode === 'satellite' ? 1.0 : 0.0;
+    if (map.getLayer('esri-satellite-layer')) {
+      map.setPaintProperty('esri-satellite-layer', 'raster-opacity', satOpacity);
+    }
     if (map.getLayer('google-satellite-layer')) {
-      map.setPaintProperty(
-        'google-satellite-layer',
-        'raster-opacity',
-        mapStyleMode === 'satellite' ? 1.0 : 0.0
-      );
+      map.setPaintProperty('google-satellite-layer', 'raster-opacity', satOpacity);
     }
   }, [mapStyleMode, styleLoaded]);
 
@@ -698,7 +721,6 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
 
       // Clone and add GLB model
       const building = sourceScene.clone();
-      building.rotation.x = Math.PI / 2;
       building.name = `glb-${propId}`;
 
       // Color by occupancy
@@ -707,9 +729,9 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       building.traverse((child) => {
         if (child.isMesh) {
           const mat = child.material.clone();
-          mat.color.lerp(tint, 0.25); // Subtle 25% color wash
+          mat.color.lerp(tint, 0.25);
           mat.emissive = tint;
-          mat.emissiveIntensity = 0.15; // Subtle emissive glow
+          mat.emissiveIntensity = 0.15;
           mat.roughness = 0.5;
           mat.metalness = 0.15;
           mat.side = THREE.DoubleSide;
@@ -725,25 +747,24 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       building.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
       const center = box.getCenter(new THREE.Vector3());
-      building.position.x = -center.x * scaleFactor;
-      building.position.z = -center.z * scaleFactor;
+      building.position.set(
+        -center.x * scaleFactor,
+        -box.min.y * scaleFactor,
+        -center.z * scaleFactor
+      );
 
       const coords = getPropertyCoords(prop);
-      const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
-      const meterScale = mercator.meterInMercatorCoordinateUnits();
+      const propMerc = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
+      const refMerc = customLayer.refMercator;
+      const refScale = customLayer.meterScale;
+      const offX = refMerc ? (propMerc.x - refMerc.x) / refScale : 0;
+      const offZ = refMerc ? (propMerc.y - refMerc.y) / refScale : 0;
 
       const wrapper = new THREE.Group();
       wrapper.add(building);
       wrapper.name = `glb-${propId}`;
-      wrapper.userData = {
-        propertyId: propId,
-        meterScale: meterScale,
-        lng: coords[0],
-        lat: coords[1],
-        mercatorX: mercator.x,
-        mercatorY: mercator.y,
-        mercatorZ: mercator.z
-      };
+      wrapper.position.set(offX, 0, offZ);
+      wrapper.userData = { propertyId: propId };
 
       customLayer.scene.add(wrapper);
     });
@@ -883,10 +904,6 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
           this.camera = new THREE.Camera();
           this.scene = new THREE.Scene();
 
-          // Reuse Matrix4 objects to eliminate frame-rate stutter from GC thrashing
-          this.projMatrix = new THREE.Matrix4();
-          this.translateMatrix = new THREE.Matrix4();
-
           // Create lights
           const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
           this.scene.add(ambientLight);
@@ -901,13 +918,33 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
 
           const models = loadedModelsRef.current;
 
-          // Build building meshes (Fallback box representation first)
+          // Compute reference origin from center of all properties (official Mapbox pattern)
+          const allCoords = properties.map(p => getPropertyCoords(p));
+          const avgLng = allCoords.reduce((s, c) => s + c[0], 0) / (allCoords.length || 1);
+          const avgLat = allCoords.reduce((s, c) => s + c[1], 0) / (allCoords.length || 1);
+          const refMercator = mapboxgl.MercatorCoordinate.fromLngLat([avgLng, avgLat], 0);
+          const refMeterScale = refMercator.meterInMercatorCoordinateUnits();
+
+          this.modelTransform = {
+            translateX: refMercator.x,
+            translateY: refMercator.y,
+            translateZ: refMercator.z || 0,
+            rotateX: Math.PI / 2,
+            scale: refMeterScale
+          };
+          this.refMercator = refMercator;
+          this.meterScale = refMeterScale;
+
+          // Build building meshes at meter offsets from reference origin
           properties.forEach((prop) => {
             try {
               const propId = prop._id || prop.id;
               const coords = getPropertyCoords(prop);
-              const mercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
-              const meterScale = mercator.meterInMercatorCoordinateUnits();
+              const propMercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
+
+              // Compute scene position as meter offsets from reference origin
+              const offsetX = (propMercator.x - refMercator.x) / refMeterScale;
+              const offsetZ = (propMercator.y - refMercator.y) / refMeterScale;
 
               const modelUrl = getBuildingModelPath(prop.units?.length || 0);
               let modelKey = 'small';
@@ -920,7 +957,6 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
               if (sourceScene && activeTab !== 'units') {
                 // GLB model is available and we are NOT on units tab
                 const building = sourceScene.clone();
-                building.rotation.x = Math.PI / 2;
                 building.name = `glb-${propId}`;
 
                 // Apply occupancy color
@@ -929,9 +965,9 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
                 building.traverse((child) => {
                   if (child.isMesh) {
                     const mat = child.material.clone();
-                    mat.color.lerp(tint, 0.25); // Subtle 25% color wash
+                    mat.color.lerp(tint, 0.25);
                     mat.emissive = tint;
-                    mat.emissiveIntensity = 0.15; // Subtle emissive glow
+                    mat.emissiveIntensity = 0.15;
                     mat.roughness = 0.5;
                     mat.metalness = 0.15;
                     mat.side = THREE.DoubleSide;
@@ -939,7 +975,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
                   }
                 });
 
-                // Scale to fit target dimensions envelope (~30m horizontal envelope)
+                // Scale to fit ~30m horizontal envelope
                 const box = new THREE.Box3().setFromObject(building);
                 const size = box.getSize(new THREE.Vector3());
                 const maxDim = Math.max(size.x, size.z);
@@ -947,46 +983,33 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
                 const scaleFactor = targetEnvelope / (maxDim || 1.0);
                 building.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-                // Center geometry relative to coordinates
+                // Center horizontally and place base at ground level
                 const center = box.getCenter(new THREE.Vector3());
-                building.position.x = -center.x * scaleFactor;
-                building.position.z = -center.z * scaleFactor;
+                building.position.set(
+                  -center.x * scaleFactor,
+                  -box.min.y * scaleFactor,
+                  -center.z * scaleFactor
+                );
 
-                // Wrapper to contain and offset center coordinates
                 const wrapper = new THREE.Group();
                 wrapper.add(building);
                 wrapper.name = `glb-${propId}`;
-
-                wrapper.userData = {
-                  propertyId: propId,
-                  meterScale: meterScale,
-                  lng: coords[0],
-                  lat: coords[1],
-                  mercatorX: mercator.x,
-                  mercatorY: mercator.y,
-                  mercatorZ: mercator.z
-                };
+                wrapper.position.set(offsetX, 0, offsetZ);
+                wrapper.userData = { propertyId: propId };
 
                 this.scene.add(wrapper);
               } else {
                 // Use fallback box (or stacked cubes for units tab)
                 const building = createBuildingModel(prop, activeTab);
-                
-                // Rotate model upright (Three.js Y-up -> Mapbox Z-up)
-                building.rotation.x = Math.PI / 2;
-                building.name = `fallback-${propId}`;
+                building.name = `fallback-inner-${propId}`;
 
-                building.userData = {
-                  propertyId: propId,
-                  meterScale: meterScale,
-                  lng: coords[0],
-                  lat: coords[1],
-                  mercatorX: mercator.x,
-                  mercatorY: mercator.y,
-                  mercatorZ: mercator.z
-                };
+                const wrapper = new THREE.Group();
+                wrapper.add(building);
+                wrapper.name = `fallback-${propId}`;
+                wrapper.position.set(offsetX, 0, offsetZ);
+                wrapper.userData = { propertyId: propId };
 
-                this.scene.add(building);
+                this.scene.add(wrapper);
               }
             } catch (err) {
               console.error("Error creating WebGL building mesh for property:", prop, err);
@@ -1002,36 +1025,27 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
           this.map = map;
         },
         render: function (gl, matrix) {
-          const cameraOptions = this.map.getFreeCameraOptions();
-          const eye = cameraOptions.position; // { x, y, z }
-          const q = cameraOptions.orientation || { x: 0, y: 0, z: 0, w: 1 };
+          // Official Mapbox + Three.js pattern: projectionMatrix = mapboxMatrix * modelTransformMatrix
+          const rotationX = new THREE.Matrix4().makeRotationAxis(
+            new THREE.Vector3(1, 0, 0),
+            this.modelTransform.rotateX
+          );
 
-          this.scene.children.forEach((child) => {
-            if (child.userData && child.userData.mercatorX !== undefined) {
-              const { mercatorX, mercatorY, mercatorZ, meterScale } = child.userData;
-              child.position.set(
-                mercatorX - eye.x,
-                mercatorY - eye.y,
-                mercatorZ - eye.z
-              );
+          const m = new THREE.Matrix4().fromArray(matrix);
+          const l = new THREE.Matrix4()
+            .makeTranslation(
+              this.modelTransform.translateX,
+              this.modelTransform.translateY,
+              this.modelTransform.translateZ
+            )
+            .scale(new THREE.Vector3(
+              this.modelTransform.scale,
+              -this.modelTransform.scale,
+              this.modelTransform.scale
+            ))
+            .multiply(rotationX);
 
-              // 1:1 physical scale matching the invisible Mapbox fill-extrusion layer
-              child.scale.set(meterScale, meterScale, meterScale);
-            }
-          });
-
-          // Correct lighting and camera coordinates by applying the rotation quaternion directly to the camera view
-          this.camera.quaternion.set(q.x, q.y, q.z, q.w);
-          this.camera.updateMatrixWorld(true);
-
-          // Compute pure projection matrix P = M * T(eye) * R
-          this.projMatrix.fromArray(matrix);
-          this.translateMatrix.makeTranslation(eye.x, eye.y, eye.z);
-
-          this.camera.projectionMatrix
-            .copy(this.projMatrix)
-            .multiply(this.translateMatrix)
-            .multiply(this.camera.matrixWorld);
+          this.camera.projectionMatrix = m.multiply(l);
 
           this.renderer.resetState();
           this.renderer.render(this.scene, this.camera);
