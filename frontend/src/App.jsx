@@ -34,6 +34,7 @@ const AgentPerformancePage    = React.lazy(() => import('./pages/AgentPerformanc
 const AdminUserManagementPage = React.lazy(() => import('./pages/AdminUserManagementPage'));
 const AdminInventoryPage      = React.lazy(() => import('./pages/AdminInventoryPage'));
 const TasksPage               = React.lazy(() => import('./pages/TasksPage'));
+const LandingPage             = React.lazy(() => import('./pages/LandingPage'));
 
 import { useThemeStore } from './store/themeStore';
 import Lenis from 'lenis';
@@ -603,9 +604,17 @@ export default function App() {
     <ClerkProvider publishableKey={PUBLISHABLE_KEY} signInUrl="/login" signUpUrl="/sign-up" afterSignOutUrl="/">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
+          <React.Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+              <span className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
           <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/login/*" element={<LoginPage />} />
             <Route path="/sign-up/*" element={<SignUpPage />} />
+            <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/*" element={
               <>
                 <SignedIn>
@@ -617,6 +626,7 @@ export default function App() {
               </>
             } />
           </Routes>
+          </React.Suspense>
         </BrowserRouter>
 
         <ToastContainer

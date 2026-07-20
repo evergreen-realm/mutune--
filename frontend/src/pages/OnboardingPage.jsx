@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useThemeStore } from '../store/themeStore';
 import {
@@ -21,13 +21,17 @@ export default function OnboardingPage() {
   const { user: clerkUser, isLoaded } = useUser();
   const { signOut } = useClerk();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialRoleParam = searchParams.get('role') || '';
+  const validRole = ['landlord', 'tenant', 'agent', 'admin'].includes(initialRoleParam) ? initialRoleParam : '';
+
   const { theme, toggleTheme } = useThemeStore();
   const isLight = theme === 'light';
 
   // 'roles' = show role picker + details inline (default)
   // 'tenant-confirm' = dedicated screen for pre-registered tenant auto-detected by Gmail
   const [screen, setScreen] = useState('roles');
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState(validRole);
 
   // email check
   const [emailChecking, setEmailChecking] = useState(false);
