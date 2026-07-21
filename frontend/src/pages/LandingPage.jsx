@@ -6,18 +6,19 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
   Building2, Shield, CreditCard, Users, MapPin, FileText,
-  ArrowRight, Sun, Moon, Menu, X, Check, ChevronRight,
+  ArrowRight, Sun, Moon, Menu, X, Check,
   BarChart3, Smartphone, ClipboardCheck, UserCheck, Landmark,
-  Eye, Receipt, Bell, KeyRound, UserPlus, Search, Activity
+  Eye, Receipt, Bell, KeyRound, UserPlus, Search, Activity,
+  ChevronDown
 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const VoxelBuildingMini3D = lazy(() => import('../components/VoxelBuildingMini3D'));
 
-/* ══════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════
    DATA
-   ══════════════════════════════════════════════ */
+   ══════════════════════════════════════════════════════════════ */
 
 const METRICS = [
   { value: '450M+', label: 'Rent Collected (KES)', color: 'var(--lp-accent)' },
@@ -30,78 +31,69 @@ const FEATURES = [
   {
     id: 'spatial',
     title: '3D Spatial Blueprints',
-    desc: 'Navigate every floor, unit, and corridor in an interactive voxel model. See payment status per unit at a glance — paid, pending, overdue, vacant.',
+    desc: 'Navigate every floor, unit, and corridor in an interactive voxel model. See payment status per unit at a glance.',
     icon: MapPin,
-    badge: 'INTERACTIVE 3D',
-    accentClass: 'lp-icon--accent',
-    span: 2,
+    color: 'var(--lp-accent)',
+    colorMuted: 'var(--lp-accent-muted)',
+    photo: '/assets/building_interior_lobby.png',
     has3D: true,
   },
   {
     id: 'kra',
     title: 'KRA Tax Engine',
-    desc: 'Automatically calculates 7.5% MRI withholding and 10% WHT on every rental payment. Generates CSV returns ready for iTax upload.',
+    desc: 'Automatically calculates 7.5% MRI withholding and 10% WHT on every rental payment. CSV returns ready for iTax.',
     icon: FileText,
-    badge: 'AUTO FILING',
-    accentClass: 'lp-icon--emerald',
-    span: 1,
+    color: 'var(--lp-emerald)',
+    colorMuted: 'var(--lp-emerald-muted)',
+    photo: '/assets/landlord_property_office.png',
   },
   {
     id: 'mpesa',
     title: 'M-Pesa STK Push',
-    desc: 'Tenants tap one button. The STK prompt hits their phone in under 3 seconds. Payment reconciles automatically — no manual matching.',
+    desc: 'Tenants tap one button. STK prompt hits their phone in under 3 seconds. Payment reconciles automatically.',
     icon: Smartphone,
-    badge: 'INSTANT PAY',
-    accentClass: 'lp-icon--teal',
-    span: 1,
+    color: 'var(--lp-teal)',
+    colorMuted: 'var(--lp-teal-muted)',
+    photo: '/assets/tenant_mpesa_payment.png',
   },
   {
     id: 'portals',
     title: 'Role-Gated Portals',
-    desc: 'Four separate dashboards — Landlord, Tenant, Agent, Admin — each with permissions, views, and workflows tailored to their job.',
+    desc: 'Four separate dashboards — Landlord, Tenant, Agent, Admin — each with permissions and workflows tailored to their job.',
     icon: Users,
-    badge: '4 PORTALS',
-    accentClass: 'lp-icon--purple',
-    span: 2,
+    color: 'var(--lp-purple)',
+    colorMuted: 'var(--lp-purple-muted)',
+    photo: '/assets/agent_field_inspection.png',
   },
 ];
 
 const ROLES = [
   {
-    id: 'landlord',
-    title: 'Landlord',
-    icon: Landmark,
-    accent: 'var(--lp-accent)',
-    accentMuted: 'var(--lp-accent-muted)',
+    id: 'landlord', title: 'Landlord', icon: Landmark,
+    accent: 'var(--lp-accent)', accentMuted: 'var(--lp-accent-muted)',
     photo: '/assets/landlord_property_office.png',
     steps: [
       { icon: UserPlus, text: 'Register & verify ownership via Google SSO' },
       { icon: Building2, text: 'Add properties, define units, set rent amounts' },
-      { icon: FileText, text: 'Auto KRA tax filing — 7.5% MRI & 10% WHT calculated' },
+      { icon: FileText, text: 'Auto KRA tax filing — 7.5% MRI & 10% WHT' },
       { icon: CreditCard, text: 'Collect rent via M-Pesa, funds to your bank' },
       { icon: BarChart3, text: 'Track net income, occupancy, and expenses' },
     ],
   },
   {
-    id: 'tenant',
-    title: 'Tenant',
-    icon: KeyRound,
-    accent: 'var(--lp-emerald)',
-    accentMuted: 'var(--lp-emerald-muted)',
+    id: 'tenant', title: 'Tenant', icon: KeyRound,
+    accent: 'var(--lp-emerald)', accentMuted: 'var(--lp-emerald-muted)',
     photo: '/assets/tenant_mpesa_payment.png',
     steps: [
       { icon: Bell, text: 'Get invited by your agent via email' },
       { icon: UserCheck, text: 'Link account — auto-detect your tenant code' },
-      { icon: Smartphone, text: 'Pay rent via M-Pesa STK Push in under 3 seconds' },
-      { icon: Receipt, text: 'View digital receipts, payment history & lease docs' },
+      { icon: Smartphone, text: 'Pay rent via M-Pesa STK Push in under 3s' },
+      { icon: Receipt, text: 'View digital receipts & lease documents' },
     ],
   },
   {
-    id: 'agent',
-    title: 'Agent',
-    icon: ClipboardCheck,
-    accent: 'var(--lp-amber)',
-    accentMuted: 'var(--lp-amber-muted)',
+    id: 'agent', title: 'Agent', icon: ClipboardCheck,
+    accent: 'var(--lp-amber)', accentMuted: 'var(--lp-amber-muted)',
     photo: '/assets/agent_field_inspection.png',
     steps: [
       { icon: FileText, text: 'Submit EARB license for verification' },
@@ -111,1131 +103,987 @@ const ROLES = [
     ],
   },
   {
-    id: 'admin',
-    title: 'Admin',
-    icon: Shield,
-    accent: 'var(--lp-purple)',
-    accentMuted: 'var(--lp-purple-muted)',
+    id: 'admin', title: 'Admin', icon: Shield,
+    accent: 'var(--lp-purple)', accentMuted: 'var(--lp-purple-muted)',
     photo: '/assets/admin_control_center.png',
     steps: [
       { icon: Eye, text: 'Full system dashboard on sign-in' },
-      { icon: UserCheck, text: 'Review and approve agent & landlord registrations' },
+      { icon: UserCheck, text: 'Approve agent & landlord registrations' },
       { icon: Activity, text: 'Monitor audit logs and security events' },
       { icon: Search, text: 'Manage inventory auctions and unit assets' },
     ],
   },
 ];
 
-const HOW_IT_WORKS = [
-  {
-    step: '01',
-    title: 'Register',
-    desc: 'Create your account with Google SSO. Select your role — landlord, tenant, agent, or admin. Verification takes under 24 hours.',
-    icon: UserPlus,
-  },
-  {
-    step: '02',
-    title: 'Set Up',
-    desc: 'Landlords add properties and units. Agents upload EARB licenses. Tenants get auto-detected when their agent registers their email.',
-    icon: Building2,
-  },
-  {
-    step: '03',
-    title: 'Manage',
-    desc: 'Collect rent via M-Pesa, file KRA taxes automatically, track payments in real time, and visualize your portfolio in 3D.',
-    icon: BarChart3,
-  },
+const STEPS = [
+  { step: '01', title: 'Register', desc: 'Create your account with Google SSO. Select your role. Verification takes under 24 hours.', icon: UserPlus },
+  { step: '02', title: 'Set Up', desc: 'Landlords add properties. Agents upload EARB licenses. Tenants get auto-detected.', icon: Building2 },
+  { step: '03', title: 'Manage', desc: 'Collect rent via M-Pesa, file KRA taxes automatically, visualize your portfolio in 3D.', icon: BarChart3 },
 ];
 
-/* ══════════════════════════════════════════════
-   COMPONENT
-   ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   WORD SPLIT UTILITY
+   ══════════════════════════════════════════════════════════════ */
+function SplitWords({ children, className = '' }) {
+  const words = children.split(' ');
+  return (
+    <span className={className}>
+      {words.map((word, i) => (
+        <span key={i} className="lp-word" style={{
+          display: 'inline-block', opacity: 0,
+          transform: 'translateY(40px) rotateX(40deg)',
+          transformOrigin: 'center bottom',
+        }}>
+          {word}{i < words.length - 1 ? '\u00A0' : ''}
+        </span>
+      ))}
+    </span>
+  );
+}
 
+/* ══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ══════════════════════════════════════════════════════════════ */
 export default function LandingPage() {
   const navigate = useNavigate();
   const { isSignedIn } = useUser();
   const { theme, toggleTheme } = useThemeStore();
 
-  /* ── State ─────────────────────────── */
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeRole, setActiveRole] = useState(0);
-  const [navScrolled, setNavScrolled] = useState(false);
+  const [navSolid, setNavSolid] = useState(false);
   const [demoVisible, setDemoVisible] = useState(false);
 
-  /* ── Refs ──────────────────────────── */
+  /* Refs */
+  const rootRef = useRef(null);
   const heroRef = useRef(null);
-  const heroImgRef = useRef(null);
-  const heroContentRef = useRef(null);
-  const transitionRef = useRef(null);
-  const capabilitiesRef = useRef(null);
+  const heroPhotoRef = useRef(null);
+  const heroOverlayRef = useRef(null);
+  const descentRef = useRef(null);
+  const descentPhotoRef = useRef(null);
+  const panelsWrapRef = useRef(null);
+  const panelsTrackRef = useRef(null);
   const rolesRef = useRef(null);
   const howRef = useRef(null);
   const ctaRef = useRef(null);
   const canvasRef = useRef(null);
-  const demoCardRef = useRef(null);
   const navRef = useRef(null);
+  const demoCardRef = useRef(null);
 
-  /* ── Reduced motion check ─────────── */
   const prefersReducedMotion = useRef(
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
 
-  /* ── Navigation ────────────────────── */
-  const handleGetStarted = useCallback(() => {
-    if (isSignedIn) {
-      navigate('/dashboard');
-    } else {
-      navigate('/sign-up');
-    }
-  }, [isSignedIn, navigate]);
-
-  const handleSignIn = useCallback(() => {
-    if (isSignedIn) {
-      navigate('/dashboard');
-    } else {
-      navigate('/login');
-    }
-  }, [isSignedIn, navigate]);
-
-  const scrollToSection = useCallback((id) => {
+  /* Navigation */
+  const go = useCallback((path) => { setMobileMenuOpen(false); navigate(path); }, [navigate]);
+  const handleGetStarted = useCallback(() => go(isSignedIn ? '/dashboard' : '/sign-up'), [isSignedIn, go]);
+  const handleSignIn = useCallback(() => go(isSignedIn ? '/dashboard' : '/login'), [isSignedIn, go]);
+  const scrollTo = useCallback((id) => {
     setMobileMenuOpen(false);
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  /* ── Nav scroll listener ───────────── */
+  /* Nav bg on scroll */
   useEffect(() => {
-    const handleScroll = () => setNavScrolled(window.scrollY > 80);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const fn = () => setNavSolid(window.scrollY > 80);
+    window.addEventListener('scroll', fn, { passive: true });
+    return () => window.removeEventListener('scroll', fn);
   }, []);
 
-  /* ── 3D Demo IntersectionObserver ──── */
+  /* 3D lazy load */
   useEffect(() => {
     if (typeof window === 'undefined' || window.innerWidth < 768) return;
     const node = demoCardRef.current;
     if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setDemoVisible(true); },
-      { rootMargin: '200px' }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setDemoVisible(true); }, { rootMargin: '300px' });
+    obs.observe(node);
+    return () => obs.disconnect();
   }, []);
 
-  /* ══════════════════════════════════════
-     CANVAS 2D — Ambient light particles
-     ══════════════════════════════════════ */
+  /* ════════════════════════════════════════════════
+     AMBIENT PARTICLES (Canvas 2D)
+     ════════════════════════════════════════════════ */
   useEffect(() => {
     if (prefersReducedMotion.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let animId;
-    let w, h;
+    const c = canvasRef.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    let raf, w, h;
+    const N = window.innerWidth < 768 ? 20 : 40;
+    const pts = [];
 
-    const count = window.innerWidth < 768 ? 15 : 30;
-    const particles = [];
-
-    const resize = () => {
-      w = canvas.width = canvas.parentElement.offsetWidth;
-      h = canvas.height = canvas.parentElement.offsetHeight;
-    };
-
-    const init = () => {
-      resize();
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          r: 1 + Math.random() * 2,
-          vy: -(0.2 + Math.random() * 0.3),
-          vx: (Math.random() - 0.5) * 0.3,
-          alpha: 0.15 + Math.random() * 0.3,
-          phase: Math.random() * Math.PI * 2,
-        });
-      }
-    };
+    const resize = () => { w = c.width = c.parentElement.offsetWidth; h = c.height = c.parentElement.offsetHeight; };
+    resize();
+    for (let i = 0; i < N; i++) pts.push({
+      x: Math.random() * w, y: Math.random() * h,
+      r: 0.8 + Math.random() * 2, vy: -(0.15 + Math.random() * 0.25),
+      vx: (Math.random() - 0.5) * 0.2, a: 0.1 + Math.random() * 0.35, ph: Math.random() * Math.PI * 2,
+    });
 
     const draw = () => {
       ctx.clearRect(0, 0, w, h);
-      for (const p of particles) {
-        p.x += p.vx + Math.sin(p.phase) * 0.15;
-        p.y += p.vy;
-        p.phase += 0.008;
+      for (const p of pts) {
+        p.x += p.vx + Math.sin(p.ph) * 0.1; p.y += p.vy; p.ph += 0.006;
         if (p.y < -10) { p.y = h + 10; p.x = Math.random() * w; }
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(245, 215, 160, ${p.alpha})`;
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(245,215,160,${p.a})`; ctx.fill();
       }
-      animId = requestAnimationFrame(draw);
+      raf = requestAnimationFrame(draw);
     };
-
-    init();
     draw();
     window.addEventListener('resize', resize);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener('resize', resize);
-    };
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   }, []);
 
-  /* ══════════════════════════════════════
-     GSAP SCROLL ANIMATIONS
-     ══════════════════════════════════════ */
+  /* ════════════════════════════════════════════════
+     CINEMATIC GSAP SCROLL SYSTEM
+     ════════════════════════════════════════════════ */
   useEffect(() => {
     if (prefersReducedMotion.current) return;
+    const mm = gsap.matchMedia();
 
-    const ctx = gsap.context(() => {
-      /* ── Page load orchestration ────── */
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-
-      tl.fromTo(heroImgRef.current, { scale: 1.08, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8 })
-        .fromTo(navRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3 }, 0.2)
-        .fromTo('.lp-hero-badge', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, 0.4)
-        .fromTo('.lp-hero-title', { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, 0.5)
-        .fromTo('.lp-hero-subtitle', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, 0.7)
-        .fromTo('.lp-hero-ctas', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, 0.8)
-        .fromTo('.lp-metric', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.06 }, 0.9);
-
-      /* ── Hero parallax on scroll ────── */
-      gsap.to(heroImgRef.current, {
-        yPercent: 25,
-        opacity: 0.3,
-        ease: 'none',
+    mm.add('(min-width: 768px)', () => {
+      /* ── SCENE 1: HERO — Pin & multi-phase reveal (3 scroll-heights) ── */
+      const heroTL = gsap.timeline({
         scrollTrigger: {
           trigger: heroRef.current,
           start: 'top top',
-          end: 'bottom top',
-          scrub: 1,
+          end: '+=250%',
+          pin: true,
+          scrub: 0.8,
+          anticipatePin: 1,
         },
       });
 
-      /* ── Transition scene ────────────── */
-      gsap.fromTo(
-        '.lp-transition-img',
-        { opacity: 0, scale: 1.1 },
-        {
-          opacity: 1, scale: 1, ease: 'none',
-          scrollTrigger: {
-            trigger: transitionRef.current,
-            start: 'top 80%',
-            end: 'top 30%',
-            scrub: 0.5,
-          },
-        }
-      );
-      gsap.fromTo(
-        '.lp-transition-text',
-        { y: 40, opacity: 0 },
-        {
-          y: 0, opacity: 1, duration: 0.6, ease: 'power2.out',
-          scrollTrigger: {
-            trigger: transitionRef.current,
-            start: 'top 60%',
-            toggleActions: 'play none none none',
-          },
-        }
-      );
+      // Phase 1: Camera arrives — photo scales down and sharpens
+      heroTL
+        .fromTo(heroPhotoRef.current,
+          { scale: 1.4, filter: 'brightness(0.3) blur(8px)' },
+          { scale: 1.0, filter: 'brightness(1) blur(0px)', duration: 1, ease: 'none' },
+          0
+        )
+        // Phase 2: Title words reveal one by one
+        .to('.lp-hero-section .lp-word', {
+          opacity: 1, y: 0, rotateX: 0,
+          stagger: 0.04, duration: 0.3, ease: 'power3.out',
+        }, 0.3)
+        // Phase 3: Subtitle + CTAs slide up
+        .fromTo('.lp-hero-subtitle', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.3 }, 0.65)
+        .fromTo('.lp-hero-ctas', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.3 }, 0.7)
+        // Phase 4: Metrics slam up from below viewport
+        .fromTo('.lp-metric', { opacity: 0, y: 80, scale: 0.8 }, {
+          opacity: 1, y: 0, scale: 1, stagger: 0.04, duration: 0.25, ease: 'back.out(1.5)',
+        }, 0.78)
+        // Phase 5: Hold — the visitor reads
+        .to({}, { duration: 0.4 })
+        // Phase 6: EXIT — everything rises + fades, photo blurs + zooms
+        .to('.lp-hero-content', { opacity: 0, y: -60, duration: 0.5, ease: 'power2.in' }, 1.5)
+        .to(heroPhotoRef.current, {
+          scale: 1.6, filter: 'brightness(0.15) blur(12px)', duration: 0.5, ease: 'power2.in',
+        }, 1.5);
 
-      /* ── Bento cards stagger ─────────── */
-      gsap.fromTo(
-        '.lp-feature-card',
-        { y: 40, opacity: 0 },
-        {
-          y: 0, opacity: 1, duration: 0.5, stagger: 0.06, ease: 'power2.out',
-          scrollTrigger: {
-            trigger: capabilitiesRef.current,
-            start: 'top 80%',
-            toggleActions: 'play none none none',
-          },
-        }
-      );
+      /* ── SCENE 2: DESCENT — Lobby crossfade + text wipe ── */
+      const descentTL = gsap.timeline({
+        scrollTrigger: {
+          trigger: descentRef.current,
+          start: 'top top',
+          end: '+=200%',
+          pin: true,
+          scrub: 0.6,
+          anticipatePin: 1,
+        },
+      });
 
-      /* ── Roles section ──────────────── */
-      gsap.fromTo(
-        '.lp-roles-content',
-        { y: 30, opacity: 0 },
-        {
-          y: 0, opacity: 1, duration: 0.6, ease: 'power2.out',
-          scrollTrigger: {
-            trigger: rolesRef.current,
-            start: 'top 75%',
-            toggleActions: 'play none none none',
-          },
-        }
-      );
+      descentTL
+        .fromTo(descentPhotoRef.current,
+          { scale: 1.3, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 1, ease: 'none' },
+          0
+        )
+        .fromTo('.lp-descent-text', { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.5 }, 0.3)
+        .fromTo('.lp-descent-line', { scaleX: 0 }, { scaleX: 1, duration: 0.4, ease: 'power2.out' }, 0.5)
+        .fromTo('.lp-descent-sub', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4 }, 0.6)
+        // Hold
+        .to({}, { duration: 0.5 })
+        // Exit
+        .to('.lp-descent-content', { opacity: 0, y: -40, duration: 0.4 }, 1.5)
+        .to(descentPhotoRef.current, { scale: 1.1, filter: 'brightness(0.2)', duration: 0.5 }, 1.5);
 
-      /* ── How It Works steps stagger ─── */
-      gsap.fromTo(
-        '.lp-step-card',
-        { y: 40, opacity: 0 },
-        {
-          y: 0, opacity: 1, duration: 0.5, stagger: 0.1, ease: 'power2.out',
+      /* ── SCENE 3: CAPABILITIES — Horizontal panel scroll ── */
+      const track = panelsTrackRef.current;
+      if (track) {
+        const totalWidth = track.scrollWidth - window.innerWidth;
+        gsap.to(track, {
+          x: () => -totalWidth,
+          ease: 'none',
           scrollTrigger: {
-            trigger: howRef.current,
-            start: 'top 80%',
-            toggleActions: 'play none none none',
+            trigger: panelsWrapRef.current,
+            start: 'top top',
+            end: () => '+=' + totalWidth,
+            pin: true,
+            scrub: 1,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
           },
-        }
-      );
+        });
 
-      /* ── Final CTA ──────────────────── */
-      gsap.fromTo(
-        '.lp-final-cta-inner',
-        { scale: 0.97, opacity: 0 },
-        {
-          scale: 1, opacity: 1, duration: 0.6, ease: 'power2.out',
-          scrollTrigger: {
-            trigger: ctaRef.current,
-            start: 'top 85%',
-            toggleActions: 'play none none none',
-          },
-        }
-      );
+        // Each panel's content fades in as it enters viewport center
+        document.querySelectorAll('.lp-panel-content').forEach((el) => {
+          gsap.fromTo(el,
+            { opacity: 0, x: 80 },
+            {
+              opacity: 1, x: 0, duration: 0.5, ease: 'power2.out',
+              scrollTrigger: {
+                trigger: el,
+                containerAnimation: gsap.getById?.('panelScroll'),
+                start: 'left 80%',
+                toggleActions: 'play none none reverse',
+              },
+            }
+          );
+        });
+      }
 
-      /* ── Metric counter animation ───── */
-      document.querySelectorAll('.lp-metric-value').forEach((el) => {
-        const raw = el.dataset.value;
-        if (!raw) return;
-        const isNumber = /^\d+$/.test(raw.replace(/[^0-9]/g, ''));
-        if (!isNumber) return;
-        const target = parseInt(raw.replace(/[^0-9]/g, ''), 10);
-        const obj = { val: 0 };
-        gsap.to(obj, {
-          val: target,
-          duration: 1.2,
-          ease: 'power1.inOut',
-          scrollTrigger: {
-            trigger: el,
-            start: 'top 90%',
-            toggleActions: 'play none none none',
+      /* ── SCENE 4: ROLES — Pinned with scroll-driven role switching ── */
+      const rolesTL = gsap.timeline({
+        scrollTrigger: {
+          trigger: rolesRef.current,
+          start: 'top top',
+          end: '+=400%',
+          pin: true,
+          scrub: 0.5,
+          anticipatePin: 1,
+          onUpdate: (self) => {
+            const prog = self.progress;
+            const idx = Math.min(3, Math.floor(prog * 4));
+            setActiveRole(idx);
           },
-          onUpdate: () => {
-            el.textContent = raw.replace(/\d+/, Math.round(obj.val).toLocaleString());
-          },
+        },
+      });
+
+      // Animate section header
+      rolesTL.fromTo('.lp-roles-header', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.15 }, 0);
+
+      /* ── SCENE 5: HOW IT WORKS — Staggered reveals ── */
+      gsap.fromTo('.lp-step-card', { opacity: 0, y: 60, scale: 0.9 }, {
+        opacity: 1, y: 0, scale: 1, stagger: 0.15, duration: 0.6, ease: 'power3.out',
+        scrollTrigger: {
+          trigger: howRef.current,
+          start: 'top 70%',
+          toggleActions: 'play none none none',
+        },
+      });
+
+      /* ── SCENE 7: FINAL CTA — Zoom out ── */
+      gsap.fromTo('.lp-cta-bg', { scale: 1.3 }, {
+        scale: 1, ease: 'none',
+        scrollTrigger: {
+          trigger: ctaRef.current,
+          start: 'top bottom',
+          end: 'top top',
+          scrub: 1,
+        },
+      });
+      gsap.fromTo('.lp-cta-inner', { opacity: 0, y: 40 }, {
+        opacity: 1, y: 0, duration: 0.8, ease: 'power2.out',
+        scrollTrigger: {
+          trigger: ctaRef.current,
+          start: 'top 60%',
+          toggleActions: 'play none none none',
+        },
+      });
+    });
+
+    /* ── MOBILE: simpler animations, no pin-scroll ── */
+    mm.add('(max-width: 767px)', () => {
+      gsap.fromTo(heroPhotoRef.current,
+        { scale: 1.15, filter: 'brightness(0.4)' },
+        { scale: 1, filter: 'brightness(1)', duration: 1, ease: 'power2.out' }
+      );
+      gsap.to('.lp-hero-section .lp-word', {
+        opacity: 1, y: 0, rotateX: 0, stagger: 0.03, duration: 0.5, delay: 0.3, ease: 'power3.out',
+      });
+      gsap.fromTo('.lp-hero-subtitle', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.6 });
+      gsap.fromTo('.lp-hero-ctas', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, delay: 0.7 });
+      gsap.fromTo('.lp-metric', { opacity: 0, y: 30 }, { opacity: 1, y: 0, stagger: 0.06, delay: 0.8 });
+
+      // Simple fade-ups for other sections
+      ['.lp-descent-text', '.lp-descent-sub', '.lp-feature-card', '.lp-step-card', '.lp-cta-inner'].forEach(sel => {
+        gsap.fromTo(sel, { opacity: 0, y: 40 }, {
+          opacity: 1, y: 0, stagger: 0.08, duration: 0.6, ease: 'power2.out',
+          scrollTrigger: { trigger: sel, start: 'top 85%', toggleActions: 'play none none none' },
         });
       });
     });
 
-    return () => ctx.revert();
+    return () => mm.revert();
   }, []);
 
-  /* ══════════════════════════════════════
-     CURSOR TILT (desktop only)
-     ══════════════════════════════════════ */
+  /* ════════════════════════════════════════════════
+     CURSOR TILT (desktop hero only)
+     ════════════════════════════════════════════════ */
   useEffect(() => {
-    if (prefersReducedMotion.current) return;
-    if (typeof window === 'undefined' || window.innerWidth < 1024) return;
-    const hero = heroContentRef.current;
+    if (prefersReducedMotion.current || typeof window === 'undefined' || window.innerWidth < 1024) return;
+    const hero = heroRef.current;
     if (!hero) return;
-
-    let tiltX = 0, tiltY = 0, targetX = 0, targetY = 0;
-    let raf;
-
-    const onMouseMove = (e) => {
-      const rect = hero.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      targetX = ((e.clientY - cy) / (rect.height / 2)) * -3;
-      targetY = ((e.clientX - cx) / (rect.width / 2)) * 5;
+    let tx = 0, ty = 0, cx = 0, cy = 0, raf;
+    const onMove = (e) => {
+      const r = hero.getBoundingClientRect();
+      cx = ((e.clientY - r.top - r.height / 2) / (r.height / 2)) * -2;
+      cy = ((e.clientX - r.left - r.width / 2) / (r.width / 2)) * 3;
     };
-
-    const update = () => {
-      tiltX += (targetX - tiltX) * 0.06;
-      tiltY += (targetY - tiltY) * 0.06;
-      hero.style.transform = `perspective(1200px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-      raf = requestAnimationFrame(update);
+    const tick = () => {
+      tx += (cx - tx) * 0.04; ty += (cy - ty) * 0.04;
+      hero.style.setProperty('--tilt-x', `${tx}deg`);
+      hero.style.setProperty('--tilt-y', `${ty}deg`);
+      raf = requestAnimationFrame(tick);
     };
-
-    window.addEventListener('mousemove', onMouseMove, { passive: true });
-    raf = requestAnimationFrame(update);
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      cancelAnimationFrame(raf);
-      if (hero) hero.style.transform = '';
-    };
+    hero.addEventListener('mousemove', onMove, { passive: true });
+    raf = requestAnimationFrame(tick);
+    return () => { hero.removeEventListener('mousemove', onMove); cancelAnimationFrame(raf); hero.style.removeProperty('--tilt-x'); hero.style.removeProperty('--tilt-y'); };
   }, []);
 
-  /* ══════════════════════════════════════
+  /* Current role */
+  const role = ROLES[activeRole];
+
+  /* ════════════════════════════════════════════════
      RENDER
-     ══════════════════════════════════════ */
-
-  const currentRole = ROLES[activeRole];
-
+     ════════════════════════════════════════════════ */
   return (
-    <div
-      className="lp-root"
-      style={{ background: 'var(--lp-bg)', color: 'var(--lp-text-primary)', fontFamily: 'var(--font-body)' }}
-    >
-      {/* ═══ SKIP LINK ═══ */}
-      <a
-        href="#main"
-        style={{
-          position: 'absolute', left: '-9999px', top: 'auto',
-          width: '1px', height: '1px', overflow: 'hidden',
-          zIndex: 100, padding: '12px 24px',
-          background: 'var(--lp-accent)', color: '#fff', borderRadius: '8px',
-        }}
-        onFocus={(e) => { e.target.style.left = '16px'; e.target.style.top = '16px'; e.target.style.width = 'auto'; e.target.style.height = 'auto'; }}
-        onBlur={(e) => { e.target.style.left = '-9999px'; }}
-      >
-        Skip to main content
-      </a>
+    <div ref={rootRef} className="lp-root" style={{
+      background: 'var(--lp-bg)', color: 'var(--lp-text-primary)',
+      fontFamily: 'var(--font-body)', overflowX: 'hidden',
+    }}>
+      {/* Skip link */}
+      <a href="#main" className="lp-skip" style={{
+        position: 'absolute', left: '-9999px', top: 'auto', zIndex: 100,
+        padding: '12px 24px', background: 'var(--lp-accent)', color: '#fff', borderRadius: '8px',
+      }}
+        onFocus={e => { e.target.style.left = '16px'; e.target.style.top = '16px'; e.target.style.width = 'auto'; e.target.style.height = 'auto'; }}
+        onBlur={e => { e.target.style.left = '-9999px'; }}
+      >Skip to main content</a>
 
-      {/* ═══════════════════════════════════
-          NAVIGATION
-          ═══════════════════════════════════ */}
-      <nav
-        ref={navRef}
-        className="lp-nav"
-        style={{
-          position: 'sticky', top: '1rem', zIndex: 40,
-          maxWidth: '80rem', margin: '0 auto',
-          padding: '0.75rem 1.25rem',
-          borderRadius: '1rem',
-          background: navScrolled ? 'var(--lp-glass-bg)' : 'transparent',
-          backdropFilter: navScrolled ? `blur(var(--lp-glass-blur))` : 'none',
-          WebkitBackdropFilter: navScrolled ? `blur(var(--lp-glass-blur))` : 'none',
-          border: navScrolled ? '1px solid var(--lp-glass-border)' : '1px solid transparent',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          transition: 'background 300ms ease, border-color 300ms ease, backdrop-filter 300ms ease, box-shadow 300ms ease',
-          boxShadow: navScrolled ? '0 8px 32px rgba(0,0,0,0.2)' : 'none',
-        }}
-      >
-        {/* Logo */}
+      {/* ═══════════════════════════════════════════
+          NAV — Floating glass pill
+          ═══════════════════════════════════════════ */}
+      <nav ref={navRef} style={{
+        position: 'fixed', top: '1rem', left: '50%', transform: 'translateX(-50%)',
+        zIndex: 50, width: 'calc(100% - 2rem)', maxWidth: '76rem',
+        padding: '0.625rem 1.25rem', borderRadius: '1rem',
+        background: navSolid ? 'var(--lp-glass-bg)' : 'rgba(0,0,0,0.15)',
+        backdropFilter: `blur(${navSolid ? 20 : 8}px)`,
+        WebkitBackdropFilter: `blur(${navSolid ? 20 : 8}px)`,
+        border: `1px solid ${navSolid ? 'var(--lp-glass-border)' : 'rgba(255,255,255,0.06)'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        transition: 'all 400ms ease',
+        boxShadow: navSolid ? '0 8px 32px rgba(0,0,0,0.3)' : 'none',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <div style={{
             width: '2rem', height: '2rem', borderRadius: '0.5rem',
             background: 'var(--lp-cta-gradient)', display: 'grid', placeItems: 'center',
-            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '0.75rem', color: '#fff',
+            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '0.7rem', color: '#fff',
           }}>MR</div>
-          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--lp-text-small)' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.875rem', color: '#fff' }}>
             MutuneRent Pro
           </span>
         </div>
 
-        {/* Desktop links */}
-        <div className="lp-nav-links" style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-          {[{ label: 'Features', id: 'capabilities' }, { label: 'How It Works', id: 'how-it-works' }, { label: 'Roles', id: 'roles' }].map(l => (
-            <button key={l.id} onClick={() => scrollToSection(l.id)} style={{
-              fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-small)', fontWeight: 500,
-              color: 'var(--lp-text-secondary)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem',
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              transition: 'color 200ms ease, background 200ms ease',
+        <div className="lp-nav-links" style={{ display: 'flex', gap: '0.25rem' }}>
+          {[{ l: 'Features', id: 'features' }, { l: 'Roles', id: 'roles' }, { l: 'How It Works', id: 'how' }].map(n => (
+            <button key={n.id} onClick={() => scrollTo(n.id)} style={{
+              fontFamily: 'var(--font-body)', fontSize: '0.8125rem', fontWeight: 500,
+              color: 'rgba(255,255,255,0.65)', padding: '0.5rem 0.75rem', borderRadius: '0.5rem',
+              background: 'none', border: 'none', cursor: 'pointer', transition: 'color 200ms ease',
             }}
-              onMouseEnter={e => { e.target.style.color = 'var(--lp-text-primary)'; e.target.style.background = 'rgba(255,255,255,0.05)'; }}
-              onMouseLeave={e => { e.target.style.color = 'var(--lp-text-secondary)'; e.target.style.background = 'transparent'; }}
-            >{l.label}</button>
+              onMouseEnter={e => { e.target.style.color = '#fff'; }}
+              onMouseLeave={e => { e.target.style.color = 'rgba(255,255,255,0.65)'; }}
+            >{n.l}</button>
           ))}
         </div>
 
-        {/* Desktop actions */}
         <div className="lp-nav-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button onClick={toggleTheme} aria-label="Toggle theme" style={{
-            width: '2.5rem', height: '2.5rem', display: 'grid', placeItems: 'center',
-            borderRadius: '0.625rem', border: '1px solid var(--lp-border)',
-            background: 'var(--lp-bg-elevated)', color: 'var(--lp-text-secondary)',
-            cursor: 'pointer', transition: 'color 150ms ease, border-color 150ms ease',
-          }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--lp-text-primary)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--lp-text-secondary)'; }}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+            width: '2.25rem', height: '2.25rem', display: 'grid', placeItems: 'center',
+            borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.12)',
+            background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+          }}>{theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}</button>
           <button onClick={handleSignIn} style={{
-            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--lp-text-small)',
-            color: 'var(--lp-text-primary)', padding: '0.6rem 1.25rem', borderRadius: '0.75rem',
-            background: 'transparent', border: '1.5px solid var(--lp-border)', cursor: 'pointer',
-            transition: 'border-color 200ms ease, background 200ms ease, transform 200ms cubic-bezier(0.16,1,0.3,1)',
+            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.8125rem',
+            color: '#fff', padding: '0.5rem 1rem', borderRadius: '0.625rem',
+            background: 'none', border: '1.5px solid rgba(255,255,255,0.2)', cursor: 'pointer',
+            transition: 'border-color 200ms, background 200ms',
           }}
             onMouseEnter={e => { e.target.style.borderColor = 'var(--lp-accent)'; e.target.style.background = 'var(--lp-accent-muted)'; }}
-            onMouseLeave={e => { e.target.style.borderColor = 'var(--lp-border)'; e.target.style.background = 'transparent'; }}
-          >
-            {isSignedIn ? 'Dashboard' : 'Sign In'}
-          </button>
+            onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.2)'; e.target.style.background = 'none'; }}
+          >{isSignedIn ? 'Dashboard' : 'Sign In'}</button>
           <button onClick={handleGetStarted} style={{
-            fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 'var(--lp-text-small)',
-            color: '#fff', padding: '0.6rem 1.25rem', borderRadius: '0.75rem',
+            fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.8125rem',
+            color: '#fff', padding: '0.5rem 1.25rem', borderRadius: '0.625rem',
             background: 'var(--lp-cta-gradient)', border: 'none', cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(80,60,220,0.3)',
-            transition: 'transform 200ms cubic-bezier(0.16,1,0.3,1), box-shadow 200ms ease',
+            boxShadow: '0 4px 16px rgba(80,60,220,0.35)',
+            transition: 'transform 200ms ease, box-shadow 200ms ease',
           }}
-            onMouseEnter={e => { e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = '0 8px 24px rgba(80,60,220,0.4)'; }}
-            onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; e.target.style.boxShadow = '0 4px 16px rgba(80,60,220,0.3)'; }}
-          >
-            {isSignedIn ? 'Go to Portal' : 'Get Started'}
-            <ArrowRight size={14} style={{ display: 'inline', marginLeft: '0.35rem', verticalAlign: 'middle' }} />
-          </button>
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(80,60,220,0.5)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(80,60,220,0.35)'; }}
+          >{isSignedIn ? 'Portal' : 'Get Started'} <ArrowRight size={13} style={{ display: 'inline', marginLeft: 4, verticalAlign: 'middle' }} /></button>
         </div>
 
         {/* Mobile hamburger */}
-        <button className="lp-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle menu" style={{
-          display: 'none', width: '2.5rem', height: '2.5rem', placeItems: 'center',
-          borderRadius: '0.5rem', border: '1px solid var(--lp-border)', background: 'var(--lp-bg-elevated)',
-          color: 'var(--lp-text-primary)', cursor: 'pointer',
-        }}>
-          {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
+        <button className="lp-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu" style={{
+          display: 'none', width: '2.25rem', height: '2.25rem', placeItems: 'center',
+          borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.06)', color: '#fff', cursor: 'pointer',
+        }}>{mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}</button>
       </nav>
 
       {/* Mobile drawer */}
+      {mobileMenuOpen && <div onClick={() => setMobileMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 55, background: 'rgba(0,0,0,0.6)' }} />}
       <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: '80vw', maxWidth: '320px',
-        zIndex: 50, background: 'var(--lp-bg-elevated)', padding: '5rem 1.5rem 2rem',
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: '80vw', maxWidth: '300px',
+        zIndex: 60, background: 'var(--lp-bg-elevated)', padding: '4.5rem 1.5rem 2rem',
         transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 300ms cubic-bezier(0.16,1,0.3,1)',
-        borderLeft: '1px solid var(--lp-border)',
-        display: 'flex', flexDirection: 'column', gap: '1.5rem',
+        borderLeft: '1px solid var(--lp-border)', display: 'flex', flexDirection: 'column', gap: '1.5rem',
       }}>
         <button onClick={() => setMobileMenuOpen(false)} style={{
-          position: 'absolute', top: '1rem', right: '1rem',
-          background: 'none', border: 'none', color: 'var(--lp-text-primary)', cursor: 'pointer',
-        }}><X size={24} /></button>
-        {['Features', 'How It Works', 'Roles'].map(label => (
-          <button key={label} onClick={() => scrollToSection(label.toLowerCase().replace(/ /g, '-'))} style={{
+          position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--lp-text-primary)', cursor: 'pointer',
+        }}><X size={22} /></button>
+        {['Features', 'Roles', 'How It Works'].map(l => (
+          <button key={l} onClick={() => scrollTo(l.toLowerCase().replace(/ /g, '-').replace('how-it-works','how'))} style={{
             fontFamily: 'var(--font-body)', fontSize: '1.125rem', fontWeight: 600,
-            color: 'var(--lp-text-primary)', background: 'none', border: 'none',
-            textAlign: 'left', cursor: 'pointer', padding: '0.5rem 0',
-          }}>{label}</button>
+            color: 'var(--lp-text-primary)', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer',
+          }}>{l}</button>
         ))}
         <div style={{ borderTop: '1px solid var(--lp-border-subtle)', paddingTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <button onClick={() => { setMobileMenuOpen(false); toggleTheme(); }} style={{
-            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '1rem',
-            color: 'var(--lp-text-secondary)', background: 'none', border: 'none',
-            textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
-          }}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
+            fontFamily: 'var(--font-body)', fontWeight: 500, color: 'var(--lp-text-secondary)',
+            background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+          }}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />} {theme === 'dark' ? 'Light' : 'Dark'} Mode</button>
           <button onClick={() => { setMobileMenuOpen(false); handleSignIn(); }} style={{
-            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '1rem',
-            color: 'var(--lp-text-primary)', padding: '0.75rem', borderRadius: '0.75rem',
-            background: 'transparent', border: '1.5px solid var(--lp-border)', cursor: 'pointer', textAlign: 'center',
+            fontFamily: 'var(--font-body)', fontWeight: 600, color: 'var(--lp-text-primary)',
+            padding: '0.75rem', borderRadius: '0.75rem', background: 'none', border: '1.5px solid var(--lp-border)', cursor: 'pointer', textAlign: 'center',
           }}>{isSignedIn ? 'Dashboard' : 'Sign In'}</button>
           <button onClick={() => { setMobileMenuOpen(false); handleGetStarted(); }} style={{
-            fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '1rem',
-            color: '#fff', padding: '0.75rem', borderRadius: '0.75rem',
-            background: 'var(--lp-cta-gradient)', border: 'none', cursor: 'pointer', textAlign: 'center',
-          }}>{isSignedIn ? 'Go to Portal' : 'Get Started'}</button>
+            fontFamily: 'var(--font-body)', fontWeight: 700, color: '#fff',
+            padding: '0.75rem', borderRadius: '0.75rem', background: 'var(--lp-cta-gradient)', border: 'none', cursor: 'pointer', textAlign: 'center',
+          }}>{isSignedIn ? 'Portal' : 'Get Started'}</button>
         </div>
       </div>
-      {mobileMenuOpen && <div onClick={() => setMobileMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 45, background: 'rgba(0,0,0,0.5)' }} />}
 
       <main id="main">
-        {/* ═══════════════════════════════════
-            S1: HERO
-            ═══════════════════════════════════ */}
-        <section ref={heroRef} aria-label="Hero" style={{
-          position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', overflow: 'hidden', padding: '6rem 1rem 4rem',
+        {/* ═══════════════════════════════════════════
+            SCENE 1: HERO — Full-viewport cinematic arrival
+            Pinned for 250% scroll. Camera arrives, text reveals
+            word-by-word, metrics slam up, then everything exits.
+            ═══════════════════════════════════════════ */}
+        <section ref={heroRef} className="lp-hero-section" style={{
+          position: 'relative', height: '100vh', overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          {/* Background photo */}
-          <div ref={heroImgRef} style={{
-            position: 'absolute', inset: 0, zIndex: 0,
+          {/* Photo layer */}
+          <div ref={heroPhotoRef} style={{
+            position: 'absolute', inset: '-15%', zIndex: 0,
+            willChange: 'transform, filter',
           }}>
-            <img
-              src="/assets/hero_coastal_building.png"
-              alt="Luxury coastal apartment building in Mombasa at golden hour"
-              fetchpriority="high"
-              decoding="async"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+            <img src="/assets/hero_coastal_building.png" alt="Luxury coastal building in Mombasa at golden hour"
+              fetchpriority="high" decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
 
-          {/* Gradient overlay */}
-          <div style={{
+          {/* Dark gradient */}
+          <div ref={heroOverlayRef} style={{
             position: 'absolute', inset: 0, zIndex: 1,
-            background: 'var(--lp-hero-overlay)',
-          }} aria-hidden="true" />
+            background: 'linear-gradient(to bottom, rgba(10,12,20,0.25) 0%, rgba(10,12,20,0.7) 50%, rgba(10,12,20,0.95) 100%)',
+          }} />
 
-          {/* Ambient particles canvas */}
-          <canvas ref={canvasRef} style={{
-            position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
-          }} aria-hidden="true" />
+          {/* Particles */}
+          <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} aria-hidden="true" />
 
-          {/* Hero content */}
-          <div ref={heroContentRef} style={{
-            position: 'relative', zIndex: 3, maxWidth: '64rem', textAlign: 'center',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem',
-            willChange: 'transform',
+          {/* Content */}
+          <div className="lp-hero-content" style={{
+            position: 'relative', zIndex: 3, textAlign: 'center',
+            maxWidth: '56rem', padding: '0 1.5rem',
+            perspective: '1200px',
           }}>
             {/* Badge */}
-            <div className="lp-hero-badge" style={{
+            <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
-              fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-badge)', fontWeight: 700,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              padding: '0.375rem 0.75rem', borderRadius: '2rem',
-              background: 'var(--lp-accent-muted)', color: 'var(--lp-accent)',
+              fontFamily: 'var(--font-body)', fontSize: '0.625rem', fontWeight: 700,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              padding: '0.375rem 0.875rem', borderRadius: '2rem',
+              background: 'rgba(100,130,255,0.15)', color: 'rgba(160,180,255,0.9)',
+              marginBottom: '1.5rem',
             }}>
-              <Building2 size={12} /> Mombasa&apos;s Premier Property Platform
+              <Building2 size={11} /> Mombasa&apos;s Premier Property Platform
             </div>
 
-            {/* Headline — 2-line iron rule */}
-            <h1 className="lp-hero-title" style={{
+            {/* Headline — word-by-word reveal */}
+            <h1 style={{
               fontFamily: 'var(--font-display)', fontWeight: 800,
-              fontSize: 'var(--lp-text-hero)', lineHeight: 'var(--lp-leading-tight)',
-              maxWidth: '52rem',
+              fontSize: 'var(--lp-text-hero)', lineHeight: 1.1,
+              color: '#fff', marginBottom: '1.25rem',
             }}>
-              Coastal Property Management{' '}
-              <span style={{
-                background: 'var(--lp-cta-gradient)', WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              }}>
-                Built on Spatial Intelligence
+              <SplitWords>Coastal Property Management</SplitWords>
+              <br />
+              <span style={{ display: 'block', marginTop: '0.25rem' }}>
+                <SplitWords className="lp-gradient-text" style={{
+                  background: 'var(--lp-cta-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                }}>Built on Spatial Intelligence</SplitWords>
               </span>
             </h1>
 
             {/* Subtitle */}
             <p className="lp-hero-subtitle" style={{
-              fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-body)',
-              color: 'var(--lp-text-secondary)', maxWidth: '36rem',
-              lineHeight: 'var(--lp-leading-normal)',
+              fontFamily: 'var(--font-body)', fontSize: 'clamp(0.9375rem, 1.5vw, 1.125rem)',
+              color: 'rgba(255,255,255,0.55)', maxWidth: '34rem', margin: '0 auto 2rem',
+              lineHeight: 1.6, opacity: 0,
             }}>
               Automate KRA taxes. Collect rent via M-Pesa. Visualize every unit in 3D. Purpose-built for Mombasa&apos;s coast.
             </p>
 
             {/* CTAs */}
-            <div className="lp-hero-ctas" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div className="lp-hero-ctas" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', opacity: 0 }}>
               <button onClick={handleGetStarted} style={{
-                fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 'var(--lp-text-small)',
-                color: '#fff', padding: '0.875rem 2rem', borderRadius: '0.75rem',
+                fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.9375rem',
+                color: '#fff', padding: '0.9rem 2.25rem', borderRadius: '0.75rem',
                 background: 'var(--lp-cta-gradient)', border: 'none', cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(80,60,220,0.35)',
-                transition: 'transform 200ms cubic-bezier(0.16,1,0.3,1), box-shadow 200ms ease',
+                boxShadow: '0 6px 28px rgba(80,60,220,0.4)',
+                transition: 'transform 200ms ease, box-shadow 200ms ease',
                 display: 'flex', alignItems: 'center', gap: '0.5rem',
               }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(80,60,220,0.45)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(80,60,220,0.35)'; }}
-              >
-                {isSignedIn ? 'Go to Portal' : 'Get Started Free'} <ArrowRight size={16} />
-              </button>
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(80,60,220,0.55)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(80,60,220,0.4)'; }}
+              >{isSignedIn ? 'Go to Portal' : 'Get Started Free'} <ArrowRight size={16} /></button>
               <button onClick={handleSignIn} style={{
-                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--lp-text-small)',
-                color: 'var(--lp-text-primary)', padding: '0.875rem 2rem', borderRadius: '0.75rem',
-                background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.15)',
-                cursor: 'pointer',
+                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.9375rem',
+                color: 'rgba(255,255,255,0.85)', padding: '0.9rem 2.25rem', borderRadius: '0.75rem',
+                background: 'rgba(255,255,255,0.07)', border: '1.5px solid rgba(255,255,255,0.15)', cursor: 'pointer',
                 transition: 'border-color 200ms ease, background 200ms ease',
               }}
                 onMouseEnter={e => { e.target.style.borderColor = 'var(--lp-accent)'; e.target.style.background = 'var(--lp-accent-muted)'; }}
-                onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.15)'; e.target.style.background = 'rgba(255,255,255,0.08)'; }}
-              >
-                {isSignedIn ? 'Dashboard' : 'Sign In'}
-              </button>
+                onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.15)'; e.target.style.background = 'rgba(255,255,255,0.07)'; }}
+              >{isSignedIn ? 'Dashboard' : 'Sign In'}</button>
             </div>
 
             {/* Metrics */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem',
-              marginTop: '2rem', width: '100%', maxWidth: '48rem',
-            }} className="lp-metrics-grid">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginTop: '3rem', maxWidth: '48rem', margin: '3rem auto 0' }} className="lp-metrics-grid">
               {METRICS.map((m, i) => (
                 <div key={i} className="lp-metric" style={{
-                  padding: '1rem 0.75rem', borderRadius: '1rem', textAlign: 'center',
-                  background: 'var(--lp-glass-bg)',
-                  backdropFilter: 'blur(var(--lp-glass-blur))',
-                  WebkitBackdropFilter: 'blur(var(--lp-glass-blur))',
-                  border: '1px solid var(--lp-glass-border)',
+                  padding: '1rem 0.5rem', borderRadius: '1rem', textAlign: 'center', opacity: 0,
+                  background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255,255,255,0.06)',
                 }}>
-                  <div className="lp-metric-value" data-value={m.value} style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)',
-                    fontWeight: 400, color: m.color, lineHeight: 'var(--lp-leading-tight)',
-                  }}>{m.value}</div>
-                  <div style={{
-                    fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-badge)', fontWeight: 700,
-                    letterSpacing: '0.1em', textTransform: 'uppercase',
-                    color: 'var(--lp-text-secondary)', marginTop: '0.25rem',
-                  }}>{m.label}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)', color: m.color, lineHeight: 1.1 }}>{m.value}</div>
+                  <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginTop: '0.25rem' }}>{m.label}</div>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Scroll indicator */}
+          <div style={{
+            position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
+          }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.625rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>Scroll</span>
+            <ChevronDown size={16} style={{ color: 'rgba(255,255,255,0.3)', animation: 'lp-bounce 2s infinite' }} />
+          </div>
         </section>
 
-        {/* ═══════════════════════════════════
-            S2: TRANSITION — "Step Inside"
-            ═══════════════════════════════════ */}
-        <section ref={transitionRef} aria-label="Transition" style={{
-          position: 'relative', padding: 'var(--sp-24) 1rem',
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', minHeight: '60vh', overflow: 'hidden',
+        {/* ═══════════════════════════════════════════
+            SCENE 2: DESCENT — Camera pushes through the door
+            Pinned for 200% scroll. Lobby photo crossfades in.
+            ═══════════════════════════════════════════ */}
+        <section ref={descentRef} style={{
+          position: 'relative', height: '100vh', overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <div className="lp-transition-img" style={{
-            position: 'absolute', inset: 0, zIndex: 0, opacity: 0,
+          <div ref={descentPhotoRef} style={{
+            position: 'absolute', inset: '-10%', zIndex: 0, opacity: 0, willChange: 'transform',
           }}>
-            <img
-              src="/assets/building_interior_lobby.png"
-              alt="Modern luxury apartment building lobby"
-              loading="lazy" decoding="async"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'var(--lp-hero-overlay)',
-            }} aria-hidden="true" />
+            <img src="/assets/building_interior_lobby.png" alt="Modern luxury lobby" loading="lazy" decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,12,20,0.4) 0%, rgba(10,12,20,0.85) 100%)' }} />
           </div>
-          <div className="lp-transition-text" style={{
-            position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '40rem',
-          }}>
-            <h2 style={{
+          <div className="lp-descent-content" style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '40rem', padding: '0 1.5rem' }}>
+            <h2 className="lp-descent-text" style={{
               fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: 'var(--lp-text-h2)', lineHeight: 'var(--lp-leading-snug)',
-              marginBottom: 'var(--sp-4)',
-            }}>
-              Step inside your next investment
-            </h2>
-            <p style={{
+              fontSize: 'var(--lp-text-h2)', lineHeight: 1.2, color: '#fff', marginBottom: '1rem',
+            }}>Step inside your next investment</h2>
+            <div className="lp-descent-line" style={{ width: '60px', height: '2px', background: 'var(--lp-accent)', margin: '0 auto 1.5rem', transformOrigin: 'left' }} />
+            <p className="lp-descent-sub" style={{
               fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-body)',
-              color: 'var(--lp-text-secondary)', lineHeight: 'var(--lp-leading-normal)',
-            }}>
-              From lobby to rooftop, every floor is mapped. Every unit is tracked. Every payment is reconciled.
-            </p>
+              color: 'rgba(255,255,255,0.55)', lineHeight: 1.6,
+            }}>From lobby to rooftop, every floor is mapped. Every unit is tracked. Every payment is reconciled.</p>
           </div>
         </section>
 
-        {/* ═══════════════════════════════════
-            S3: CAPABILITIES — Bento Grid
-            ═══════════════════════════════════ */}
-        <section ref={capabilitiesRef} id="capabilities" aria-label="Features" style={{
-          padding: 'var(--sp-20) 1rem', maxWidth: '80rem', margin: '0 auto',
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: 'var(--sp-10)' }}>
-            <h2 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: 'var(--lp-text-h2)', lineHeight: 'var(--lp-leading-snug)',
-            }}>
-              Everything you need to manage coastal property
-            </h2>
-          </div>
-
-          <div className="lp-bento" style={{
-            display: 'grid', gap: 'var(--sp-4)',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+        {/* ═══════════════════════════════════════════
+            SCENE 3: CAPABILITIES — Horizontal panel scroll
+            4 full-viewport panels that scroll LEFT as you scroll DOWN.
+            ═══════════════════════════════════════════ */}
+        <section ref={panelsWrapRef} id="features" aria-label="Features" style={{ overflow: 'hidden' }}>
+          <div ref={panelsTrackRef} className="lp-panels-track" style={{
+            display: 'flex', width: 'fit-content',
           }}>
-            {FEATURES.map((f) => (
-              <div
-                key={f.id}
-                ref={f.has3D ? demoCardRef : undefined}
-                className="lp-feature-card"
-                style={{
-                  padding: 'var(--sp-6)', borderRadius: '1.25rem',
-                  background: 'var(--lp-bg-elevated)', border: '1px solid var(--lp-border)',
-                  gridColumn: `span ${f.span}`,
-                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                  transition: 'border-color 300ms ease, transform 300ms cubic-bezier(0.16,1,0.3,1), box-shadow 300ms ease',
-                  cursor: 'default', overflow: 'hidden', minHeight: f.has3D ? '20rem' : 'auto',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--lp-accent)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(80,60,220,0.08)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--lp-border)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
-              >
-                <div>
-                  {/* Icon */}
-                  <div className={`lp-card-icon ${f.accentClass}`} style={{
-                    width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem',
-                    display: 'grid', placeItems: 'center', marginBottom: 'var(--sp-5)',
-                    transition: 'transform 300ms cubic-bezier(0.16,1,0.3,1)',
-                    background: f.id === 'spatial' ? 'var(--lp-accent-muted)' :
-                      f.id === 'kra' ? 'var(--lp-emerald-muted)' :
-                        f.id === 'mpesa' ? 'var(--lp-teal-muted)' : 'var(--lp-purple-muted)',
-                    color: f.id === 'spatial' ? 'var(--lp-accent)' :
-                      f.id === 'kra' ? 'var(--lp-emerald)' :
-                        f.id === 'mpesa' ? 'var(--lp-teal)' : 'var(--lp-purple)',
-                  }}>
-                    <f.icon size={20} />
-                  </div>
-
-                  {/* Badge */}
-                  <div style={{
-                    display: 'inline-flex', fontSize: 'var(--lp-text-badge)', fontWeight: 700,
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                    padding: '0.25rem 0.5rem', borderRadius: '0.375rem', marginBottom: 'var(--sp-3)',
-                    background: f.id === 'spatial' ? 'var(--lp-accent-muted)' :
-                      f.id === 'kra' ? 'var(--lp-emerald-muted)' :
-                        f.id === 'mpesa' ? 'var(--lp-teal-muted)' : 'var(--lp-purple-muted)',
-                    color: f.id === 'spatial' ? 'var(--lp-accent)' :
-                      f.id === 'kra' ? 'var(--lp-emerald)' :
-                        f.id === 'mpesa' ? 'var(--lp-teal)' : 'var(--lp-purple)',
-                  }}>{f.badge}</div>
-
-                  {/* Title + desc */}
-                  <h3 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 600,
-                    fontSize: 'var(--lp-text-h3)', lineHeight: 'var(--lp-leading-snug)',
-                    marginBottom: 'var(--sp-2)',
-                  }}>{f.title}</h3>
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-body)',
-                    color: 'var(--lp-text-secondary)', lineHeight: 'var(--lp-leading-normal)',
-                  }}>{f.desc}</p>
+            {FEATURES.map((f, i) => (
+              <div key={f.id} className="lp-panel" style={{
+                width: '100vw', height: '100vh', flexShrink: 0,
+                display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden',
+              }}>
+                {/* Panel background photo */}
+                <div style={{
+                  position: 'absolute', inset: 0, zIndex: 0,
+                }}>
+                  <img src={f.photo} alt={f.title} loading="lazy" decoding="async"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.3)' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, rgba(10,12,20,0.92) 0%, rgba(10,12,20,0.6) 100%)` }} />
                 </div>
 
-                {/* 3D Demo embed for spatial card */}
-                {f.has3D && (
+                {/* Panel content */}
+                <div className="lp-panel-content" style={{
+                  position: 'relative', zIndex: 1,
+                  display: 'grid', gridTemplateColumns: f.has3D ? '1fr 1fr' : '1fr 1fr', gap: '4rem',
+                  maxWidth: '72rem', margin: '0 auto', padding: '0 4rem',
+                  alignItems: 'center', width: '100%',
+                }}>
+                  <div>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                      fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                      padding: '0.3rem 0.6rem', borderRadius: '0.375rem',
+                      background: f.colorMuted, color: f.color, marginBottom: '1.25rem',
+                    }}>
+                      <f.icon size={12} /> Feature {String(i + 1).padStart(2, '0')}
+                    </div>
+                    <h3 style={{
+                      fontFamily: 'var(--font-display)', fontWeight: 700,
+                      fontSize: 'clamp(1.75rem, 3vw, 2.75rem)', lineHeight: 1.15,
+                      color: '#fff', marginBottom: '1rem',
+                    }}>{f.title}</h3>
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontSize: 'clamp(0.9375rem, 1.2vw, 1.0625rem)',
+                      color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, maxWidth: '28rem',
+                    }}>{f.desc}</p>
+                  </div>
+
+                  {/* Right side: 3D demo or large icon */}
                   <div style={{
-                    marginTop: 'var(--sp-6)', borderRadius: '0.75rem', overflow: 'hidden',
-                    height: '14rem', background: 'var(--lp-bg-recessed)',
-                    border: '1px solid var(--lp-border-subtle)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    {demoVisible ? (
-                      <Suspense fallback={
-                        <div style={{
-                          width: '100%', height: '100%',
-                          background: 'linear-gradient(90deg, var(--lp-bg-elevated) 25%, var(--lp-bg-recessed) 50%, var(--lp-bg-elevated) 75%)',
-                          backgroundSize: '200% 100%',
-                          animation: 'shimmer 1.5s infinite',
-                        }} />
-                      }>
-                        <VoxelBuildingMini3D />
-                      </Suspense>
+                    {f.has3D ? (
+                      <div ref={demoCardRef} style={{
+                        width: '100%', aspectRatio: '4/3', borderRadius: '1.25rem',
+                        overflow: 'hidden', background: 'rgba(0,0,0,0.4)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+                      }}>
+                        {demoVisible ? (
+                          <Suspense fallback={
+                            <div style={{ width: '100%', height: '100%', background: 'rgba(20,22,30,0.8)', display: 'grid', placeItems: 'center' }}>
+                              <div style={{ width: '2rem', height: '2rem', border: '2px solid var(--lp-accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                            </div>
+                          }>
+                            <VoxelBuildingMini3D />
+                          </Suspense>
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', background: 'rgba(20,22,30,0.8)', display: 'grid', placeItems: 'center' }}>
+                            <MapPin size={48} style={{ color: 'var(--lp-accent)', opacity: 0.3 }} />
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <img src="/assets/voxel_estate.png" alt="3D voxel building visualization"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        loading="lazy" decoding="async" />
+                      <div style={{
+                        width: '12rem', height: '12rem', borderRadius: '2rem',
+                        background: f.colorMuted, display: 'grid', placeItems: 'center',
+                        border: `1px solid ${f.color}20`,
+                        boxShadow: `0 24px 80px ${f.color}15`,
+                      }}>
+                        <f.icon size={56} style={{ color: f.color, opacity: 0.7 }} />
+                      </div>
                     )}
                   </div>
-                )}
+                </div>
+
+                {/* Panel number indicator */}
+                <div style={{
+                  position: 'absolute', bottom: '2rem', left: '4rem', zIndex: 2,
+                  fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)',
+                }}>{String(i + 1).padStart(2, '0')} / {String(FEATURES.length).padStart(2, '0')}</div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ═══════════════════════════════════
-            S4: ROLE-SPECIFIC FLOWS
-            ═══════════════════════════════════ */}
-        <section ref={rolesRef} id="roles" aria-label="Role-specific flows" style={{
-          padding: 'var(--sp-20) 1rem', maxWidth: '80rem', margin: '0 auto',
+        {/* ═══════════════════════════════════════════
+            SCENE 4: ROLE JOURNEYS — Pinned, roles switch on scroll
+            ═══════════════════════════════════════════ */}
+        <section ref={rolesRef} id="roles" aria-label="Role journeys" style={{
+          position: 'relative', height: '100vh', overflow: 'hidden',
         }}>
-          <div style={{ textAlign: 'center', marginBottom: 'var(--sp-10)' }}>
-            <h2 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: 'var(--lp-text-h2)', lineHeight: 'var(--lp-leading-snug)',
+          {/* Background photos — stacked, controlled by activeRole */}
+          {ROLES.map((r, i) => (
+            <div key={r.id} style={{
+              position: 'absolute', inset: 0, zIndex: 0,
+              opacity: activeRole === i ? 1 : 0,
+              transition: 'opacity 600ms ease',
             }}>
-              Your role. Your journey.
-            </h2>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-body)',
-              color: 'var(--lp-text-secondary)', marginTop: 'var(--sp-3)', maxWidth: '32rem', marginInline: 'auto',
-            }}>
-              Four portals, each purpose-built for how you work.
-            </p>
-          </div>
-
-          {/* Role tabs */}
-          <div style={{
-            display: 'flex', justifyContent: 'center', gap: 'var(--sp-2)',
-            marginBottom: 'var(--sp-8)', flexWrap: 'wrap',
-          }}>
-            {ROLES.map((r, i) => (
-              <button key={r.id} onClick={() => setActiveRole(i)} style={{
-                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--lp-text-small)',
-                padding: '0.625rem 1.25rem', borderRadius: '0.625rem', cursor: 'pointer',
-                border: i === activeRole ? '1.5px solid transparent' : '1.5px solid var(--lp-border)',
-                background: i === activeRole ? r.accentMuted : 'transparent',
-                color: i === activeRole ? 'var(--lp-text-primary)' : 'var(--lp-text-secondary)',
-                transition: 'all 250ms ease',
-                display: 'flex', alignItems: 'center', gap: '0.375rem',
-              }}>
-                <r.icon size={16} /> {r.title}
-              </button>
-            ))}
-          </div>
-
-          {/* Role content */}
-          <div className="lp-roles-content" style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-8)',
-            alignItems: 'center',
-          }}>
-            {/* Photo */}
-            <div style={{
-              borderRadius: '1.25rem', overflow: 'hidden',
-              aspectRatio: '4/3', position: 'relative',
-            }}>
-              <img
-                key={currentRole.id}
-                src={currentRole.photo}
-                alt={`${currentRole.title} using MutuneRent Pro`}
-                loading="lazy" decoding="async"
-                style={{
-                  width: '100%', height: '100%', objectFit: 'cover',
-                  transition: 'opacity 400ms ease',
-                }}
-              />
+              <img src={r.photo} alt={`${r.title} role`} loading="lazy" decoding="async"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.25)' }} />
             </div>
+          ))}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(135deg, rgba(10,12,20,0.88) 0%, rgba(10,12,20,0.6) 100%)' }} />
 
-            {/* Steps */}
-            <div>
-              <h3 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 700,
-                fontSize: 'var(--lp-text-h3)', marginBottom: 'var(--sp-6)',
-                display: 'flex', alignItems: 'center', gap: '0.5rem',
-              }}>
-                <span style={{
-                  width: '2rem', height: '2rem', borderRadius: '0.5rem',
-                  background: currentRole.accentMuted, display: 'grid', placeItems: 'center',
-                  color: currentRole.accent,
-                }}>
-                  <currentRole.icon size={16} />
-                </span>
-                {currentRole.title} Journey
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-                {currentRole.steps.map((s, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-3)',
-                    padding: 'var(--sp-4)', borderRadius: '0.75rem',
-                    background: 'var(--lp-bg-elevated)', border: '1px solid var(--lp-border-subtle)',
-                    transition: 'border-color 200ms ease',
+          {/* Content */}
+          <div style={{
+            position: 'relative', zIndex: 2, height: '100%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 2rem',
+          }}>
+            <div style={{ maxWidth: '72rem', width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem', alignItems: 'center' }} className="lp-roles-grid">
+              {/* Left: Role info */}
+              <div className="lp-roles-header">
+                <div style={{
+                  display: 'inline-flex', gap: '0.375rem', alignItems: 'center',
+                  fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  padding: '0.3rem 0.6rem', borderRadius: '0.375rem',
+                  background: role.accentMuted, color: role.accent, marginBottom: '1.5rem',
+                }}><role.icon size={12} /> Your Journey</div>
+
+                <h2 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 700,
+                  fontSize: 'var(--lp-text-h2)', lineHeight: 1.15, color: '#fff', marginBottom: '0.5rem',
+                }}>{role.title} Portal</h2>
+
+                {/* Role tabs */}
+                <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+                  {ROLES.map((r, i) => (
+                    <button key={r.id} onClick={() => setActiveRole(i)} style={{
+                      fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600,
+                      padding: '0.375rem 0.75rem', borderRadius: '0.5rem',
+                      background: activeRole === i ? r.accentMuted : 'rgba(255,255,255,0.04)',
+                      border: 'none', color: activeRole === i ? '#fff' : 'rgba(255,255,255,0.4)',
+                      cursor: 'pointer', transition: 'all 200ms ease',
+                    }}>{r.title}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: Steps */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {role.steps.map((s, i) => (
+                  <div key={`${role.id}-${i}`} style={{
+                    display: 'flex', alignItems: 'center', gap: '1rem',
+                    padding: '1rem 1.25rem', borderRadius: '1rem',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    transition: 'border-color 300ms ease, background 300ms ease',
                   }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = currentRole.accent; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--lp-border-subtle)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = role.accent; e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
                   >
                     <div style={{
-                      width: '2rem', height: '2rem', borderRadius: '0.5rem', flexShrink: 0,
-                      background: currentRole.accentMuted, display: 'grid', placeItems: 'center',
-                      color: currentRole.accent, fontFamily: 'var(--font-mono)', fontSize: '0.75rem',
-                    }}>
-                      <s.icon size={14} />
-                    </div>
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-body)',
-                      color: 'var(--lp-text-primary)', lineHeight: 'var(--lp-leading-normal)',
-                    }}>{s.text}</p>
+                      width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem', flexShrink: 0,
+                      background: role.accentMuted, display: 'grid', placeItems: 'center', color: role.accent,
+                    }}><s.icon size={14} /></div>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9375rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{s.text}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* Progress dots */}
+          <div style={{
+            position: 'absolute', right: '2rem', top: '50%', transform: 'translateY(-50%)',
+            zIndex: 3, display: 'flex', flexDirection: 'column', gap: '0.5rem',
+          }} className="lp-role-dots">
+            {ROLES.map((r, i) => (
+              <div key={r.id} style={{
+                width: activeRole === i ? '10px' : '6px',
+                height: activeRole === i ? '10px' : '6px',
+                borderRadius: '50%',
+                background: activeRole === i ? role.accent : 'rgba(255,255,255,0.2)',
+                transition: 'all 300ms ease',
+              }} />
+            ))}
+          </div>
         </section>
 
-        {/* ═══════════════════════════════════
-            S5: HOW IT WORKS
-            ═══════════════════════════════════ */}
-        <section ref={howRef} id="how-it-works" aria-label="How it works" style={{
-          padding: 'var(--sp-20) 1rem', maxWidth: '80rem', margin: '0 auto',
+        {/* ═══════════════════════════════════════════
+            SCENE 5: HOW IT WORKS
+            ═══════════════════════════════════════════ */}
+        <section ref={howRef} id="how" aria-label="How it works" style={{
+          padding: '8rem 2rem', maxWidth: '72rem', margin: '0 auto',
         }}>
-          <div style={{ textAlign: 'center', marginBottom: 'var(--sp-10)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: 'var(--lp-text-h2)', lineHeight: 'var(--lp-leading-snug)',
-            }}>
-              Three steps to full control
-            </h2>
+              fontSize: 'var(--lp-text-h2)', lineHeight: 1.2,
+            }}>Three steps to full control</h2>
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-6)' }} className="lp-steps-grid">
-            {HOW_IT_WORKS.map((s) => (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }} className="lp-steps-grid">
+            {STEPS.map(s => (
               <div key={s.step} className="lp-step-card" style={{
-                padding: 'var(--sp-6)', borderRadius: '1.25rem',
+                padding: '2.5rem 2rem', borderRadius: '1.5rem',
                 background: 'var(--lp-bg-elevated)', border: '1px solid var(--lp-border)',
                 textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center',
-                transition: 'border-color 300ms ease, transform 300ms cubic-bezier(0.16,1,0.3,1)',
+                transition: 'border-color 300ms ease, transform 300ms ease',
               }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--lp-accent)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--lp-border)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--lp-accent)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--lp-border)'; e.currentTarget.style.transform = 'none'; }}
               >
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--lp-accent)', marginBottom: '1rem' }}>{s.step}</div>
                 <div style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--lp-text-caption)',
-                  color: 'var(--lp-accent)', fontWeight: 400, marginBottom: 'var(--sp-3)',
-                }}>{s.step}</div>
-                <div style={{
-                  width: '3rem', height: '3rem', borderRadius: '0.75rem',
+                  width: '3.5rem', height: '3.5rem', borderRadius: '1rem',
                   background: 'var(--lp-accent-muted)', display: 'grid', placeItems: 'center',
-                  color: 'var(--lp-accent)', marginBottom: 'var(--sp-4)',
-                }}>
-                  <s.icon size={22} />
-                </div>
-                <h3 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 600,
-                  fontSize: 'var(--lp-text-h3)', marginBottom: 'var(--sp-2)',
-                }}>{s.title}</h3>
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-body)',
-                  color: 'var(--lp-text-secondary)', lineHeight: 'var(--lp-leading-normal)',
-                }}>{s.desc}</p>
+                  color: 'var(--lp-accent)', marginBottom: '1.25rem',
+                }}><s.icon size={22} /></div>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.25rem', marginBottom: '0.5rem' }}>{s.title}</h3>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9375rem', color: 'var(--lp-text-secondary)', lineHeight: 1.6 }}>{s.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* S6: Testimonials — zero trace, reserved for future */}
-
-        {/* ═══════════════════════════════════
-            S7: FINAL CTA
-            ═══════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════
+            SCENE 7: FINAL CTA — Aerial pullback
+            ═══════════════════════════════════════════ */}
         <section ref={ctaRef} aria-label="Call to action" style={{
-          position: 'relative', padding: 'var(--sp-24) 1rem',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          minHeight: '50vh', overflow: 'hidden',
+          position: 'relative', height: '80vh', minHeight: '500px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
         }}>
-          <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-            <img
-              src="/assets/mombasa_aerial_coastline.png"
-              alt="Aerial view of Mombasa coastline"
-              loading="lazy" decoding="async"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'var(--lp-hero-overlay)',
-            }} aria-hidden="true" />
+          <div className="lp-cta-bg" style={{
+            position: 'absolute', inset: '-15%', zIndex: 0, willChange: 'transform',
+          }}>
+            <img src="/assets/mombasa_aerial_coastline.png" alt="Aerial Mombasa coastline" loading="lazy" decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,12,20,0.5), rgba(10,12,20,0.9))' }} />
           </div>
-
-          <div className="lp-final-cta-inner" style={{
-            position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '36rem',
+          <div className="lp-cta-inner" style={{
+            position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '36rem', padding: '0 1.5rem',
           }}>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: 'var(--lp-text-h2)', lineHeight: 'var(--lp-leading-snug)',
-              marginBottom: 'var(--sp-4)',
-            }}>
-              Ready to manage your coast?
-            </h2>
+              fontSize: 'var(--lp-text-h2)', lineHeight: 1.2, color: '#fff', marginBottom: '1rem',
+            }}>Ready to manage your coast?</h2>
             <p style={{
-              fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-body)',
-              color: 'var(--lp-text-secondary)', lineHeight: 'var(--lp-leading-normal)',
-              marginBottom: 'var(--sp-8)',
-            }}>
-              Join landlords, tenants, and agents across Mombasa who have switched to automated property management.
-            </p>
+              fontFamily: 'var(--font-body)', fontSize: '1rem',
+              color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, marginBottom: '2.5rem',
+            }}>Join landlords, tenants, and agents across Mombasa who have switched to automated property management.</p>
             <button onClick={handleGetStarted} style={{
-              fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '1rem',
-              color: '#fff', padding: '1rem 2.5rem', borderRadius: '0.75rem',
+              fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '1.0625rem',
+              color: '#fff', padding: '1.125rem 3rem', borderRadius: '0.75rem',
               background: 'var(--lp-cta-gradient)', border: 'none', cursor: 'pointer',
-              boxShadow: '0 6px 24px rgba(80,60,220,0.4)',
-              transition: 'transform 200ms cubic-bezier(0.16,1,0.3,1), box-shadow 200ms ease',
+              boxShadow: '0 8px 32px rgba(80,60,220,0.45)',
+              transition: 'transform 200ms ease, box-shadow 200ms ease',
               display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
             }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 36px rgba(80,60,220,0.5)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(80,60,220,0.4)'; }}
-            >
-              Create Free Account <ArrowRight size={18} />
-            </button>
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 14px 48px rgba(80,60,220,0.6)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(80,60,220,0.45)'; }}
+            >Create Free Account <ArrowRight size={18} /></button>
           </div>
         </section>
       </main>
 
-      {/* ═══════════════════════════════════
+      {/* ═══════════════════════════════════════════
           FOOTER
-          ═══════════════════════════════════ */}
+          ═══════════════════════════════════════════ */}
       <footer style={{
-        padding: 'var(--sp-12) 1rem var(--sp-6)',
-        maxWidth: '80rem', margin: '0 auto',
+        padding: '4rem 2rem 2rem', maxWidth: '72rem', margin: '0 auto',
         borderTop: '1px solid var(--lp-border-subtle)',
       }}>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-8)',
-          marginBottom: 'var(--sp-8)',
-        }} className="lp-footer-grid">
-          {/* Brand */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem', marginBottom: '3rem' }} className="lp-footer-grid">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 'var(--sp-3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <div style={{
-                width: '2rem', height: '2rem', borderRadius: '0.5rem',
+                width: '1.75rem', height: '1.75rem', borderRadius: '0.4rem',
                 background: 'var(--lp-cta-gradient)', display: 'grid', placeItems: 'center',
-                fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '0.75rem', color: '#fff',
+                fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '0.6rem', color: '#fff',
               }}>MR</div>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--lp-text-small)' }}>
-                MutuneRent Pro
-              </span>
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.8125rem' }}>MutuneRent Pro</span>
             </div>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-small)',
-              color: 'var(--lp-text-secondary)', lineHeight: 'var(--lp-leading-normal)',
-            }}>
-              Mutune General Estate Agency<br />
-              Mombasa, Kenya
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--lp-text-secondary)', lineHeight: 1.6 }}>
+              Mutune General Estate Agency<br />Mombasa, Kenya
             </p>
           </div>
-
-          {/* Platform */}
           <div>
-            <h4 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--lp-text-small)',
-              marginBottom: 'var(--sp-3)', color: 'var(--lp-text-primary)',
-            }}>Platform</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.75rem' }}>Platform</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               {['3D Spatial Maps', 'KRA Tax Engine', 'M-Pesa Payments', 'Agent Portal'].map(l => (
-                <button key={l} onClick={() => scrollToSection('capabilities')} style={{
-                  fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-small)',
-                  color: 'var(--lp-text-secondary)', background: 'none', border: 'none',
-                  cursor: 'pointer', textAlign: 'left', padding: 0,
-                  transition: 'color 150ms ease',
-                }}
+                <button key={l} onClick={() => scrollTo('features')} style={{
+                  fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--lp-text-secondary)',
+                  background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0,
+                  transition: 'color 150ms', }}
                   onMouseEnter={e => { e.target.style.color = 'var(--lp-text-primary)'; }}
                   onMouseLeave={e => { e.target.style.color = 'var(--lp-text-secondary)'; }}
                 >{l}</button>
               ))}
             </div>
           </div>
-
-          {/* Legal */}
           <div>
-            <h4 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--lp-text-small)',
-              marginBottom: 'var(--sp-3)', color: 'var(--lp-text-primary)',
-            }}>Legal</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.75rem' }}>Legal</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               {['Privacy Policy', 'Terms of Service', 'EARB Compliance'].map(l => (
-                <span key={l} style={{
-                  fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-small)',
-                  color: 'var(--lp-text-tertiary)',
-                }}>{l}</span>
+                <span key={l} style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--lp-text-tertiary)' }}>{l}</span>
               ))}
             </div>
           </div>
         </div>
-
-        <div style={{
-          textAlign: 'center', paddingTop: 'var(--sp-6)',
-          borderTop: '1px solid var(--lp-border-subtle)',
-        }}>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 'var(--lp-text-caption)',
-            color: 'var(--lp-text-tertiary)',
-          }}>
+        <div style={{ textAlign: 'center', paddingTop: '1.5rem', borderTop: '1px solid var(--lp-border-subtle)' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--lp-text-tertiary)' }}>
             &copy; {new Date().getFullYear()} Mutune General Estate Agency. All rights reserved.
           </p>
         </div>
       </footer>
 
-      {/* ═══ RESPONSIVE STYLES ═══ */}
+      {/* ═══ RESPONSIVE + ANIMATION STYLES ═══ */}
       <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
+        @keyframes lp-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(6px); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
 
-        /* Mobile nav */
+        .lp-gradient-text .lp-word {
+          background: var(--lp-cta-gradient);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
         @media (max-width: 767px) {
           .lp-nav-links, .lp-nav-actions { display: none !important; }
           .lp-hamburger { display: grid !important; }
           .lp-metrics-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .lp-bento { grid-template-columns: 1fr !important; }
-          .lp-bento .lp-feature-card { grid-column: span 1 !important; }
-          .lp-roles-content { grid-template-columns: 1fr !important; }
+          .lp-panels-track { flex-direction: column !important; width: 100% !important; }
+          .lp-panel { width: 100% !important; height: auto !important; min-height: 100vh; padding: 6rem 1.5rem !important; }
+          .lp-panel-content { grid-template-columns: 1fr !important; gap: 2rem !important; padding: 0 !important; }
+          .lp-roles-grid { grid-template-columns: 1fr !important; gap: 2rem !important; }
+          .lp-role-dots { display: none !important; }
           .lp-steps-grid { grid-template-columns: 1fr !important; }
           .lp-footer-grid { grid-template-columns: 1fr !important; }
-          .lp-hero-title { text-align: left !important; }
-          .lp-hero-subtitle { text-align: left !important; }
-          .lp-hero-ctas { justify-content: flex-start !important; }
         }
 
         @media (min-width: 768px) and (max-width: 1023px) {
-          .lp-bento { grid-template-columns: repeat(2, 1fr) !important; }
-          .lp-steps-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .lp-steps-grid { grid-template-columns: 1fr 1fr !important; }
           .lp-steps-grid .lp-step-card:last-child { grid-column: span 2; }
         }
 
-        /* Reduced motion */
         @media (prefers-reduced-motion: reduce) {
           *, *::before, *::after {
             animation-duration: 0.01ms !important;
             transition-duration: 0.01ms !important;
           }
+          .lp-word { opacity: 1 !important; transform: none !important; }
+          .lp-hero-subtitle, .lp-hero-ctas { opacity: 1 !important; }
+          .lp-metric { opacity: 1 !important; }
         }
 
-        /* Focus visible */
         button:focus-visible, a:focus-visible {
           outline: 2px solid var(--lp-accent);
           outline-offset: 3px;
