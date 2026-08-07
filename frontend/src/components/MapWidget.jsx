@@ -1507,6 +1507,28 @@ export default function MapWidget({
 
           <button
             type="button"
+            onClick={() => {
+              if (selectedProperty?.splatUrl || selectedProperty?.assets?.some(a => a.type === 'splat')) {
+                setSplatViewerOpen(true);
+              }
+            }}
+            className={`px-2.5 py-1.5 rounded-lg border transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+              (selectedProperty?.splatUrl || selectedProperty?.assets?.some(a => a.type === 'splat'))
+                ? 'bg-purple-600/20 text-purple-600 border-purple-500/40 hover:bg-purple-600/30 dark:text-purple-400 shadow-sm shadow-purple-900/20'
+                : 'bg-slate-500/10 text-slate-500 border-slate-500/20 hover:bg-slate-500/20 dark:text-slate-400 opacity-80'
+            }`}
+            title={
+              (selectedProperty?.splatUrl || selectedProperty?.assets?.some(a => a.type === 'splat'))
+                ? `Launch 3D Gaussian Splat Scan for ${selectedProperty.name}`
+                : 'No 3D Splat scan available for this property'
+            }
+          >
+            <Box size={13} className={(selectedProperty?.splatUrl || selectedProperty?.assets?.some(a => a.type === 'splat')) ? "text-purple-600 dark:text-purple-400" : ""} />
+            <span>3D Scan (Splat)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={toggleLiteView}
             className={`px-2.5 py-1.5 rounded-lg border transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
               isLiteView

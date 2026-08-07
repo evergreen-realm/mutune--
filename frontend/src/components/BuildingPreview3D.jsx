@@ -342,11 +342,17 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
       <div className={`w-full h-80 rounded-lg overflow-hidden border mt-10 relative ${
         isLight ? 'bg-surface-bright border-border' : 'bg-background border-border'
       }`}>
-        <ErrorBoundary fallback={
+        <ErrorBoundary key={viewMode} fallback={
           <div className="flex flex-col items-center justify-center h-full w-full bg-rose-950/20 text-rose-500/80 p-4 text-center">
             <Box size={24} className="mb-2 opacity-50" />
             <p className="text-xs font-bold font-mono">3D VIEW UNAVAILABLE</p>
-            <p className="text-[10px] opacity-70">WebGL context loss or connection error</p>
+            <p className="text-[10px] opacity-70 mb-3">WebGL context loss or connection error</p>
+            <button 
+              onClick={() => setViewMode(prev => prev === 'image' ? 'interactive' : 'image')}
+              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition"
+            >
+              Reset 3D Canvas
+            </button>
           </div>
         }>
           <Suspense fallback={
