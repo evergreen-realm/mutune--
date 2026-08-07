@@ -396,7 +396,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
 
   // Setup/Refresh standard style-bound layers and sources
   const setupMapStyleResources = useCallback((map) => {
-    if (!map || !map.style) return;
+    if (!map || !map.style || !map.isStyleLoaded()) return;
 
     const currentMapStyleMode = mapStyleModeRef.current;
     const currentTheme = themeRef.current;
@@ -624,6 +624,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     const handleStyleLoad = () => {
+      if (!map.isStyleLoaded()) return;
       setupMapStyleResources(map);
       setStyleLoaded(true);
     };
@@ -645,11 +646,16 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   // Handle style toggling (theme)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    // Only call setStyle if the theme actually changed the base URL
-    if (map.getStyle()?.sprite?.includes(theme === 'light' ? 'light' : 'dark')) return;
-    setStyleLoaded(false);
-    map.setStyle(mapStyle);
+    if (!map || !map.isStyleLoaded()) return;
+    
+    try {
+      // Only call setStyle if the theme actually changed the base URL
+      if (map.getStyle()?.sprite?.includes(theme === 'light' ? 'light' : 'dark')) return;
+      setStyleLoaded(false);
+      map.setStyle(mapStyle);
+    } catch (e) {
+      console.warn("Map style error gracefully caught:", e);
+    }
   }, [theme, mapStyle]);
 
   // Handle dynamic satellite layer toggle without destroying WebGL
@@ -669,48 +675,52 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   // Handle dynamically changing Lite View mode on the map
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !styleLoaded) return;
+    if (!map || !styleLoaded || !map.isStyleLoaded()) return;
 
-    if (isLiteView) {
-      // Smoothly transition map to a flat 2D top-down view
-      map.easeTo({
-        pitch: 0,
-        bearing: 0,
-        duration: 1000,
-        essential: true
-      });
-      // Hide standard Mapbox 3D buildings
-      if (map.getLayer('3d-buildings')) {
-        map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.0);
+    try {
+      if (isLiteView) {
+        // Smoothly transition map to a flat 2D top-down view
+        map.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 1000,
+          essential: true
+        });
+        // Hide standard Mapbox 3D buildings
+        if (map.getLayer('3d-buildings')) {
+          map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.0);
+        }
+        // Hide custom property extrusions in Lite Mode (2D)
+        if (map.getLayer('property-extrusions')) {
+          map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.0);
+        }
+        // Hide custom 3D WebGL layer
+        if (map.getLayer('3d-custom-buildings-layer')) {
+          map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'none');
+        }
+      } else {
+        // Smoothly transition map to angled 3D view
+        map.easeTo({
+          pitch: 50,
+          bearing: -17.6,
+          duration: 1000,
+          essential: true
+        });
+        // Show standard Mapbox 3D buildings
+        if (map.getLayer('3d-buildings')) {
+          map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.5);
+        }
+        // Show custom property extrusions with 0.85 opacity in 3D Mode
+        if (map.getLayer('property-extrusions')) {
+          map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.85);
+        }
+        // Show custom 3D WebGL layer
+        if (map.getLayer('3d-custom-buildings-layer')) {
+          map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'visible');
+        }
       }
-      // Hide custom property extrusions in Lite Mode (2D)
-      if (map.getLayer('property-extrusions')) {
-        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.0);
-      }
-      // Hide custom 3D WebGL layer
-      if (map.getLayer('3d-custom-buildings-layer')) {
-        map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'none');
-      }
-    } else {
-      // Smoothly transition map to angled 3D view
-      map.easeTo({
-        pitch: 50,
-        bearing: -17.6,
-        duration: 1000,
-        essential: true
-      });
-      // Show standard Mapbox 3D buildings
-      if (map.getLayer('3d-buildings')) {
-        map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.5);
-      }
-      // Show custom property extrusions with 0.85 opacity in 3D Mode
-      if (map.getLayer('property-extrusions')) {
-        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.85);
-      }
-      // Show custom 3D WebGL layer
-      if (map.getLayer('3d-custom-buildings-layer')) {
-        map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'visible');
-      }
+    } catch (e) {
+      console.warn("Caught error toggling Lite View layers:", e);
     }
   }, [isLiteView, styleLoaded]);
 
