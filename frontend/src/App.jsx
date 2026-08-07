@@ -580,7 +580,7 @@ export default function App() {
   }
 
   return (
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} signInUrl="/login" signUpUrl="/sign-up" afterSignUpUrl="/onboarding" afterSignInUrl="/" afterSignOutUrl="/">
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} signInUrl="/login" signUpUrl="/sign-up" signUpFallbackRedirectUrl="/onboarding" signInFallbackRedirectUrl="/" afterSignOutUrl="/">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <React.Suspense fallback={

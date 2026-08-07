@@ -6,6 +6,7 @@ import { fetchUnitGeoJSON } from '../lib/api';
 import { Suspense, lazy } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import SplatViewerModal from './SplatViewerModal';
 
 import { useBuildingModel, getBuildingModelPath } from '../hooks/useBuildingModel';
 import { WebGLErrorBoundary } from './ErrorBoundary';
@@ -375,21 +376,22 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   const customLayerRef = useRef(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
 
-  const mapStyle = mapStyleMode === 'satellite'
-    ? 'mapbox://styles/mapbox/satellite-streets-v12'
-    : (theme === 'light' ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11');
+  // Map style strictly follows theme to prevent WebGL destruction. Satellite is handled via raster overlay.
+  const mapStyle = theme === 'light' ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11';
 
   // Refs to prevent stale closures in single-mount Mapbox event handlers
   const mapStyleModeRef = useRef(mapStyleMode);
   const themeRef = useRef(theme);
   const propertiesRef = useRef(properties);
   const isLiteViewRef = useRef(isLiteView);
+  const activeTabRef = useRef(activeTab);
   const loadedModelsRef = useRef(loadedModels);
 
   useEffect(() => { mapStyleModeRef.current = mapStyleMode; }, [mapStyleMode]);
   useEffect(() => { themeRef.current = theme; }, [theme]);
   useEffect(() => { propertiesRef.current = properties; }, [properties]);
   useEffect(() => { isLiteViewRef.current = isLiteView; }, [isLiteView]);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   useEffect(() => { loadedModelsRef.current = loadedModels; }, [loadedModels]);
 
   // Setup/Refresh standard style-bound layers and sources
@@ -406,8 +408,31 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
     )?.id;
 
-    // 1. (Removed manual satellite layer to use native Mapbox styles)
-
+    // 1. Add Mapbox Satellite Raster Layer
+    if (!map.getSource('mapbox-satellite')) {
+      map.addSource('mapbox-satellite', {
+        type: 'raster',
+        url: 'mapbox://mapbox.satellite',
+        tileSize: 256
+      });
+    }
+    if (!map.getLayer('satellite-layer')) {
+      map.addLayer(
+        {
+          id: 'satellite-layer',
+          type: 'raster',
+          source: 'mapbox-satellite',
+          paint: {
+            'raster-opacity': 1,
+            'raster-fade-duration': 300
+          },
+          layout: {
+            visibility: currentMapStyleMode === 'satellite' ? 'visible' : 'none'
+          }
+        },
+        labelLayerId // Insert below labels so street names are visible over satellite
+      );
+    }
     // 2. Add standard 3D buildings extrusions for Mombasa
     if (!map.getLayer('3d-buildings')) {
       map.addLayer(
@@ -444,6 +469,8 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
         const unitCount = prop.units?.length || 1;
         const floors = prop.floors || Math.max(1, Math.ceil(unitCount / 4));
         const height = floors * 3.5; // Dynamic height based on floors (3.5m per floor)
+        const occupiedCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
+        const ratio = unitCount > 0 ? occupiedCount / unitCount : 0;
 
         return {
           type: 'Feature',
@@ -473,19 +500,109 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
         data: { type: 'FeatureCollection', features: propFeatures }
       });
 
-      map.addLayer({
-        id: 'property-extrusions',
-        type: 'fill-extrusion',
-        source: 'property-buildings',
-        paint: {
-          'fill-extrusion-color': ['get', 'color'],
-          'fill-extrusion-height': ['get', 'height'],
-          'fill-extrusion-base': ['get', 'min_height'],
-          'fill-extrusion-opacity': isLiteViewRef.current ? 0.85 : 0.0
+        map.addLayer({
+          id: 'property-extrusions',
+          type: 'fill-extrusion',
+          source: 'property-buildings',
+          paint: {
+            'fill-extrusion-color': ['get', 'color'],
+            'fill-extrusion-height': ['get', 'height'],
+            'fill-extrusion-base': ['get', 'min_height'],
+            'fill-extrusion-opacity': isLiteViewRef.current ? 0.85 : 0.0
+          }
+        });
+      }
+
+      // 4. Add Custom Three.js WebGL Layer
+      const customLayerId = '3d-custom-buildings-layer';
+      if (!map.getLayer(customLayerId)) {
+        const customLayer = {
+          id: customLayerId,
+          type: 'custom',
+          renderingMode: '3d',
+          onAdd: function (map, gl) {
+            this.camera = new THREE.Camera();
+            this.scene = new THREE.Scene();
+            
+            // Add default lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            this.scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            dirLight.position.set(0, -70, 100).normalize();
+            this.scene.add(dirLight);
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight2.position.set(0, 70, 100).normalize();
+            this.scene.add(dirLight2);
+  
+            this.renderer = new THREE.WebGLRenderer({
+              canvas: map.getCanvas(),
+              context: gl,
+              antialias: true
+            });
+            this.renderer.autoClear = false;
+            this.map = map;
+          },
+          render: function (gl, matrix) {
+            if (this.modelTransform) {
+              const rotationX = new THREE.Matrix4().makeRotationAxis(
+                new THREE.Vector3(1, 0, 0),
+                this.modelTransform.rotateX
+              );
+  
+              const m = new THREE.Matrix4().fromArray(matrix);
+              const l = new THREE.Matrix4()
+                .makeTranslation(
+                  this.modelTransform.translateX,
+                  this.modelTransform.translateY,
+                  this.modelTransform.translateZ
+                )
+                .scale(new THREE.Vector3(
+                  this.modelTransform.scale,
+                  -this.modelTransform.scale,
+                  this.modelTransform.scale
+                ))
+                .multiply(rotationX);
+  
+              this.camera.projectionMatrix = m.multiply(l);
+            }
+  
+            this.renderer.resetState();
+            this.renderer.render(this.scene, this.camera);
+            this.map.triggerRepaint();
+          },
+          onRemove: function (map, gl) {
+            if (this.renderer) {
+              this.renderer.dispose();
+            }
+            if (this.scene) {
+              const disposedGeometries = new Set();
+              const disposedMaterials = new Set();
+              this.scene.traverse((object) => {
+                if (object.geometry && !disposedGeometries.has(object.geometry)) {
+                  object.geometry.dispose();
+                  disposedGeometries.add(object.geometry);
+                }
+                if (object.material) {
+                  const materials = Array.isArray(object.material) ? object.material : [object.material];
+                  materials.forEach((mat) => {
+                    if (mat && !disposedMaterials.has(mat)) {
+                      mat.dispose();
+                      disposedMaterials.add(mat);
+                    }
+                  });
+                }
+              });
+            }
+          }
+        };
+  
+        map.addLayer(customLayer);
+        if (isLiteViewRef.current) {
+          map.setLayoutProperty(customLayerId, 'visibility', 'none');
         }
-      });
-    }
-  }, []);
+        customLayerRef.current = customLayer;
+      }
+    }, []);
 
   // Initialize Map exactly ONCE on mount
   useEffect(() => {
@@ -525,13 +642,28 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     };
   }, []);
 
-  // Handle style toggling smoothly via setStyle instead of destroying and recreating the map
+  // Handle style toggling (theme)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    // Only call setStyle if the theme actually changed the base URL
+    if (map.getStyle()?.sprite?.includes(theme === 'light' ? 'light' : 'dark')) return;
     setStyleLoaded(false);
     map.setStyle(mapStyle);
-  }, [theme, mapStyleMode, mapStyle]);
+  }, [theme, mapStyle]);
+
+  // Handle dynamic satellite layer toggle without destroying WebGL
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleLoaded) return;
+    if (map.getLayer('satellite-layer')) {
+      map.setLayoutProperty(
+        'satellite-layer',
+        'visibility',
+        mapStyleMode === 'satellite' ? 'visible' : 'none'
+      );
+    }
+  }, [mapStyleMode, styleLoaded]);
 
 
   // Handle dynamically changing Lite View mode on the map
@@ -818,8 +950,117 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
         }
       `;
       document.head.appendChild(style);
+      document.head.appendChild(style);
     }
   }, []);
+
+  // Update Three.js Custom Scene dynamically
+  useEffect(() => {
+    const layer = customLayerRef.current;
+    if (!layer || !layer.scene || !styleLoaded) return;
+    
+    // Clean up old dynamic meshes (keep lights at indices 0, 1, 2)
+    while (layer.scene.children.length > 3) {
+      const child = layer.scene.children[3];
+      layer.scene.remove(child);
+    }
+
+    const allCoords = properties.map(p => getPropertyCoords(p));
+    if (allCoords.length === 0) return;
+    const avgLng = allCoords.reduce((s, c) => s + c[0], 0) / allCoords.length;
+    const avgLat = allCoords.reduce((s, c) => s + c[1], 0) / allCoords.length;
+    const refMercator = mapboxgl.MercatorCoordinate.fromLngLat([avgLng, avgLat], 0);
+    const refMeterScale = refMercator.meterInMercatorCoordinateUnits();
+
+    layer.modelTransform = {
+      translateX: refMercator.x,
+      translateY: refMercator.y,
+      translateZ: refMercator.z || 0,
+      rotateX: Math.PI / 2,
+      scale: refMeterScale
+    };
+
+    properties.forEach((prop) => {
+      try {
+        const propId = prop._id || prop.id;
+        const coords = getPropertyCoords(prop);
+        const propMercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
+
+        const offsetX = (propMercator.x - refMercator.x) / refMeterScale;
+        const offsetZ = (propMercator.y - refMercator.y) / refMeterScale;
+
+        const modelUrl = getBuildingModelPath(prop.units?.length || 0);
+        let modelKey = 'small';
+        if (modelUrl.includes('medium')) modelKey = 'medium';
+        else if (modelUrl.includes('large')) modelKey = 'large';
+        else if (modelUrl.includes('tower')) modelKey = 'tower';
+
+        const sourceScene = loadedModels?.[modelKey];
+
+        if (sourceScene && activeTab !== 'units') {
+          const building = sourceScene.clone();
+          building.name = `glb-${propId}`;
+
+          const occupiedCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
+          const totalUnits = prop.units?.length || 0;
+          const ratio = totalUnits > 0 ? occupiedCount / totalUnits : 0;
+          let colorHex = ratio > 0.8 ? '#22c55e' : ratio > 0.5 ? '#eab308' : '#ef4444';
+          
+          const tint = new THREE.Color(colorHex);
+          building.traverse((child) => {
+            if (child.isMesh) {
+              const mat = child.material.clone();
+              mat.color.lerp(tint, 0.25);
+              mat.emissive = tint;
+              mat.emissiveIntensity = 0.15;
+              mat.roughness = 0.5;
+              mat.metalness = 0.15;
+              mat.side = THREE.DoubleSide;
+              child.material = mat;
+            }
+          });
+
+          const box = new THREE.Box3().setFromObject(building);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.z);
+          const targetEnvelope = 30.0;
+          const scaleFactor = targetEnvelope / (maxDim || 1.0);
+          building.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+          const center = box.getCenter(new THREE.Vector3());
+          building.position.set(
+            -center.x * scaleFactor,
+            -box.min.y * scaleFactor,
+            -center.z * scaleFactor
+          );
+
+          const wrapper = new THREE.Group();
+          wrapper.add(building);
+          wrapper.name = `glb-${propId}`;
+          wrapper.position.set(offsetX, 0, offsetZ);
+          wrapper.userData = { propertyId: propId };
+
+          layer.scene.add(wrapper);
+        } else {
+          // Fallback box
+          const building = createBuildingModel(prop, activeTab);
+          building.name = `fallback-inner-${propId}`;
+
+          const wrapper = new THREE.Group();
+          wrapper.add(building);
+          wrapper.name = `fallback-${propId}`;
+          wrapper.position.set(offsetX, 0, offsetZ);
+          wrapper.userData = { propertyId: propId };
+
+          layer.scene.add(wrapper);
+        }
+      } catch (err) {
+        console.error("Error creating WebGL mesh:", err);
+      }
+    });
+
+    mapRef.current?.triggerRepaint();
+  }, [properties, activeTab, loadedModels, styleLoaded]);
 
   // Handle markers & layers updates and interactions
   useEffect(() => {
@@ -829,208 +1070,18 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     // Clear old markers (only agent beacon now)
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-
-    // Remove custom 3D WebGL layer if it exists
-    const customLayerId = '3d-custom-buildings-layer';
-
-    if (activeTab === 'properties' || activeTab === 'units') {
-      // 1. Create the Three.js Custom WebGL Layer using RTE (Relative to Eye)
-      const customLayer = {
-        id: customLayerId,
-        type: 'custom',
-        renderingMode: '3d',
-        onAdd: function (map, gl) {
-          this.camera = new THREE.Camera();
-          this.scene = new THREE.Scene();
-
-          // Create lights
-          const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-          this.scene.add(ambientLight);
-
-          const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-          dirLight.position.set(0, -70, 100).normalize();
-          this.scene.add(dirLight);
-
-          const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-          dirLight2.position.set(0, 70, 100).normalize();
-          this.scene.add(dirLight2);
-
-          const models = loadedModelsRef.current;
-
-          // Compute reference origin from center of all properties (official Mapbox pattern)
-          const allCoords = properties.map(p => getPropertyCoords(p));
-          const avgLng = allCoords.reduce((s, c) => s + c[0], 0) / (allCoords.length || 1);
-          const avgLat = allCoords.reduce((s, c) => s + c[1], 0) / (allCoords.length || 1);
-          const refMercator = mapboxgl.MercatorCoordinate.fromLngLat([avgLng, avgLat], 0);
-          const refMeterScale = refMercator.meterInMercatorCoordinateUnits();
-
-          this.modelTransform = {
-            translateX: refMercator.x,
-            translateY: refMercator.y,
-            translateZ: refMercator.z || 0,
-            rotateX: Math.PI / 2,
-            scale: refMeterScale
-          };
-          this.refMercator = refMercator;
-          this.meterScale = refMeterScale;
-
-          // Build building meshes at meter offsets from reference origin
-          properties.forEach((prop) => {
-            try {
-              const propId = prop._id || prop.id;
-              const coords = getPropertyCoords(prop);
-              const propMercator = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
-
-              // Compute scene position as meter offsets from reference origin
-              const offsetX = (propMercator.x - refMercator.x) / refMeterScale;
-              const offsetZ = (propMercator.y - refMercator.y) / refMeterScale;
-
-              const modelUrl = getBuildingModelPath(prop.units?.length || 0);
-              let modelKey = 'small';
-              if (modelUrl.includes('medium')) modelKey = 'medium';
-              else if (modelUrl.includes('large')) modelKey = 'large';
-              else if (modelUrl.includes('tower')) modelKey = 'tower';
-
-              const sourceScene = models?.[modelKey];
-
-              if (sourceScene && activeTab !== 'units') {
-                // GLB model is available and we are NOT on units tab
-                const building = sourceScene.clone();
-                building.name = `glb-${propId}`;
-
-                // Apply occupancy color
-                const colorHex = getOccupancyColor(prop);
-                const tint = new THREE.Color(colorHex);
-                building.traverse((child) => {
-                  if (child.isMesh) {
-                    const mat = child.material.clone();
-                    mat.color.lerp(tint, 0.25);
-                    mat.emissive = tint;
-                    mat.emissiveIntensity = 0.15;
-                    mat.roughness = 0.5;
-                    mat.metalness = 0.15;
-                    mat.side = THREE.DoubleSide;
-                    child.material = mat;
-                  }
-                });
-
-                // Scale to fit ~30m horizontal envelope
-                const box = new THREE.Box3().setFromObject(building);
-                const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.z);
-                const targetEnvelope = 30.0;
-                const scaleFactor = targetEnvelope / (maxDim || 1.0);
-                building.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-                // Center horizontally and place base at ground level
-                const center = box.getCenter(new THREE.Vector3());
-                building.position.set(
-                  -center.x * scaleFactor,
-                  -box.min.y * scaleFactor,
-                  -center.z * scaleFactor
-                );
-
-                const wrapper = new THREE.Group();
-                wrapper.add(building);
-                wrapper.name = `glb-${propId}`;
-                wrapper.position.set(offsetX, 0, offsetZ);
-                wrapper.userData = { propertyId: propId };
-
-                this.scene.add(wrapper);
-              } else {
-                // Use fallback box (or stacked cubes for units tab)
-                const building = createBuildingModel(prop, activeTab);
-                building.name = `fallback-inner-${propId}`;
-
-                const wrapper = new THREE.Group();
-                wrapper.add(building);
-                wrapper.name = `fallback-${propId}`;
-                wrapper.position.set(offsetX, 0, offsetZ);
-                wrapper.userData = { propertyId: propId };
-
-                this.scene.add(wrapper);
-              }
-            } catch (err) {
-              console.error("Error creating WebGL building mesh for property:", prop, err);
-            }
-          });
-
-          this.renderer = new THREE.WebGLRenderer({
-            canvas: map.getCanvas(),
-            context: gl,
-            antialias: true
-          });
-          this.renderer.autoClear = false;
-          this.map = map;
-        },
-        render: function (gl, matrix) {
-          // Official Mapbox + Three.js pattern: projectionMatrix = mapboxMatrix * modelTransformMatrix
-          const rotationX = new THREE.Matrix4().makeRotationAxis(
-            new THREE.Vector3(1, 0, 0),
-            this.modelTransform.rotateX
-          );
-
-          const m = new THREE.Matrix4().fromArray(matrix);
-          const l = new THREE.Matrix4()
-            .makeTranslation(
-              this.modelTransform.translateX,
-              this.modelTransform.translateY,
-              this.modelTransform.translateZ
-            )
-            .scale(new THREE.Vector3(
-              this.modelTransform.scale,
-              -this.modelTransform.scale,
-              this.modelTransform.scale
-            ))
-            .multiply(rotationX);
-
-          this.camera.projectionMatrix = m.multiply(l);
-
-          this.renderer.resetState();
-          this.renderer.render(this.scene, this.camera);
-          this.map.triggerRepaint();
-        },
-        onRemove: function (map, gl) {
-          if (this.renderer) {
-            this.renderer.dispose();
-          }
-          if (this.scene) {
-            const disposedGeometries = new Set();
-            const disposedMaterials = new Set();
-            this.scene.traverse((object) => {
-              if (object.geometry && !disposedGeometries.has(object.geometry)) {
-                object.geometry.dispose();
-                disposedGeometries.add(object.geometry);
-              }
-              if (object.material) {
-                const materials = Array.isArray(object.material) ? object.material : [object.material];
-                materials.forEach((mat) => {
-                  if (mat && !disposedMaterials.has(mat)) {
-                    mat.dispose();
-                    disposedMaterials.add(mat);
-                  }
-                });
-              }
-            });
-          }
-        }
-      };
-
-      map.addLayer(customLayer);
-      if (isLiteViewRef.current) {
-        map.setLayoutProperty(customLayerId, 'visibility', 'none');
-      }
-      customLayerRef.current = customLayer;
-
-      // Fit map bounds
-      if (properties.length > 1) {
-        const bounds = new mapboxgl.LngLatBounds();
-        properties.forEach((prop) => {
-          bounds.extend(getPropertyCoords(prop));
-        });
-        map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 1200 });
-      }
+    
+    // Fit map bounds
+    if (properties.length > 1) {
+      const bounds = new mapboxgl.LngLatBounds();
+      properties.forEach((prop) => {
+        bounds.extend(getPropertyCoords(prop));
+      });
+      map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 1200 });
     }
+    
+    // (Other non-WebGL layer management like markers, popups continue below)
+
 
     // Create interactive click listener for native Mapbox fill-extrusion layers
     const onPropertyClick = (e) => {
@@ -1063,6 +1114,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       map.on('mouseenter', 'property-extrusions', onMouseEnter);
       map.on('mouseleave', 'property-extrusions', onMouseLeave);
     }
+
 
     // Agent location beacon
     if (agentLocation) {
@@ -1164,7 +1216,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
         // Safe to ignore
       }
     };
-  }, [activeTab, properties, agentLocation, theme, onPropertySelect, styleLoaded, isLiteView, loadedModels]);
+  }, [activeTab, properties, agentLocation, theme, onPropertySelect, styleLoaded, loadedModels]);
 
   return (
     <div
@@ -1329,6 +1381,7 @@ export default function MapWidget({
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [activeTabLocal, setActiveTabLocal] = useState('properties');
   const activeTab = externalActiveTab !== undefined ? externalActiveTab : activeTabLocal;
+  const [splatViewerOpen, setSplatViewerOpen] = useState(false);
   const setActiveTab = (val) => {
     if (externalActiveTab !== undefined) onActiveTabChange?.(val);
     else setActiveTabLocal(val);
@@ -1376,7 +1429,6 @@ export default function MapWidget({
     setSelectedProperty(prop);
     setSelectedUnit(null);
     onPropertySelect?.(prop);
-    setActiveTab('units');
     setLoadingUnits(true);
     try {
       const res = await fetchUnitGeoJSON(prop._id);
@@ -1480,8 +1532,8 @@ export default function MapWidget({
         </div>
       </div>
 
-      {/* Map Views — shown for Properties tab, Units tab, and 3D tab with no property selected */}
-      {(activeTab === 'properties' || activeTab === 'units' || (activeTab === '3d' && !selectedProperty)) && (
+      {/* Map Views — shown for Properties tab only */}
+      {(activeTab === 'properties') && (
         <div className="relative flex-1">
           <WebGLErrorBoundary onFallbackAcknowledge={() => {
             const newVal = true;
@@ -1508,7 +1560,7 @@ export default function MapWidget({
           </WebGLErrorBoundary>
 
           {/* Floating screen-based card popup overlay for selected property */}
-          {selectedProperty && (activeTab === 'properties' || activeTab === 'units') && (
+          {selectedProperty && (
             <div className={`absolute bottom-4 right-4 z-[999] p-4 rounded-2xl shadow-2xl border w-80 flex flex-col gap-3 transition-all ${
               theme === 'dark' 
                 ? 'bg-slate-900/95 border-white/10 text-white' 
@@ -1536,19 +1588,26 @@ export default function MapWidget({
                   }% occupied
                 </p>
               </div>
-              <button
-                onClick={() => setActiveTab('3d')}
-                className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-md cursor-pointer text-center active:scale-[0.98]"
-              >
-                View 3D Model
-              </button>
-            </div>
-          )}
-
-          {/* Satellite badge when 3D tab is active with no property */}
-          {activeTab === '3d' && !selectedProperty && (
-            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-lg border border-white/10 z-10">
-              🛰️ Select a property first to zoom into 3D building view
+              <div className="flex gap-2 w-full mt-2">
+                <button
+                  onClick={() => setActiveTab('units')}
+                  className="flex-1 py-2 bg-surface-bright hover:bg-surface-elevated text-foreground border border-border rounded-xl text-xs uppercase tracking-wider font-bold transition shadow-sm cursor-pointer text-center active:scale-[0.98]"
+                >
+                  View Units
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedProperty?.splatUrl || selectedProperty?.assets?.some(a => a.type === 'splat')) {
+                      setSplatViewerOpen(true);
+                    } else {
+                      setActiveTab('3d');
+                    }
+                  }}
+                  className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-md cursor-pointer text-center active:scale-[0.98]"
+                >
+                  {(selectedProperty?.splatUrl || selectedProperty?.assets?.some(a => a.type === 'splat')) ? 'View 3D Scan' : 'View 3D Model'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -1563,41 +1622,58 @@ export default function MapWidget({
         </div>
       )}
 
-      {/* 3D Unit Grid — shown for 3D Building tab WITH a selected property */}
-      {activeTab === '3d' && selectedProperty && (
+      {/* 3D Unit Grid - shown for Units tab WITH a selected property */}
+      {activeTab === 'units' && selectedProperty && (
         <div className="p-4 bg-background flex-1 overflow-auto">
           <button
-            onClick={() => { setSelectedProperty(null); setUnitGeoJSON(null); setSelectedUnit(null); }}
+            onClick={() => { setActiveTab('properties'); }}
             className="mb-3 flex items-center gap-1.5 text-xs font-bold text-muted hover:text-foreground transition-colors px-3 py-1.5 bg-surface hover:bg-surface-bright border border-border rounded-lg cursor-pointer"
           >
             ← Back to Map
           </button>
-          {isLiteView ? (
-            <BuildingPreviewLite
+          <BuildingPreviewLite
+            property={selectedProperty}
+            selectedUnit={selectedUnit}
+            onClose={() => { setActiveTab('properties'); }}
+            onUnitSelect={setSelectedUnit}
+            theme={theme}
+          />
+        </div>
+      )}
+
+      {/* 3D Building Viewer - shown for 3D tab WITH a selected property */}
+      {activeTab === '3d' && selectedProperty && (
+        <div className="p-4 bg-background flex-1 overflow-auto">
+          <button
+            onClick={() => { setActiveTab('properties'); }}
+            className="mb-3 flex items-center gap-1.5 text-xs font-bold text-muted hover:text-foreground transition-colors px-3 py-1.5 bg-surface hover:bg-surface-bright border border-border rounded-lg cursor-pointer"
+          >
+            ← Back to Map
+          </button>
+          <Suspense fallback={
+            <div className="h-80 flex flex-col items-center justify-center rounded-xl border bg-surface border-border text-muted animate-pulse">
+              <span className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-2" />
+              Loading interactive 3D scene...
+            </div>
+          }>
+            <BuildingPreview3D
               property={selectedProperty}
               selectedUnit={selectedUnit}
-              onClose={() => { setSelectedProperty(null); setUnitGeoJSON(null); setSelectedUnit(null); }}
+              onClose={() => { setActiveTab('properties'); }}
               onUnitSelect={setSelectedUnit}
               theme={theme}
             />
-          ) : (
-            <Suspense fallback={
-              <div className="h-80 flex flex-col items-center justify-center rounded-xl border bg-surface border-border text-muted animate-pulse">
-                <span className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mb-2" />
-                Loading interactive 3D scene...
-              </div>
-            }>
-              <BuildingPreview3D
-                property={selectedProperty}
-                selectedUnit={selectedUnit}
-                onClose={() => { setSelectedProperty(null); setUnitGeoJSON(null); setSelectedUnit(null); }}
-                onUnitSelect={setSelectedUnit}
-                theme={theme}
-              />
-            </Suspense>
-          )}
+          </Suspense>
         </div>
       )}
+
+      {/* Splat Viewer Modal */}
+      <SplatViewerModal 
+        isOpen={splatViewerOpen}
+        onClose={() => setSplatViewerOpen(false)}
+        splatUrl={selectedProperty?.splatUrl || selectedProperty?.assets?.find(a => a.type === 'splat')?.url}
+        title={`3D Scan: ${selectedProperty?.name}`}
+      />
 
       {/* Legend Footer */}
       <div className="px-4 py-2 border-t border-border flex gap-4 text-xs flex-wrap items-center bg-surface-bright">

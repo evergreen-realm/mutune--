@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -14,6 +14,8 @@ import {
   fetchCustomerCareNumber, autoInitiatePayment, updateUserRole
 } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
+import SplatViewerModal from '../components/SplatViewerModal';
+import BuildingPreview3D from '../components/BuildingPreview3D';
 import {
   Home, Wallet, Wrench, FileText, Bell, ChevronRight,
   CheckCircle2, AlertTriangle, Clock, TrendingUp, Star,
@@ -190,6 +192,7 @@ export default function TenantPortalPage() {
   const [loading,    setLoading]    = useState(true);
   const [activeTab,  setActiveTab]  = useState('overview');
   const [timeLeft,   setTimeLeft]   = useState('00:00:00');
+  const [splatViewerOpen, setSplatViewerOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -750,13 +753,30 @@ export default function TenantPortalPage() {
 
               {propertyCardTab === '3d' && (
                 <div className="relative w-full h-full bg-slate-950 flex items-center justify-center">
-                  <img 
-                    src="/assets/voxel_estate.png" 
-                    alt="Real 3D Architectural Model" 
-                    className="w-full h-full object-contain p-2 hover:scale-[1.02] transition-transform duration-500" 
-                  />
-                  <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-purple-400 uppercase tracking-widest">
-                    Realistic 3D Voxel Model
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                    {profile?.current_property_id?.splatUrl || profile?.current_property_id?.assets?.some(a => a.type === 'splat') ? (
+                      <div className="text-center z-20">
+                        <p className="text-slate-400 mb-4 text-sm font-medium">A high-resolution 3D scan is available for this property.</p>
+                        <button
+                          onClick={() => setSplatViewerOpen(true)}
+                          className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shadow-lg transition-colors cursor-pointer"
+                        >
+                          Launch 3D Splat Viewer
+                        </button>
+                      </div>
+                    ) : (
+                      <Suspense fallback={<div className="animate-pulse text-slate-500 font-bold tracking-widest text-sm uppercase">Loading 3D model...</div>}>
+                        <div className="w-full h-full z-10" style={{ pointerEvents: 'auto' }}>
+                          <BuildingPreview3D 
+                            property={profile?.current_property_id} 
+                            theme="dark" 
+                          />
+                        </div>
+                      </Suspense>
+                    )}
+                  </div>
+                  <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-purple-400 uppercase tracking-widest pointer-events-none z-30">
+                    Interactive 3D View
                   </div>
                 </div>
               )}
@@ -1670,6 +1690,14 @@ export default function TenantPortalPage() {
           </div>
         </div>
       )}
+      {/* Splat Viewer Modal */}
+      <SplatViewerModal 
+        isOpen={splatViewerOpen}
+        onClose={() => setSplatViewerOpen(false)}
+        splatUrl={profile?.current_property_id?.splatUrl || profile?.current_property_id?.assets?.find(a => a.type === 'splat')?.url}
+        title={`3D Scan: ${profile?.current_property_id?.name || 'Property'}`}
+      />
+
     </div>
   );
 }
