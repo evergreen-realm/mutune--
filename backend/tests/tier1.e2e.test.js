@@ -45,7 +45,8 @@ jest.mock('../services/sms', () => ({
 }));
 
 jest.mock('../services/pdf', () => ({
-  generateNoticePDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-notice.pdf')
+  generateNoticePDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-notice.pdf'),
+  generateLandlordContractPDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-contract.pdf')
 }));
 
 let mockEmailSendError = null;
@@ -434,8 +435,8 @@ describe('Tier 1 Feature Coverage Tests', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.tenant_code).toMatch(/^TNT-MOM-/);
 
-      tenant = await Tenant.findOne({ id_number: '12345678' });
-      expect(tenant).toBeDefined();
+      tenant = await Tenant.findOne({ tenant_code: res.body.data.tenant_code });
+      expect(tenant).not.toBeNull();
     });
 
     test('TC-1.3.2: Fetch Vacant Units', async () => {

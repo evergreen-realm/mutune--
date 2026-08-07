@@ -320,7 +320,7 @@ function StepUnits({ form, addUnitFn, removeUnitFn, updateUnitFn }) {
   );
 }
 
-// ── Step 2: Photos ────────────────────────────────────────────────────────────
+// ── Step 2: Photos & Floor Plan ────────────────────────────────────────────────────────────
 function StepPhotos({ form, setField }) {
   return (
     <div className="flex flex-col gap-5">
@@ -333,6 +333,18 @@ function StepPhotos({ form, setField }) {
           onChange={urls => setField('photos', urls)}
           multiple={true}
           label="Property Photos (min. 1 required)"
+        />
+      </div>
+
+      <p className="text-slate-500 dark:text-slate-400 text-xs mt-4">
+        Upload a floor plan image (Optional). Used for generating 3D models.
+      </p>
+      <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5">
+        <ImageUpload
+          value={form.floor_plan_url ? [form.floor_plan_url] : []}
+          onChange={urls => setField('floor_plan_url', urls[0] || '')}
+          multiple={false}
+          label="Floor Plan Layout (Optional)"
         />
       </div>
     </div>
@@ -412,6 +424,7 @@ const INITIAL_FORM = {
   address: { street: '', area: 'Nyali', city: 'Mombasa' },
   units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '' }],
   photos: [],
+  floor_plan_url: '',
   locationMethod: 'estimate',
   location: { type: 'Point', coordinates: [39.6978, -4.0287] }
 };
@@ -506,6 +519,7 @@ export default function AddPropertyPage() {
         year_built: form.year_built ? Number(form.year_built) : undefined,
         address: form.address,
         photos: form.photos,
+        floor_plan_url: form.floor_plan_url,
         location: { type: 'Point', coordinates: coords }
       });
 

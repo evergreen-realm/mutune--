@@ -33,7 +33,10 @@ const enforcePropertyScope = async (req, res, next) => {
 
     const hasAssignments = (req.user.assigned_property_ids && req.user.assigned_property_ids.length > 0) ||
                            (req.user.assigned_areas && req.user.assigned_areas.length > 0);
-    if (!hasAssignments) return next();
+    if (!hasAssignments) {
+      logger.warn('Agent scope denied - No assignments configured', { userId: req.user._id, propertyId });
+      return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Agent has no assigned properties or areas' } });
+    }
 
     const isAssigned = req.user.assigned_property_ids?.some(id => id.toString() === propertyId.toString());
     if (isAssigned) return next();

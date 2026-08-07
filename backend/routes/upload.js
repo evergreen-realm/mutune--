@@ -47,6 +47,23 @@ const dailyUploadLimiter = rateLimit({
   })
 });
 
+function validateMagicBytes(buffer, mimeType) {
+  if (!buffer || buffer.length < 4) return false;
+  if (mimeType === 'application/pdf') {
+    return buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
+  }
+  if (mimeType === 'image/png') {
+    return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+  }
+  if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+    return buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+  }
+  if (mimeType === 'image/webp') {
+    return buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46;
+  }
+  return false;
+}
+
 /**
  * POST /api/v1/upload/doc
  * Upload a verification document (PDF / image) to Cloudflare R2.
@@ -88,6 +105,14 @@ router.post(
         return res.status(400).json({
           success: false,
           error: { code: 'NO_FILE', message: 'No file received. Send the file in the "file" field.' }
+        });
+      }
+
+      if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
+        logger.warn('File magic-number content mismatch detected', { mime: req.file.mimetype, userId: req.user._id });
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_FILE_CONTENT', message: 'File content does not match declared MIME type signature.' }
         });
       }
 

@@ -15,7 +15,8 @@ jest.mock('../services/sms', () => ({
 }));
 
 jest.mock('../services/pdf', () => ({
-  generateNoticePDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/test-notice.pdf')
+  generateNoticePDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-notice.pdf'),
+  generateLandlordContractPDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-contract.pdf')
 }));
 
 jest.mock('resend', () => {

@@ -58,11 +58,13 @@ const { getAdminPassword } = require('../utils/security');
 
 userSchema.pre('save', async function (next) {
   if (['admin', 'super_admin'].includes(this.role) && !this.admin_hardcoded_hash) {
-    try {
-      const adminPass = getAdminPassword();
-      this.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
-    } catch (err) {
-      return next(err);
+    if (process.env.NODE_ENV !== 'production' && (process.env.ADMIN_HARDCODED_PASSWORD || process.env.ADMIN_PASSWORD)) {
+      try {
+        const adminPass = getAdminPassword();
+        this.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+      } catch (err) {
+        logger.warn('Skipped admin hardcoded hash auto-generation', { error: err.message });
+      }
     }
   }
   next();

@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import { useBuildingModel, getBuildingModelPath } from '../hooks/useBuildingModel';
+import { WebGLErrorBoundary } from './ErrorBoundary';
 
 const BuildingPreview3D = lazy(() => import('./BuildingPreview3D'));
 
@@ -60,15 +61,7 @@ export function getPropertyCoords(prop) {
   if (coords && coords.length === 2 && coords[0] !== 0 && coords[1] !== 0) {
     return coords;
   }
-  // Deterministic GPS fallback using string hash of property ID
-  const hashStr = prop._id || prop.name || '';
-  let hash = 0;
-  for (let i = 0; i < hashStr.length; i++) {
-    hash = hashStr.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const latJitter = ((Math.abs(hash) % 100) / 1000) * 0.04 - 0.02;
-  const lngJitter = (((Math.abs(hash) >> 8) % 100) / 1000) * 0.04 - 0.02;
-  return [39.6682 + lngJitter, -4.0435 + latJitter];
+  return [39.6682, -4.0435]; // Remove fake GPS jitter
 }
 
 function getOccupancyColor(property) {
@@ -464,20 +457,19 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       const propFeatures = (currentProperties || []).map(prop => {
         const coords = getPropertyCoords(prop);
         const unitCount = prop.units?.length || 1;
-        const height = Math.max(15, unitCount * 5);
-        const occupiedCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
-        const ratio = unitCount > 0 ? occupiedCount / unitCount : 0;
+        const floors = prop.floors || Math.max(1, Math.ceil(unitCount / 4));
+        const height = floors * 3.5; // Dynamic height based on floors (3.5m per floor)
 
         return {
           type: 'Feature',
           geometry: {
             type: 'Polygon',
             coordinates: [[
-              [coords[0] - 0.00015, coords[1] - 0.00015],
-              [coords[0] + 0.00015, coords[1] - 0.00015],
-              [coords[0] + 0.00015, coords[1] + 0.00015],
-              [coords[0] - 0.00015, coords[1] + 0.00015],
-              [coords[0] - 0.00015, coords[1] - 0.00015],
+              [coords[0] - 0.0001, coords[1] - 0.0001],
+              [coords[0] + 0.0001, coords[1] - 0.0001],
+              [coords[0] + 0.0001, coords[1] + 0.0001],
+              [coords[0] - 0.0001, coords[1] + 0.0001],
+              [coords[0] - 0.0001, coords[1] - 0.0001],
             ]]
           },
           properties: {
@@ -624,7 +616,8 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     const propFeatures = properties.map(prop => {
       const coords = getPropertyCoords(prop);
       const unitCount = prop.units?.length || 1;
-      const height = Math.max(15, unitCount * 5);
+      const floors = prop.floors || Math.max(1, Math.ceil(unitCount / 4));
+      const height = floors * 3.5;
       const occupiedCount = prop.units?.filter(u => u.status === 'occupied').length || 0;
       const ratio = unitCount > 0 ? occupiedCount / unitCount : 0;
 
@@ -758,7 +751,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       map.flyTo({
         center: [coords[0], coords[1]],
         zoom: 18.5,
-        pitch: 62,
+        pitch: 75,
         bearing: 25,
         duration: 2200,
         essential: true
@@ -1317,7 +1310,7 @@ export function BuildingPreviewLite({ property, selectedUnit, onClose, onUnitSel
               onClick={() => onUnitSelect(unit)}
               className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between h-24 cursor-pointer hover:scale-[1.02] ${
                 isSelected 
-                  ? 'border-blue-500 bg-blue-550/10 dark:bg-blue-900/20' 
+                  ? 'border-blue-500 bg-blue-500/10 dark:bg-blue-900/20' 
                   : 'border-border bg-surface-bright hover:bg-background'
               }`}
             >
@@ -1475,7 +1468,7 @@ export default function MapWidget({
             className={`px-2.5 py-1.5 rounded-lg border transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
               isLiteView
                 ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-400'
-                : 'bg-indigo-550/10 text-indigo-600 border-indigo-550/30 dark:bg-indigo-500/20 dark:text-indigo-400'
+                : 'bg-indigo-500/10 text-indigo-600 border-indigo-500/30 dark:bg-indigo-500/20 dark:text-indigo-400'
             }`}
             title={isLiteView ? 'Lite Mode active — Click to switch to 3D View' : '3D View active — Click to switch to Lite Mode'}
           >
@@ -1511,23 +1504,29 @@ export default function MapWidget({
       {/* Map Views — shown for Properties tab, Units tab, and 3D tab with no property selected */}
       {(activeTab === 'properties' || activeTab === 'units' || (activeTab === '3d' && !selectedProperty)) && (
         <div className="relative flex-1">
-          <MapboxMap
-            center={center}
-            properties={filtered}
-            selectedProperty={selectedProperty}
-            unitGeoJSON={unitGeoJSON}
-            activeTab={activeTab}
-            onPropertySelect={handlePropertySelect}
-            onUnitSelect={(unit) => {
-              const originalUnit = selectedProperty?.units?.find(u => u.unit_number === unit.unit_number);
-              if (originalUnit) setSelectedUnit(originalUnit);
-            }}
-            agentLocation={agentLocation}
-            isFullscreen={isFullscreen}
-            theme={theme}
-            mapStyleMode={mapStyleMode}
-            isLiteView={isLiteView}
-          />
+          <WebGLErrorBoundary onFallbackAcknowledge={() => {
+            const newVal = true;
+            setIsLiteView(newVal);
+            localStorage.setItem('mutune_lite_view', String(newVal));
+          }}>
+            <MapboxMap
+              center={center}
+              properties={filtered}
+              selectedProperty={selectedProperty}
+              unitGeoJSON={unitGeoJSON}
+              activeTab={activeTab}
+              onPropertySelect={handlePropertySelect}
+              onUnitSelect={(unit) => {
+                const originalUnit = selectedProperty?.units?.find(u => u.unit_number === unit.unit_number);
+                if (originalUnit) setSelectedUnit(originalUnit);
+              }}
+              agentLocation={agentLocation}
+              isFullscreen={isFullscreen}
+              theme={theme}
+              mapStyleMode={mapStyleMode}
+              isLiteView={isLiteView}
+            />
+          </WebGLErrorBoundary>
 
           {/* Floating screen-based card popup overlay for selected property */}
           {selectedProperty && (activeTab === 'properties' || activeTab === 'units') && (

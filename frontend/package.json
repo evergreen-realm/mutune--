@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.8",
+    "@mkkellogg/gaussian-splats-3d": "^0.4.7",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@sentry/react": "^10.57.0",

@@ -44,6 +44,7 @@ export default function LandlordAddPropertyPage() {
     contract_terms: 'Standard 12-month management agreement. Mutune Estate Agency will manage the property and collect rent on behalf of the landlord. Agency fee: 10% of monthly rent. Agreement renewable annually.',
     signature_data_url: '',
     photos: [],
+    floor_plan_url: '',
     locationMethod: 'estimate',
     location: { type: 'Point', coordinates: [39.6682, -4.0435] }
   });
@@ -439,6 +440,18 @@ export default function LandlordAddPropertyPage() {
                 multiple={true}
                 label="Property Photos"
               />
+
+              <div style={{ marginTop: 12 }}>
+                <p style={{ color: 'var(--subtitle-text)', fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
+                  Upload a floor plan image (Optional). Used for generating 3D models.
+                </p>
+                <ImageUpload
+                  value={form.floor_plan_url ? [form.floor_plan_url] : []}
+                  onChange={urls => setField('floor_plan_url', urls[0] || '')}
+                  multiple={false}
+                  label="Floor Plan Layout (Optional)"
+                />
+              </div>
             </div>
           )}
 

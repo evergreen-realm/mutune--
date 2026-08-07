@@ -9,15 +9,23 @@ class MpesaService {
     this.shortcode = process.env.MPESA_SHORTCODE;
     this.passkey = process.env.MPESA_PASSKEY;
     this.callbackURL = process.env.MPESA_CALLBACK_URL;
+    this.cachedToken = null;
+    this.tokenExpiry = null;
   }
 
   async getAccessToken() {
+    if (this.cachedToken && this.tokenExpiry && Date.now() < this.tokenExpiry - 60000) {
+      return this.cachedToken;
+    }
     const auth = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
     const res = await axios.get(`${this.baseURL}/oauth/v1/generate?grant_type=client_credentials`, {
       headers: { Authorization: `Basic ${auth}` },
       timeout: 10000
     });
-    return res.data.access_token;
+    this.cachedToken = res.data.access_token;
+    const expiresInSeconds = parseInt(res.data.expires_in, 10) || 3599;
+    this.tokenExpiry = Date.now() + (expiresInSeconds * 1000);
+    return this.cachedToken;
   }
 
   generatePassword(timestamp) {

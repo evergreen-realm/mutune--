@@ -67,41 +67,12 @@ const queryClient = new QueryClient({
   }
 });
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, errorInfo) {
-    console.error('[MutuneRent ErrorBoundary]', error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center space-y-4 max-w-lg mx-auto mt-12 text-white">
-          <div className="h-12 w-12 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h2 className="text-lg font-bold">Something went wrong</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            An error occurred while rendering this page: {this.state.error?.message || "Unknown error"}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
-          >
-            Reload Page
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+function RoleRoute({ userRole, allow, children, fallback = '/' }) {
+  if (!userRole) return <Navigate to={fallback} replace />;
+  if (allow.includes(userRole)) return children;
+  return <Navigate to={fallback} replace />;
 }
 
 function AppShell() {
@@ -537,8 +508,16 @@ function AppShell() {
           <Route path="/maintenance"    element={<MaintenancePage dbUser={dbUser} />} />
           <Route path="/tasks"          element={<TasksPage dbUser={dbUser} />} />
           <Route path="/admin"          element={<Navigate to="/" replace />} />
-          <Route path="/admin/users"    element={<AdminUserManagementPage />} />
-          <Route path="/admin/inventory" element={<AdminInventoryPage />} />
+          <Route path="/admin/users"    element={
+            <RoleRoute userRole={derivedRole} allow={['admin', 'super_admin']}>
+              <AdminUserManagementPage />
+            </RoleRoute>
+          } />
+          <Route path="/admin/inventory" element={
+            <RoleRoute userRole={derivedRole} allow={['admin', 'super_admin']}>
+              <AdminInventoryPage />
+            </RoleRoute>
+          } />
           <Route path="/tenant"         element={<TenantPortalPage />} />
           <Route path="/dashboard"      element={
             derivedRole === 'tenant'   ? <TenantPortalPage /> :
@@ -609,23 +588,25 @@ export default function App() {
               <span className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             </div>
           }>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/landing" element={<LandingPage />} />
-            <Route path="/login/*" element={<LoginPage />} />
-            <Route path="/sign-up/*" element={<SignUpPage />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/*" element={
-              <>
-                <SignedIn>
-                  <AppShell />
-                </SignedIn>
-                <SignedOut>
-                  <RedirectToSignIn />
-                </SignedOut>
-              </>
-            } />
-          </Routes>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/landing" element={<LandingPage />} />
+                <Route path="/login/*" element={<LoginPage />} />
+                <Route path="/sign-up/*" element={<SignUpPage />} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route path="/*" element={
+                  <>
+                    <SignedIn>
+                      <AppShell />
+                    </SignedIn>
+                    <SignedOut>
+                      <RedirectToSignIn />
+                    </SignedOut>
+                  </>
+                } />
+              </Routes>
+            </ErrorBoundary>
           </React.Suspense>
         </BrowserRouter>
 

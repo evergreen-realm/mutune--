@@ -13,12 +13,16 @@ const kycDocumentSchema = new mongoose.Schema({
   uploaded_at: Date
 }, { _id: false });
 
+const { encryptPII, decryptPII, generateBlindIndex } = require('../utils/security');
+
 const tenantSchema = new mongoose.Schema({
   tenant_code: { type: String, unique: true, required: true },
   user_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', sparse: true },
   full_name: { type: String, required: true },
-  id_number: { type: String, required: true },
-  phone: { type: String, required: true },
+  id_number: { type: String, required: true, get: decryptPII },
+  id_number_bindex: { type: String },
+  phone: { type: String, required: true, get: decryptPII },
+  phone_bindex: { type: String },
   email: String,
   emergency_contact: {
     name: String,
@@ -49,12 +53,12 @@ const tenantSchema = new mongoose.Schema({
   },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
-});
+}, { toJSON: { getters: true }, toObject: { getters: true } });
 
 // Single index declarations — no duplicates
-tenantSchema.index({ phone: 1 });
+tenantSchema.index({ phone_bindex: 1 }, { sparse: true });
 tenantSchema.index({ email: 1 }, { sparse: true });
-tenantSchema.index({ id_number: 1 });
+tenantSchema.index({ id_number_bindex: 1 }, { sparse: true });
 tenantSchema.index({ user_id: 1 }, { sparse: true });
 tenantSchema.index({ current_unit_id: 1 });
 tenantSchema.index({ current_property_id: 1 });
@@ -62,6 +66,17 @@ tenantSchema.index({ tenancy_status: 1 });
 
 tenantSchema.pre('save', function(next) {
   this.updated_at = Date.now();
+
+  // Generate blind indexes before encrypting fields
+  if (this.id_number && !this.id_number.startsWith('enc:')) {
+    this.id_number_bindex = generateBlindIndex(this.id_number);
+    this.id_number = encryptPII(this.id_number);
+  }
+  if (this.phone && !this.phone.startsWith('enc:')) {
+    this.phone_bindex = generateBlindIndex(this.phone);
+    this.phone = encryptPII(this.phone);
+  }
+
   next();
 });
 

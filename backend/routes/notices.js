@@ -202,7 +202,6 @@ router.post(
   }
 );
 
-// ── GET /api/v1/notices/:id/download — Redirect to PDF ───────────────────────
 router.get('/:id/download', requireAuth, async (req, res, next) => {
   try {
     const notice = await Notice.findById(req.params.id).lean();
@@ -210,12 +209,27 @@ router.get('/:id/download', requireAuth, async (req, res, next) => {
       throw Object.assign(new Error('Notice not found'), { status: 404, code: 'NOTICE_NOT_FOUND' });
     }
 
-    // Scope check: tenants can only download their own notices
-    if (req.user.role === 'tenant') {
+    // Comprehensive Authorization & Scope Check (IDOR Prevention)
+    const userRole = req.user.role;
+    if (userRole === 'admin' || userRole === 'super_admin') {
+      // Admins have global access
+    } else if (userRole === 'tenant') {
       const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
-      if (!tenant || notice.tenant_id.toString() !== tenant._id.toString()) {
-        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Not your notice' } });
+      if (!tenant || notice.tenant_id?.toString() !== tenant._id?.toString()) {
+        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Unauthorized notice access' } });
       }
+    } else if (userRole === 'agent') {
+      const assignedProps = (req.user.assigned_property_ids || []).map(id => id.toString());
+      if (!notice.property_id || !assignedProps.includes(notice.property_id.toString())) {
+        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Notice property not within assigned agent scope' } });
+      }
+    } else if (userRole === 'landlord') {
+      const property = await Property.findById(notice.property_id).select('landlord_id').lean();
+      if (!property || property.landlord_id?.toString() !== req.user._id?.toString()) {
+        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Notice property does not belong to landlord' } });
+      }
+    } else {
+      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' } });
     }
 
     if (!notice.pdf_url) {

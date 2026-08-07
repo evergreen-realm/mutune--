@@ -55,7 +55,8 @@ jest.mock('../services/sms', () => ({
 }));
 
 jest.mock('../services/pdf', () => ({
-  generateNoticePDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-notice.pdf')
+  generateNoticePDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-notice.pdf'),
+  generateLandlordContractPDF: jest.fn().mockResolvedValue('https://r2.cloudflare.com/mock-contract.pdf')
 }));
 
 jest.mock('resend', () => {
@@ -653,7 +654,7 @@ describe('Tier 3: Cross-Feature Combinations', () => {
       mockClerkId = 'clerk_admin_001';
       const uploadRes = await request(app)
         .post('/api/v1/upload/doc')
-        .attach('file', Buffer.from('fake-image-binary-data'), 'leak.jpg');
+        .attach('file', Buffer.from('FFD8FFE000104A4649460001', 'hex'), 'leak.jpg');
 
       expect(uploadRes.status).toBe(201);
       const photoUrl = uploadRes.body.url;

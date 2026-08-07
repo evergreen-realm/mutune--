@@ -45,9 +45,8 @@ const ALLOWED_ORIGINS = [
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, Render health checks)
     if (!origin) return callback(null, true);
-    const isVercelSubdomain = /^https:\/\/(mutunerent|mutune)(-.+)?\.vercel\.app$/.test(origin);
+    const isVercelSubdomain = /^https:\/\/(mutunerent|mutune)(-[a-zA-Z0-9_-]+)*\.vercel\.app$/.test(origin);
     if (ALLOWED_ORIGINS.includes(origin) || isVercelSubdomain) return callback(null, true);
     logger.warn('CORS blocked origin', { origin });
     callback(new Error('Not allowed by CORS: ' + origin));
@@ -92,6 +91,7 @@ app.use('/api/v1/tasks', require('./routes/tasks'));                  // Phase 4
 app.use('/api/v1/inventory', require('./routes/inventory'));          // Phase 4: Inventory & auction
 app.use('/api/v1/notifications', require('./routes/notifications')); // Phase 4: In-app notifications
 app.use('/api/v1/upload',        require('./routes/upload'));         // Phase 5: Verification doc upload (R2)
+app.use('/api/v1/scans',         require('./routes/scans'));          // Phase 5: 3D Scans
 
 const Sentry = require("@sentry/node");
 

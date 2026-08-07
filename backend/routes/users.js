@@ -11,6 +11,8 @@ const { getAdminPassword, escapeRegExp } = require('../utils/security');
 
 // Debug endpoints removed for production security (R5 A05)
 
+const usersController = require('../controllers/usersController');
+
 const validate = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -21,60 +23,7 @@ const validate = (req, res) => {
 };
 
 // ─── GET /users/me ────────────────────────────────────────────────────────────
-router.get('/me', requireAuth, async (req, res, next) => {
-  try {
-    let user = await User.findById(req.user._id)
-      .populate('assigned_property_ids', 'name property_code address')
-      .lean();
-
-    if (user && user.clerk_id) {
-      try {
-        const { clerkClient } = require('@clerk/clerk-sdk-node');
-        const clerkUser = await clerkClient.users.getUser(user.clerk_id);
-        const clerkRole = clerkUser?.publicMetadata?.role;
-        if (clerkRole && !user.role) {
-          logger.info('Role mismatch detected in /users/me, DB role is empty, syncing from Clerk', { clerkId: user.clerk_id, clerkRole });
-          const updatedUser = await User.findByIdAndUpdate(
-            user._id,
-            { $set: { role: clerkRole, updated_at: new Date() } },
-            { new: true }
-          )
-            .populate('assigned_property_ids', 'name property_code address')
-            .lean();
-          user = updatedUser;
-        } else if (user.role && clerkRole !== user.role) {
-          logger.info('Role mismatch detected in /users/me, syncing Clerk from DB', { clerkId: user.clerk_id, dbRole: user.role, clerkRole });
-          try {
-            await clerkClient.users.updateUserMetadata(user.clerk_id, {
-              publicMetadata: { role: user.role }
-            });
-          } catch (clerkErr) {
-            logger.warn('Failed to update Clerk metadata in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
-          }
-        }
-      } catch (clerkErr) {
-        logger.warn('Failed to fetch/sync Clerk user role in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
-      }
-    }
-
-    if (user && ['admin', 'super_admin'].includes(user.role) && !user.admin_hardcoded_hash) {
-      const bcrypt = require('bcryptjs');
-      const adminPass = getAdminPassword();
-      const hash = await bcrypt.hash(adminPass, 10);
-      await User.findByIdAndUpdate(user._id, { $set: { admin_hardcoded_hash: hash } });
-      user.admin_hardcoded_hash = hash;
-    }
-
-    if (user) {
-      delete user.admin_hardcoded_hash;
-    }
-
-    res.json({ success: true, data: user });
-  } catch (error) {
-    next(error);
-  }
-});
-
+router.get('/me', requireAuth, usersController.getUserMe);
 
 // ─── PUT /users/me/profile-picture ───────────────────────────────────────────
 router.put('/me/profile-picture',
@@ -82,58 +31,13 @@ router.put('/me/profile-picture',
   [
     body('profile_picture').trim().notEmpty().withMessage('profile_picture is required')
   ],
-  async (req, res, next) => {
-    try {
-      if (!validate(req, res)) return;
-      const { profile_picture } = req.body;
-      const user = await User.findByIdAndUpdate(
-        req.user._id,
-        { $set: { profile_picture, updated_at: new Date() } },
-        { new: true }
-      ).select('-password_hash');
-
-      if (!user) {
-        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
-      }
-
-      res.json({ success: true, data: user });
-    } catch (error) {
-      next(error);
-    }
-  }
+  usersController.updateProfilePicture
 );
-
 
 // ─── GET /users/check-tenant-email/:email ─────────────────────────────────────
 // Check if a tenant record exists for this email (used during onboarding to
 // prompt existing tenants to use their tenant code instead of re-registering).
-router.get('/check-tenant-email/:email', requireAuth, async (req, res, next) => {
-  try {
-    const email = req.params.email?.trim();
-    if (!email) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Email is required' } });
-    }
-
-    const tenant = await Tenant.findOne({
-      email: { $regex: new RegExp('^' + escapeRegExp(email) + '$', 'i') }
-    }).select('tenant_code user_id full_name').lean();
-    if (!tenant) {
-      return res.json({ success: true, data: { exists: false } });
-    }
-
-    return res.json({
-      success: true,
-      data: {
-        exists: true,
-        has_account: !!tenant.user_id,
-        tenant_code: tenant.tenant_code,
-        tenant_name: tenant.full_name
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+router.get('/check-tenant-email/:email', requireAuth, usersController.checkTenantEmail);
 
 // ─── PATCH /users/me/role ─────────────────────────────────────────────────────
 router.patch('/me/role',
@@ -514,12 +418,65 @@ router.post('/:id/deactivate',
   }
 );
 
+// ─── POST /users/clerk-webhook ────────────────────────────────────────────────
+// Verify Svix signature header for automated Clerk webhook events (user.created, user.updated, user.deleted)
+router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res, next) => {
+  try {
+    const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET;
+    
+    // If webhook secret configured, verify Svix headers
+    if (webhookSecret) {
+      const { Webhook } = require('svix');
+      const svix_id = req.headers['svix-id'];
+      const svix_timestamp = req.headers['svix-timestamp'];
+      const svix_signature = req.headers['svix-signature'];
+
+      if (!svix_id || !svix_timestamp || !svix_signature) {
+        logger.warn('Missing Svix headers in Clerk webhook');
+        return res.status(400).json({ success: false, error: { code: 'MISSING_SVIX_HEADERS', message: 'Missing Svix signature headers' } });
+      }
+
+      const wh = new Webhook(webhookSecret);
+      const payload = req.body instanceof Buffer ? req.body.toString('utf8') : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+      
+      try {
+        wh.verify(payload, {
+          'svix-id': svix_id,
+          'svix-timestamp': svix_timestamp,
+          'svix-signature': svix_signature
+        });
+      } catch (err) {
+        logger.warn('Invalid Svix webhook signature', { error: err.message });
+        return res.status(400).json({ success: false, error: { code: 'INVALID_SIGNATURE', message: 'Webhook signature verification failed' } });
+      }
+    }
+
+    const event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { type, data } = event || {};
+
+    if (type === 'user.deleted' && data?.id) {
+      await User.deleteOne({ clerk_id: data.id });
+      logger.info('Deleted user via verified Clerk webhook', { clerkId: data.id });
+    }
+
+    res.json({ success: true, received: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // ─── POST /users/sync-clerk ───────────────────────────────────────────────────
 // Called after Clerk webhook to upsert user record
 router.post('/sync-clerk',
   verifyClerkToken,
+  [
+    body('email').optional().isEmail().normalizeEmail().withMessage('Must be a valid email address'),
+    body('full_name').optional().isString().trim(),
+    body('phone').optional().isString().trim()
+  ],
   async (req, res, next) => {
     try {
+      if (!validate(req, res)) return;
       const clerk_id = req.auth?.userId;
       const { email, full_name, phone } = req.body;
       if (!clerk_id) {

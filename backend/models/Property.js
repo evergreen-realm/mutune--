@@ -73,6 +73,9 @@ const propertySchema = new mongoose.Schema({
   review_status: { type: String, enum: ['pending_agent', 'pending_admin', 'approved', 'rejected'], default: 'pending_agent' },
   photos: [String],
   glb_model_url: String,
+  splat_model_url: String,
+  splat_status: { type: String, enum: ['none', 'processing', 'completed', 'failed'], default: 'none' },
+  floor_plan_url: String,
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
 });

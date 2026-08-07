@@ -17,6 +17,7 @@ const paymentSchema = new mongoose.Schema({
   tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' },
   property_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' },
   unit_id: { type: mongoose.Schema.Types.ObjectId },
+  amount_cents: { type: Number, min: 0 },
   amount_kes: { type: Number, required: true, min: 0 },
   payment_type: { type: String, enum: ['rent', 'deposit', 'penalty', 'water', 'electricity', 'service_charge'], required: true },
   channel: { type: String, enum: ['mpesa_stk', 'mpesa_c2b', 'bank_transfer', 'cash', 'diaspora_wire'], required: true },
@@ -38,7 +39,7 @@ const paymentSchema = new mongoose.Schema({
 
 // Compound + geo indexes (single declarations only)
 paymentSchema.index({ tenant_id: 1, status: 1 });
-paymentSchema.index({ mpesa_receipt: 1 });
+paymentSchema.index({ mpesa_receipt: 1 }, { unique: true, sparse: true });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ created_at: -1 });
 paymentSchema.index({ 'verification_location.coordinates': '2dsphere' }, { sparse: true });

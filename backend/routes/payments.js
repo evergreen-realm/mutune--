@@ -10,6 +10,8 @@ const Payment = require('../models/Payment');
 const Property = require('../models/Property');
 const Tenant = require('../models/Tenant');
 const { transition } = require('../utils/stateMachine');
+const crypto = require('crypto');
+const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
 router.post('/initiate-stk',
@@ -32,26 +34,25 @@ router.post('/initiate-stk',
       if (!tenant) throw Object.assign(new Error('Tenant not found'), { status: 404, code: 'TENANT_NOT_FOUND' });
       const property = await Property.findOne({ 'units._id': unit_id }).lean();
       if (!property) throw Object.assign(new Error('Unit not found'), { status: 404, code: 'UNIT_NOT_FOUND' });
-      const transactionId = `MUT-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-      const payment = await Payment.create({
-        transaction_id: transactionId,
-        tenant_id,
-        property_id: property._id,
-        unit_id,
-        amount_kes: amount,
-        payment_type,
-        channel: 'mpesa_stk',
-        status: 'pending',
-        workflow_state: 'PENDING_VIEWING'
-      });
+      const transactionId = `MUT-${crypto.randomUUID()}`;
       const stk = await mpesaService.initiateSTKPush({
         phone: tenant.phone,
         amount,
         accountReference: `${property.property_code}-${unit_id}`,
         transactionDesc: `${payment_type} for ${property.name}`
       });
-      payment.transaction_id = stk.checkoutRequestId || transactionId;
-      await payment.save();
+      const payment = await Payment.create({
+        transaction_id: stk.checkoutRequestId || transactionId,
+        tenant_id,
+        property_id: property._id,
+        unit_id,
+        amount_kes: amount,
+        amount_cents: Math.round(amount * 100),
+        payment_type,
+        channel: 'mpesa_stk',
+        status: 'pending',
+        workflow_state: 'PENDING_VIEWING'
+      });
       logger.info('STK Push sent', { checkoutRequestId: stk.checkoutRequestId, tenantId: tenant_id });
       res.json({ success: true, checkout_request_id: stk.checkoutRequestId, status: 'pending', message: stk.customerMessage || 'STK Push sent to tenant phone' });
     } catch (error) {
@@ -84,19 +85,7 @@ router.post('/auto-initiate',
         return res.status(404).json({ success: false, error: { code: 'PROPERTY_NOT_FOUND', message: 'Property not found' } });
       }
 
-      const transactionId = `MUT-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
-      const payment = await Payment.create({
-        transaction_id: transactionId,
-        tenant_id: tenant._id,
-        property_id: property._id,
-        unit_id: tenant.current_unit_id,
-        amount_kes: outstanding,
-        payment_type: 'rent',
-        channel: 'mpesa_stk',
-        status: 'pending',
-        workflow_state: 'PENDING_VIEWING'
-      });
-
+      const transactionId = `MUT-${crypto.randomUUID()}`;
       const stk = await mpesaService.initiateSTKPush({
         phone: tenant.phone,
         amount: outstanding,
@@ -104,8 +93,18 @@ router.post('/auto-initiate',
         transactionDesc: `Rent Payment for ${property.name}`
       });
 
-      payment.transaction_id = stk.checkoutRequestId || transactionId;
-      await payment.save();
+      const payment = await Payment.create({
+        transaction_id: stk.checkoutRequestId || transactionId,
+        tenant_id: tenant._id,
+        property_id: property._id,
+        unit_id: tenant.current_unit_id,
+        amount_kes: outstanding,
+        amount_cents: Math.round(outstanding * 100),
+        payment_type: 'rent',
+        channel: 'mpesa_stk',
+        status: 'pending',
+        workflow_state: 'PENDING_VIEWING'
+      });
 
       const Notification = require('../models/Notification');
       if (Notification) {
@@ -164,63 +163,128 @@ async function handleSTKCallback(stk) {
   const checkoutRequestId = stk.CheckoutRequestID;
   const resultCode = stk.ResultCode;
   const resultDesc = stk.ResultDesc;
-  const payment = await Payment.findOne({ transaction_id: checkoutRequestId });
-  if (!payment) {
-    logger.error('Payment not found for callback', { checkoutRequestId });
-    return;
-  }
-  if (resultCode !== 0) {
-    payment.status = 'failed';
-    payment.workflow_state = 'MANUAL_REVIEW';
-    payment.discrepancy_flag = true;
-    payment.discrepancy_reason = `STK Failed: ${resultDesc}`;
-    payment.mpesa_callback = { ResultCode: resultCode, ResultDesc: resultDesc, received_at: new Date() };
-    await payment.save();
-    return;
-  }
-  const items = stk.CallbackMetadata?.Item || [];
-  const amount = items.find(i => i.Name === 'Amount')?.Value;
-  const receipt = items.find(i => i.Name === 'MpesaReceiptNumber')?.Value;
-  payment.status = 'confirmed';
-  payment.mpesa_receipt = receipt;
-  payment.mpesa_callback = { ResultCode: resultCode, ResultDesc: resultDesc, CallbackMetadata: stk.CallbackMetadata, received_at: new Date() };
-  const amountDiff = amount ? Math.abs(amount - payment.amount_kes) : Infinity;
-  if (amountDiff <= 100) {
-    payment.verification_method = 'auto_mpesa';
-    payment.discrepancy_flag = false;
-    transition(payment, 'PAYMENT_CONFIRMED');
-  } else {
-    payment.discrepancy_flag = true;
-    payment.discrepancy_reason = `Amount mismatch: expected ${payment.amount_kes}, got ${amount}`;
-    payment.workflow_state = 'MANUAL_REVIEW';
-  }
-  await payment.save();
 
-  await Property.updateOne({ 'units._id': payment.unit_id }, { $set: { 'units.$.lock_status': payment.workflow_state === 'PAYMENT_CONFIRMED' ? 'payment_confirmed' : 'pending_viewing' } });
-  const month = new Date().toISOString().slice(0, 7);
-  const tenantDoc = await Tenant.findById(payment.tenant_id);
-  if (tenantDoc) {
-    let remainingPayment = payment.amount_kes;
-    if (tenantDoc.arrears_kes > 0) {
-      const deduction = Math.min(tenantDoc.arrears_kes, remainingPayment);
-      tenantDoc.arrears_kes -= deduction;
-      remainingPayment -= deduction;
-    }
-    tenantDoc.payment_history.push({
-      month,
-      amount_kes: payment.amount_kes,
-      status: 'paid',
-      payment_id: payment._id
-    });
-    tenantDoc.updated_at = new Date();
-    await tenantDoc.save();
-  }
-  logger.info('Payment auto-confirmed', { paymentId: payment._id, receipt, amount });
-
+  let session = null;
+  let useTransaction = false;
   try {
-    const tenant = await Tenant.findById(payment.tenant_id).lean();
-    if (tenant) await smsService.send(tenant.phone, `Payment received! KES ${payment.amount_kes}. Receipt: ${receipt}. Unit reserved.`);
-  } catch (e) { logger.warn('SMS notification failed', { message: e.message }); }
+    session = await mongoose.startSession();
+    session.startTransaction();
+    useTransaction = true;
+  } catch (e) {
+    session = null;
+    useTransaction = false;
+  }
+
+  const executeCallback = async (opts = {}) => {
+    const sessionOpt = opts.session ? { session: opts.session } : {};
+    const payment = await Payment.findOne({ transaction_id: checkoutRequestId }, null, sessionOpt);
+    if (!payment) {
+      logger.error('Payment not found for callback', { checkoutRequestId });
+      return;
+    }
+
+    if (payment.status === 'confirmed' || payment.status === 'failed') {
+      logger.info('Callback ignored — payment already finalized', { checkoutRequestId, status: payment.status });
+      return;
+    }
+
+    if (resultCode !== 0) {
+      payment.status = 'failed';
+      payment.workflow_state = 'MANUAL_REVIEW';
+      payment.discrepancy_flag = true;
+      payment.discrepancy_reason = `STK Failed: ${resultDesc}`;
+      payment.mpesa_callback = { ResultCode: resultCode, ResultDesc: resultDesc, received_at: new Date() };
+      await payment.save(sessionOpt);
+      return;
+    }
+
+    const items = stk.CallbackMetadata?.Item || [];
+    const amount = items.find(i => i.Name === 'Amount')?.Value;
+    const receipt = items.find(i => i.Name === 'MpesaReceiptNumber')?.Value;
+
+    if (receipt) {
+      const existingReceipt = await Payment.findOne({ mpesa_receipt: receipt }, null, sessionOpt);
+      if (existingReceipt && existingReceipt._id.toString() !== payment._id.toString()) {
+        logger.warn('Duplicate M-Pesa receipt detected', { receipt, existingPaymentId: existingReceipt._id });
+        payment.status = 'failed';
+        payment.discrepancy_flag = true;
+        payment.discrepancy_reason = `Duplicate M-Pesa receipt: ${receipt}`;
+        await payment.save(sessionOpt);
+        return;
+      }
+    }
+
+    payment.status = 'confirmed';
+    payment.mpesa_receipt = receipt;
+    payment.mpesa_callback = { ResultCode: resultCode, ResultDesc: resultDesc, CallbackMetadata: stk.CallbackMetadata, received_at: new Date() };
+    
+    const amountDiff = amount ? Math.abs(amount - payment.amount_kes) : Infinity;
+    if (amountDiff <= 100) {
+      payment.verification_method = 'auto_mpesa';
+      payment.discrepancy_flag = false;
+      transition(payment, 'PAYMENT_CONFIRMED');
+    } else {
+      payment.discrepancy_flag = true;
+      payment.discrepancy_reason = `Amount mismatch: expected ${payment.amount_kes}, got ${amount}`;
+      payment.workflow_state = 'MANUAL_REVIEW';
+    }
+    await payment.save(sessionOpt);
+
+    await Property.updateOne(
+      { 'units._id': payment.unit_id },
+      { $set: { 'units.$.lock_status': payment.workflow_state === 'PAYMENT_CONFIRMED' ? 'payment_confirmed' : 'pending_viewing' } },
+      sessionOpt
+    );
+
+    const deduction = payment.amount_kes;
+    const deductionCents = Math.round(deduction * 100);
+    const month = new Date().toISOString().slice(0, 7);
+
+    const tenantDoc = await Tenant.findById(payment.tenant_id).session(sessionOpt.session || null);
+    if (tenantDoc) {
+      tenantDoc.arrears_kes = Math.max(0, (tenantDoc.arrears_kes || 0) - deduction);
+      tenantDoc.payment_history.push({
+        month,
+        amount_kes: payment.amount_kes,
+        amount_cents: deductionCents,
+        status: 'paid',
+        payment_id: payment._id
+      });
+      tenantDoc.updated_at = new Date();
+      await tenantDoc.save(sessionOpt);
+    }
+
+    logger.info('Payment auto-confirmed', { paymentId: payment._id, receipt, amount, atomic: true });
+
+    try {
+      const tenant = await Tenant.findById(payment.tenant_id).lean();
+      if (tenant) await smsService.send(tenant.phone, `Payment received! KES ${payment.amount_kes}. Receipt: ${receipt}. Unit reserved.`);
+    } catch (e) { logger.warn('SMS notification failed', { message: e.message }); }
+  };
+
+  if (useTransaction && session) {
+    try {
+      await executeCallback({ session });
+      await session.commitTransaction();
+      session.endSession();
+    } catch (err) {
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
+      session.endSession();
+      if (err.message && err.message.includes('replica set member')) {
+        await executeCallback({});
+      } else {
+        logger.error('STK Callback execution error', { error: err.message });
+      }
+    }
+  } else {
+    try {
+      await executeCallback({});
+    } catch (err) {
+      logger.error('STK Callback execution error', { error: err.message });
+    }
+  }
 }
 
 async function handleC2BCallback(data) {
@@ -357,7 +421,7 @@ router.post('/:id/override', requireAuth, requireRole(['admin', 'super_admin']),
         let remainingPayment = payment.amount_kes;
         if (tenantDoc.arrears_kes > 0) {
           const deduction = Math.min(tenantDoc.arrears_kes, remainingPayment);
-          tenantDoc.arrears_kes -= deduction;
+          tenantDoc.arrears_kes = Math.max(0, tenantDoc.arrears_kes - deduction);
           remainingPayment -= deduction;
         }
         const month = new Date().toISOString().slice(0, 7);
