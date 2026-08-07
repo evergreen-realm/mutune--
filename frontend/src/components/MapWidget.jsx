@@ -396,7 +396,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
 
   // Setup/Refresh standard style-bound layers and sources
   const setupMapStyleResources = useCallback((map) => {
-    if (!map || !map.style || !map.isStyleLoaded()) return;
+    if (!map || !map.style) return;
 
     const currentMapStyleMode = mapStyleModeRef.current;
     const currentTheme = themeRef.current;
@@ -624,8 +624,11 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     const handleStyleLoad = () => {
-      if (!map.isStyleLoaded()) return;
-      setupMapStyleResources(map);
+      try {
+        setupMapStyleResources(map);
+      } catch (err) {
+        console.warn("Failed to setup map style resources:", err);
+      }
       setStyleLoaded(true);
     };
 
@@ -675,7 +678,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   // Handle dynamically changing Lite View mode on the map
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !styleLoaded || !map.isStyleLoaded()) return;
+    if (!map || !styleLoaded) return;
 
     try {
       if (isLiteView) {
@@ -1488,7 +1491,7 @@ export default function MapWidget({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  disabled={tab.id === '3d' && !selectedProperty}
+                  disabled={(tab.id === 'units' || tab.id === '3d') && !selectedProperty}
                   className={`px-3 py-1.5 text-xs rounded-md font-medium transition-all flex items-center gap-1.5 ${
                     activeTab === tab.id
                       ? 'bg-brand-500 text-white shadow-sm'
