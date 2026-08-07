@@ -595,9 +595,9 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       if (map.getLayer('3d-buildings')) {
         map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.5);
       }
-      // Hide custom property extrusions (keep as invisible click targets) in 3D Mode
+      // Show custom property extrusions with 0.85 opacity in 3D Mode
       if (map.getLayer('property-extrusions')) {
-        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.0);
+        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.85);
       }
       // Show custom 3D WebGL layer
       if (map.getLayer('3d-custom-buildings-layer')) {
@@ -1426,7 +1426,7 @@ export default function MapWidget({
         : 'rounded-xl border shadow-sm bg-surface border-border'
     }`}>
       {/* Header and Search */}
-      <div className="px-4 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-surface-bright">
+      <div className="px-4 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-surface-bright relative z-50">
         <div className="flex items-center gap-3">
           <h3 className="font-semibold text-sm text-foreground">Mombasa Property Map</h3>
           <div className="relative">
@@ -1448,6 +1448,7 @@ export default function MapWidget({
               return (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id)}
                   disabled={tab.id === '3d' && !selectedProperty}
                   className={`px-3 py-1.5 text-xs rounded-md font-medium transition-all flex items-center gap-1.5 ${
@@ -1464,6 +1465,7 @@ export default function MapWidget({
           </div>
 
           <button
+            type="button"
             onClick={toggleLiteView}
             className={`px-2.5 py-1.5 rounded-lg border transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
               isLiteView
@@ -1477,6 +1479,7 @@ export default function MapWidget({
           </button>
 
           <button
+            type="button"
             onClick={() => setMapStyleMode(prev => prev === 'vector' ? 'satellite' : 'vector')}
             className={`px-2.5 py-1.5 rounded-lg border transition-colors text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
               mapStyleMode === 'satellite'

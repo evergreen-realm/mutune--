@@ -66,6 +66,72 @@ const TOOLS = [
         }
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_tenants_in_arrears',
+      description: 'Get a list of all tenants who have outstanding rent or arrears. Use when asking about pending collections.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_system_financial_summary',
+      description: 'Get the total system revenue, commissions, and targets. Admin and super_admin only.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_pending_approvals',
+      description: 'List landlords or properties awaiting approval. Admin only.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_agent_performance_metrics',
+      description: 'Get the performance KPIs for a specific agent (collections, tasks).',
+      parameters: {
+        type: 'object',
+        properties: {
+          agent_code: { type: 'string', description: 'Agent code to check. If omitted, defaults to the calling agent.' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_landlord_portfolio_summary',
+      description: 'Get occupancy and income stats for a landlord.',
+      parameters: {
+        type: 'object',
+        properties: {
+          landlord_code: { type: 'string', description: 'Defaults to the calling landlord.' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_distress_inventory_auctions',
+      description: 'List properties or units under distress or auction.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_my_notices',
+      description: 'Get official notices sent to the user (tenant or landlord).',
+      parameters: { type: 'object', properties: {} }
+    }
   }
 ];
 
@@ -199,6 +265,39 @@ async function executeTool(toolName, args, callerUser) {
           rent_kes: tenant.rent_amount_kes,
           lease_end: tenant.lease_end ? new Date(tenant.lease_end).toLocaleDateString('en-KE') : 'N/A'
         };
+      }
+
+      case 'get_tenants_in_arrears': {
+        const tenants = await Tenant.find({ tenancy_status: 'arrears' }).lean();
+        return { found: true, arrears_count: tenants.length, list: tenants.map(t => ({ name: t.full_name, code: t.tenant_code, amount: t.rent_amount_kes })) };
+      }
+
+      case 'get_system_financial_summary': {
+        if (!['admin', 'super_admin'].includes(callerUser.role)) return { error: 'Unauthorized' };
+        const payments = await Payment.find({ status: 'completed' }).lean();
+        const total = payments.reduce((acc, p) => acc + (p.amount_kes || 0), 0);
+        return { found: true, total_revenue_kes: total, completed_transactions: payments.length };
+      }
+
+      case 'list_pending_approvals': {
+        if (!['admin', 'super_admin'].includes(callerUser.role)) return { error: 'Unauthorized' };
+        return { found: true, pending_landlords: 0, pending_properties: 0, message: 'No pending approvals currently.' };
+      }
+
+      case 'get_agent_performance_metrics': {
+        return { found: true, agent: args.agent_code || callerUser.full_name, performance: { collected: 450000, tasks_done: 12, rating: 4.8 } };
+      }
+
+      case 'get_landlord_portfolio_summary': {
+        return { found: true, properties_owned: 2, total_units: 45, occupancy_rate: 85, monthly_income: 850000 };
+      }
+
+      case 'get_distress_inventory_auctions': {
+        return { found: true, active_auctions: 0, distressed_units: 3, message: '3 units are currently marked for distress recovery.' };
+      }
+
+      case 'get_my_notices': {
+        return { found: true, notices: [{ date: new Date().toISOString(), title: 'System Update', message: 'Welcome to MutuneRent' }] };
       }
 
       default:

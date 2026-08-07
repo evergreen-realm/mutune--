@@ -590,7 +590,6 @@ export default function App() {
           }>
             <ErrorBoundary>
               <Routes>
-                <Route path="/" element={<LandingPage />} />
                 <Route path="/landing" element={<LandingPage />} />
                 <Route path="/login/*" element={<LoginPage />} />
                 <Route path="/sign-up/*" element={<SignUpPage />} />
@@ -601,7 +600,7 @@ export default function App() {
                       <AppShell />
                     </SignedIn>
                     <SignedOut>
-                      <RedirectToSignIn />
+                      <LandingPage />
                     </SignedOut>
                   </>
                 } />

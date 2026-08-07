@@ -465,7 +465,7 @@ export default function AgentPerformancePage({ dbUser }) {
               </div>
             </div>
              <p className="text-3xl font-black text-white font-mono">
-              <AnimatedCounter value={assignedProperties.length || 24} />
+              <AnimatedCounter value={assignedProperties.length} />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Active coastal sites</p>
           </div>
@@ -482,7 +482,7 @@ export default function AgentPerformancePage({ dbUser }) {
               </div>
             </div>
             <p className="text-3xl font-black text-amber-400 font-mono">
-              <AnimatedCounter value={pendingCollections.length || 8} />
+              <AnimatedCounter value={pendingCollections.length} />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Tenant follow-ups due</p>
           </div>
@@ -499,7 +499,7 @@ export default function AgentPerformancePage({ dbUser }) {
               </div>
             </div>
             <p className="text-3xl font-black text-white font-mono">
-              <AnimatedCounter value={pendingTasksCount || 5} />
+              <AnimatedCounter value={pendingTasksCount} />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Check-ins & inspections</p>
           </div>
@@ -516,7 +516,7 @@ export default function AgentPerformancePage({ dbUser }) {
               </div>
             </div>
             <p className="text-3xl font-black text-emerald-450 font-mono">
-              <AnimatedCounter value={commissionEarned || 45} prefix="KES " suffix="K" />
+              <AnimatedCounter value={commissionEarned} prefix="KES " suffix="K" />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Current collection tier rate</p>
           </div>
