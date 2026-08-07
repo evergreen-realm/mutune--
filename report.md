@@ -52,9 +52,9 @@ This report provides a complete end-to-end audit and test verification for **Mut
 
 ## 3. Wholesome Test Suite Execution Results
 
-**Test Runner**: Vitest 1.6.1  
-**Total Pass Rate**: **100% (14/14 Passed)**
+**Grand Total Pass Rate**: **100% (148/148 Tests Passed across 12 Suites)**
 
+### 🎨 Frontend Unit & Integration Tests (Vitest)
 ```text
  RUN  v1.6.1 C:/Users/Admin/Desktop/mutune/frontend
 
@@ -66,6 +66,23 @@ This report provides a complete end-to-end audit and test verification for **Mut
  Test Files  4 passed (4)
       Tests  14 passed (14)
    Duration  17.31s
+```
+
+### ⚙️ Backend End-to-End API Tests (Jest & MongoDB Memory Server)
+```text
+ PASS  tests/auth.e2e.test.js
+ PASS  tests/cors.e2e.test.js
+ PASS  tests/payment.e2e.test.js
+ PASS  tests/phase4.e2e.test.js
+ PASS  tests/security.test.js
+ PASS  tests/tier1.e2e.test.js
+ PASS  tests/tier2.e2e.test.js
+ PASS  tests/tier3_4.e2e.test.js
+
+ Test Suites: 8 passed, 8 total
+ Tests:       134 passed, 134 total
+ Snapshots:   0 total
+ Time:        192.719 s
 ```
 
 ---
