@@ -375,9 +375,9 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   const customLayerRef = useRef(null);
   const [styleLoaded, setStyleLoaded] = useState(false);
 
-  const mapStyle = theme === 'light'
-    ? 'mapbox://styles/mapbox/light-v11'
-    : 'mapbox://styles/mapbox/dark-v11';
+  const mapStyle = mapStyleMode === 'satellite'
+    ? 'mapbox://styles/mapbox/satellite-streets-v12'
+    : (theme === 'light' ? 'mapbox://styles/mapbox/light-v11' : 'mapbox://styles/mapbox/dark-v11');
 
   // Refs to prevent stale closures in single-mount Mapbox event handlers
   const mapStyleModeRef = useRef(mapStyleMode);
@@ -406,22 +406,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
     )?.id;
 
-    // 1. Add Mapbox satellite layer (uses existing access token, no CORS issues)
-    if (!map.getSource('mapbox-satellite')) {
-      map.addSource('mapbox-satellite', {
-        type: 'raster',
-        url: 'mapbox://mapbox.satellite',
-        tileSize: 256
-      });
-      map.addLayer({
-        id: 'satellite-layer',
-        type: 'raster',
-        source: 'mapbox-satellite',
-        paint: {
-          'raster-opacity': currentMapStyleMode === 'satellite' ? 1.0 : 0.0
-        }
-      }, labelLayerId);
-    }
+    // 1. (Removed manual satellite layer to use native Mapbox styles)
 
     // 2. Add standard 3D buildings extrusions for Mombasa
     if (!map.getLayer('3d-buildings')) {
@@ -546,17 +531,8 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     if (!map) return;
     setStyleLoaded(false);
     map.setStyle(mapStyle);
-  }, [theme]);
+  }, [theme, mapStyleMode, mapStyle]);
 
-  // Handle dynamically changing satellite mode
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !styleLoaded) return;
-    const satOpacity = mapStyleMode === 'satellite' ? 1.0 : 0.0;
-    if (map.getLayer('satellite-layer')) {
-      map.setPaintProperty('satellite-layer', 'raster-opacity', satOpacity);
-    }
-  }, [mapStyleMode, styleLoaded]);
 
   // Handle dynamically changing Lite View mode on the map
   useEffect(() => {
@@ -575,9 +551,9 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       if (map.getLayer('3d-buildings')) {
         map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', 0.0);
       }
-      // Show custom property extrusions with 0.85 opacity in Lite Mode
+      // Hide custom property extrusions in Lite Mode (2D)
       if (map.getLayer('property-extrusions')) {
-        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.85);
+        map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.0);
       }
       // Hide custom 3D WebGL layer
       if (map.getLayer('3d-custom-buildings-layer')) {
@@ -1426,7 +1402,7 @@ export default function MapWidget({
         : 'rounded-xl border shadow-sm bg-surface border-border'
     }`}>
       {/* Header and Search */}
-      <div className="px-4 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-surface-bright relative z-50">
+      <div className="px-4 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-surface-bright relative z-[100] pointer-events-auto shadow-sm">
         <div className="flex items-center gap-3">
           <h3 className="font-semibold text-sm text-foreground">Mombasa Property Map</h3>
           <div className="relative">

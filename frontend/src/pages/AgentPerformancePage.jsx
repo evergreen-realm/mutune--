@@ -148,6 +148,35 @@ export default function AgentPerformancePage({ dbUser }) {
     });
   }, [payments]);
 
+  // Derived Performance Metrics to avoid undefined reference crashes (Memoized for performance)
+  const assignedProperties = useMemo(() => {
+    return dbUser?.role === 'agent'
+      ? allProperties.filter(p => p.agent_ids?.includes(dbUser?._id) || p.agent_ids?.includes(dbUser?.id))
+      : allProperties;
+  }, [allProperties, dbUser]);
+
+  const pendingCollections = useMemo(() => {
+    return allTenants.filter(t => {
+      const isOverdue = t.arrears_kes > 0;
+      if (dbUser?.role !== 'agent') return isOverdue;
+      const agentPropIds = allProperties
+        .filter(p => p.agent_ids?.includes(dbUser?._id) || p.agent_ids?.includes(dbUser?.id))
+        .map(p => p._id);
+      return isOverdue && agentPropIds.includes(t.current_property_id);
+    });
+  }, [allTenants, allProperties, dbUser]);
+
+  const pendingTasksCount = useMemo(() => {
+    return tasks.filter(t => t.status !== 'completed').length;
+  }, [tasks]);
+
+  const commissionEarned = useMemo(() => {
+    const currentAgentPerf = agents.find(a => a.agent_id === dbUser?._id || a.agent_id === dbUser?.id);
+    return currentAgentPerf?.commission_earned_kes 
+      ? Math.round(currentAgentPerf.commission_earned_kes / 1000) 
+      : 0;
+  }, [agents, dbUser]);
+
   useEffect(() => {
     if (dbUser?.profile_picture) {
       setProfilePic(dbUser.profile_picture);
@@ -304,26 +333,6 @@ export default function AgentPerformancePage({ dbUser }) {
   const tasksCompleted = agents.reduce((s, a) => s + (a.completed_tasks || 0), 0);
   const tasksTotal     = agents.reduce((s, a) => s + (a.total_tasks || 0), 0);
   const avgCompletion  = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
-
-  const assignedProperties = dbUser?.role === 'agent'
-    ? allProperties.filter(p => p.agent_ids?.includes(dbUser?._id) || p.agent_ids?.includes(dbUser?.id))
-    : allProperties;
-
-  const pendingCollections = allTenants.filter(t => {
-    const isOverdue = t.arrears_kes > 0;
-    if (dbUser?.role !== 'agent') return isOverdue;
-    const agentPropIds = allProperties
-      .filter(p => p.agent_ids?.includes(dbUser?._id) || p.agent_ids?.includes(dbUser?.id))
-      .map(p => p._id);
-    return isOverdue && agentPropIds.includes(t.current_property_id);
-  });
-
-  const pendingTasksCount = tasks.filter(t => t.status !== 'completed').length;
-
-  const currentAgentPerf = agents.find(a => a.agent_id === dbUser?._id || a.agent_id === dbUser?.id);
-  const commissionEarned = currentAgentPerf?.commission_earned_kes 
-    ? Math.round(currentAgentPerf.commission_earned_kes / 1000) 
-    : 45;
 
   if (loading) {
     return (
