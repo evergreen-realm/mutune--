@@ -9,13 +9,14 @@ import 'leaflet/dist/leaflet.css';
 import { 
   Building2, MapPin, Plus, Trash2, Lock, Unlock, 
   UserCheck, Key, Compass, Navigation, Loader2, ArrowLeft,
-  Users, CheckCircle2, AlertTriangle, Shield
+  Users, CheckCircle2, AlertTriangle, Shield, Sparkles
 } from 'lucide-react';
 import { 
   fetchProperty, addUnit, deletePropertyUnit, 
   lockPropertyUnit, checkInAgent 
 } from '../lib/api';
 import { TableSkeleton } from '../components/SkeletonLoader';
+import SplatAssetManager from '../components/SplatAssetManager';
 const MapWidget = React.lazy(() => import('../components/MapWidget'));
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -556,6 +557,30 @@ export default function PropertyDetailPage({ dbUser }) {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* 3D Gaussian Splat Scans Section */}
+          <div className="bg-white border border-gray-150 rounded-[28px] shadow-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-indigo-600" size={20} />
+                <h2 className="text-lg font-black text-slate-800">3D Gaussian Splat Scans</h2>
+              </div>
+            </div>
+            
+            <SplatAssetManager 
+              assets={
+                (property?.assets && property.assets.filter(a => a.type === 'splat')) || 
+                (property?.splatUrl ? [{
+                  id: 'splat-main',
+                  title: `${property.name} 3D Scan`,
+                  type: 'splat',
+                  splatUrl: property.splatUrl,
+                  status: 'ready',
+                  createdAt: property.createdAt || new Date().toISOString()
+                }] : [])
+              } 
+            />
           </div>
         </div>
       </div>

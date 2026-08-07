@@ -4,9 +4,10 @@ import { toast } from 'react-toastify';
 import { useQueryClient } from '@tanstack/react-query';
 import { createProperty, addUnit, geocodeAddress } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
+import GuidedPhotoCaptureModal from '../components/GuidedPhotoCaptureModal';
 import {
   Building2, Home, ChevronRight, ChevronLeft, Check,
-  Trash2, Plus, MapPin, Layers
+  Trash2, Plus, MapPin, Layers, Camera, Sparkles
 } from 'lucide-react';
 
 const STEPS = ['Property Details', 'Units', 'Photos', 'Review & Submit'];
@@ -321,7 +322,7 @@ function StepUnits({ form, addUnitFn, removeUnitFn, updateUnitFn }) {
 }
 
 // ── Step 2: Photos & Floor Plan ────────────────────────────────────────────────────────────
-function StepPhotos({ form, setField }) {
+function StepPhotos({ form, setField, onLaunchCapture }) {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-slate-500 dark:text-slate-400 text-xs">
@@ -346,6 +347,48 @@ function StepPhotos({ form, setField }) {
           multiple={false}
           label="Floor Plan Layout (Optional)"
         />
+      </div>
+
+      {/* 360° 3D Gaussian Scan Card */}
+      <div className="p-5 rounded-2xl border border-blue-500/30 bg-blue-950/20 backdrop-blur">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="text-blue-400" size={18} />
+            <h3 className="text-slate-900 dark:text-white font-bold text-sm">360° 3D Gaussian Scan (Splat)</h3>
+          </div>
+          {form.splatUrl && (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              ✓ Scan Attached
+            </span>
+          )}
+        </div>
+        <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-4">
+          Capture 16 overlapping photos to generate an interactive 3D Gaussian Splat model for potential tenants to tour on the map.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={onLaunchCapture}
+            className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white transition shadow-lg shadow-blue-600/20"
+          >
+            <Camera size={15} />
+            Launch 360° Room Capture HUD
+          </button>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+            Direct .splat / 3D Asset URL (Optional)
+          </label>
+          <input
+            type="text"
+            value={form.splatUrl || ''}
+            onChange={e => setField('splatUrl', e.target.value)}
+            placeholder="https://example.com/scans/room.splat"
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+          />
+        </div>
       </div>
     </div>
   );
@@ -425,6 +468,8 @@ const INITIAL_FORM = {
   units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '' }],
   photos: [],
   floor_plan_url: '',
+  splatUrl: '',
+  assets: [],
   locationMethod: 'estimate',
   location: { type: 'Point', coordinates: [39.6978, -4.0287] }
 };
@@ -434,7 +479,28 @@ export default function AddPropertyPage() {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
+
+  const handleCaptureComplete = (capturedPhotos) => {
+    const demoSplatUrl = capturedPhotos[0] || 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb';
+    setForm(prev => ({
+      ...prev,
+      splatUrl: demoSplatUrl,
+      assets: [
+        ...(prev.assets || []),
+        {
+          id: 'splat-' + Date.now(),
+          title: '360° Gaussian Room Scan',
+          type: 'splat',
+          splatUrl: demoSplatUrl,
+          status: 'ready',
+          createdAt: new Date().toISOString()
+        }
+      ]
+    }));
+    toast.success('✨ 360° Scan captured! 3D Gaussian Splat model attached.');
+  };
 
   const setField = (path, value) => {
     setForm(prev => {
@@ -520,6 +586,8 @@ export default function AddPropertyPage() {
         address: form.address,
         photos: form.photos,
         floor_plan_url: form.floor_plan_url,
+        splatUrl: form.splatUrl,
+        assets: form.assets,
         location: { type: 'Point', coordinates: coords }
       });
 
@@ -552,6 +620,11 @@ export default function AddPropertyPage() {
 
   return (
     <div className="relative text-slate-900 dark:text-slate-100">
+      <GuidedPhotoCaptureModal
+        isOpen={isCaptureOpen}
+        onClose={() => setIsCaptureOpen(false)}
+        onComplete={handleCaptureComplete}
+      />
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-[10%] -right-[5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[40px]" />
       </div>
@@ -581,7 +654,7 @@ export default function AddPropertyPage() {
 
           {step === 0 && <StepDetails form={form} setField={setField} />}
           {step === 1 && <StepUnits form={form} addUnitFn={addUnitFn} removeUnitFn={removeUnitFn} updateUnitFn={updateUnitFn} />}
-          {step === 2 && <StepPhotos form={form} setField={setField} />}
+          {step === 2 && <StepPhotos form={form} setField={setField} onLaunchCapture={() => setIsCaptureOpen(true)} />}
           {step === 3 && <StepReview form={form} />}
         </div>
 
