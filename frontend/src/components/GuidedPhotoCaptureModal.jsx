@@ -8,17 +8,27 @@ import { useCameraDevices } from '../hooks/useCameraDevices';
 import { analyzeFrameQuality } from '../utils/frameQualityAnalyzer';
 import { extractFramesFromVideo } from '../utils/videoFrameExtractor';
 
-// Helper to convert base64 data URL to File
+// Helper to convert base64 data URL to File safely without throwing null dereference errors
 const dataURLtoFile = (dataurl, filename) => {
-  const arr = dataurl.split(',');
-  const mime = arr[0].match(/:(.*?);/)[1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
+  if (!dataurl || typeof dataurl !== 'string') {
+    throw new Error('No valid image data stream available for capture.');
   }
-  return new File([u8arr], filename, { type: mime });
+  const parts = dataurl.split(',');
+  const mimeMatch = parts[0]?.match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const base64Str = parts[1] || parts[0];
+  
+  try {
+    const bstr = atob(base64Str);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  } catch (e) {
+    throw new Error('Failed to decode image buffer from camera feed.');
+  }
 };
 
 // Web Audio API chime synthesizer for target lock
@@ -151,12 +161,26 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       return;
     }
 
-    if (!webcamRef.current) return;
-
     setIsCapturing(true);
     try {
-      const imageSrc = webcamRef.current.getScreenshot();
-      if (!imageSrc) throw new Error('Could not capture frame from webcam');
+      let imageSrc = webcamRef.current?.getScreenshot?.();
+
+      // Fallback: Direct HTML5 Canvas frame extraction if react-webcam getScreenshot() returns null
+      if (!imageSrc && webcamRef.current?.video) {
+        const videoEl = webcamRef.current.video;
+        if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+          const canvas = document.createElement('canvas');
+          canvas.width = videoEl.videoWidth;
+          canvas.height = videoEl.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(videoEl, 0, 0);
+          imageSrc = canvas.toDataURL('image/jpeg', 0.92);
+        }
+      }
+
+      if (!imageSrc) {
+        throw new Error('Could not capture frame from webcam feed. Please check video stream initialization.');
+      }
 
       const file = dataURLtoFile(imageSrc, `sector_${activeSectorIndex + 1}_${Date.now()}.jpg`);
       
