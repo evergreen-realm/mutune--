@@ -645,3 +645,36 @@ button.bg-indigo-600, button.bg-green-600, a.bg-indigo-600, a.bg-green-600 {
   color: var(--foreground) !important;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   GLOBAL SMOOTH TOUCHPAD SCROLLING & SLEEK SCROLLBARS
+   ═══════════════════════════════════════════════════════════ */
+html, body {
+  scroll-behavior: smooth;
+  touch-action: manipulation;
+}
+
+/* Touchpad Sleek Thin Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.65);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+

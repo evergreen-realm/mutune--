@@ -329,134 +329,18 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-lg" onClick={onClose} />
+    <div className="fixed inset-0 z-[9999] overflow-y-auto p-2 sm:p-4 flex items-center justify-center bg-slate-950/85 backdrop-blur-lg custom-scrollbar">
+      {/* Backdrop click handler */}
+      <div className="absolute inset-0" onClick={onClose} />
       
       {/* Modal Container */}
-      <div className="relative bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col lg:flex-row h-[92vh] lg:h-[640px]">
+      <div className="relative bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[94vh] my-auto overflow-hidden z-10">
         
-        {/* Left Pane: Live Camera OR Video File Player */}
-        <div className="flex-1 relative bg-black flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden">
-          
-          {inputMode === 'camera' ? (
-            cameraError ? (
-              /* In-Pane Camera Error & Recovery Viewport */
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950 text-center space-y-4 z-10">
-                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                  <AlertTriangle size={28} />
-                </div>
-                <div>
-                  <h4 className="text-white font-extrabold text-base mb-1">Camera Stream Unavailable</h4>
-                  <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
-                    The requested camera constraints failed. Select a connected camera device or switch to generic stream fallback.
-                  </p>
-                </div>
-
-                {videoDevices.length > 0 && (
-                  <div className="w-full max-w-xs space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Select Camera Device
-                    </label>
-                    <select
-                      value={selectedDeviceId}
-                      onChange={(e) => {
-                        setSelectedDeviceId(e.target.value);
-                        setUseGenericFallback(false);
-                        setCameraError(false);
-                      }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {videoDevices.map((d, i) => (
-                        <option key={d.deviceId || i} value={d.deviceId}>
-                          {d.label || `Camera ${i + 1}`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUseGenericFallback(true);
-                      setCameraError(false);
-                    }}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition shadow"
-                  >
-                    Try Default Camera ({'{ video: true }'})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInputMode('video')}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition border border-slate-700"
-                  >
-                    Switch to 360° Video Upload
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <Webcam
-                ref={webcamRef}
-                audio={false}
-                screenshotFormat="image/jpeg"
-                videoConstraints={getVideoConstraints()}
-                onUserMediaError={handleUserMediaError}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            )
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950">
-              {videoObjectUrl ? (
-                <div className="relative w-full h-full flex flex-col items-center justify-center">
-                  <video
-                    ref={videoPlayerRef}
-                    src={videoObjectUrl}
-                    controls
-                    playsInline
-                    className="max-h-[380px] w-full rounded-2xl border border-slate-800 object-contain shadow-lg"
-                  />
-                  <div className="mt-4 flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleExtractVideoFrames}
-                      disabled={isExtractingVideo}
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2"
-                    >
-                      {isExtractingVideo ? (
-                        <><RefreshCw size={16} className="animate-spin" /> Processing Video ({videoExtractionProgress}%)...</>
-                      ) : (
-                        <><Film size={16} /> Extract 16 Spatial Sector Scans</>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <label className="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-3xl p-10 text-center cursor-pointer transition-all duration-300 max-w-md w-full bg-slate-900/50 hover:bg-slate-900 group">
-                  <input
-                    type="file"
-                    accept="video/mp4,video/webm,video/quicktime"
-                    onChange={handleVideoSelect}
-                    className="hidden"
-                  />
-                  <FileVideo size={48} className="mx-auto text-slate-500 group-hover:text-blue-400 mb-3 transition" />
-                  <h4 className="text-white font-extrabold text-sm mb-1">Upload 360° Room Video</h4>
-                  <p className="text-slate-400 text-xs leading-relaxed mb-4">
-                    Select a pre-recorded MP4 video file. The system will extract 16 spatial sector frames automatically.
-                  </p>
-                  <span className="inline-block px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md group-hover:bg-blue-500 transition">
-                    Browse Video File
-                  </span>
-                </label>
-              )}
-            </div>
-          )}
-
-          {/* Header Mode Selector & Info */}
-          <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-            {/* Input Mode Tabs & Camera Selector */}
-            <div className="pointer-events-auto bg-black/70 backdrop-blur-md p-1 rounded-full border border-white/10 flex items-center gap-1">
+        {/* Top Control Header - Always 100% Visible in One View */}
+        <div className="w-full bg-slate-900/90 border-b border-slate-800 px-4 py-3 flex flex-wrap items-center justify-between gap-2 z-30 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Input Mode Tabs */}
+            <div className="bg-black/60 p-1 rounded-full border border-white/10 flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setInputMode('camera')}
@@ -481,98 +365,220 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className={`px-3.5 py-1.5 backdrop-blur-md rounded-full border text-xs font-extrabold uppercase tracking-wider ${statusBadgeColor}`}>
-                {guidanceMessage}
+            {/* Camera Device Dropdown (When Camera Active) */}
+            {inputMode === 'camera' && !cameraError && videoDevices.length > 1 && (
+              <div className="bg-black/60 px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
+                <Settings2 size={12} className="text-blue-400" />
+                <select
+                  value={selectedDeviceId}
+                  onChange={(e) => {
+                    setSelectedDeviceId(e.target.value);
+                    setUseGenericFallback(false);
+                  }}
+                  className="bg-transparent text-white text-[10px] font-bold focus:outline-none cursor-pointer"
+                >
+                  {videoDevices.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId} className="bg-slate-900 text-white">
+                      {d.label || `Camera ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              <button 
-                onClick={onClose}
-                className="pointer-events-auto p-2 bg-black/70 backdrop-blur-md rounded-full border border-white/10 text-white hover:bg-white/20 transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
+            )}
           </div>
 
-          {/* Camera Device Dropdown Header (When Camera Available) */}
-          {inputMode === 'camera' && !cameraError && videoDevices.length > 1 && (
-            <div className="absolute top-16 left-4 z-20 pointer-events-auto bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
-              <Settings2 size={12} className="text-blue-400" />
-              <select
-                value={selectedDeviceId}
-                onChange={(e) => {
-                  setSelectedDeviceId(e.target.value);
-                  setUseGenericFallback(false);
-                }}
-                className="bg-transparent text-white text-[10px] font-bold focus:outline-none cursor-pointer"
-              >
-                {videoDevices.map((d, i) => (
-                  <option key={d.deviceId || i} value={d.deviceId} className="bg-slate-900 text-white">
-                    {d.label || `Camera ${i + 1}`}
-                  </option>
-                ))}
-              </select>
+          <div className="flex items-center gap-2">
+            <div className={`px-3 py-1 backdrop-blur-md rounded-full border text-[10px] sm:text-xs font-extrabold uppercase tracking-wider ${statusBadgeColor}`}>
+              {guidanceMessage}
             </div>
-          )}
 
-          {/* Reticle Overlay (Only in Camera mode when stream active) */}
-          {inputMode === 'camera' && !cameraError && (
-            <>
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div 
-                  className={`w-64 h-64 sm:w-72 sm:h-72 border-2 rounded-3xl relative flex flex-col items-center justify-center transition-all duration-200 ${
-                    isAligned 
-                      ? 'border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.5)] scale-105' 
-                      : 'border-white/30'
-                  }`}
-                >
-                  <div className={`absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 rounded-tl-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
-                  <div className={`absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 rounded-tr-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
-                  <div className={`absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 rounded-bl-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
-                  <div className={`absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
-
-                  {/* Artificial Horizon */}
-                  <div 
-                    className="absolute inset-x-4 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent transition-transform duration-100 ease-out"
-                    style={{
-                      transform: `translateY(${Math.max(-80, Math.min(80, pitch * 2))}px) rotate(${-roll}deg)`
-                    }}
-                  />
-                  
-                  <div className="absolute inset-y-4 w-[1px] bg-emerald-400/40" />
-
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-                    <div className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${isAligned ? 'bg-emerald-400 border-white scale-125 shadow-[0_0_15px_rgba(16,185,129,0.9)]' : 'bg-blue-500/50 border-blue-400'}`} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Shutter Button */}
-              <div className="absolute bottom-5 left-0 right-0 z-30 flex items-center justify-center gap-4 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={handleCapture}
-                  disabled={isCapturing || capturedPhotos.length >= TOTAL_SECTORS}
-                  className={`w-16 h-16 rounded-full border-4 backdrop-blur flex items-center justify-center transition-all duration-300 active:scale-95 ${
-                    isAligned 
-                      ? 'bg-emerald-500/80 border-emerald-300 shadow-[0_0_25px_rgba(16,185,129,0.8)]' 
-                      : 'bg-white/20 border-white/80 hover:bg-white/40'
-                  } disabled:opacity-50`}
-                >
-                  {isCapturing ? (
-                    <RefreshCw className="animate-spin text-white" size={24} />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-white transition-all" />
-                  )}
-                </button>
-              </div>
-            </>
-          )}
+            <button 
+              onClick={onClose}
+              title="Close modal"
+              className="p-2 bg-black/70 hover:bg-white/20 rounded-full border border-white/10 text-white transition flex items-center justify-center"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        {/* Right Pane: Radar & Guided Sector Progression */}
-        <div className="w-full lg:w-88 bg-slate-900 p-6 flex flex-col justify-between overflow-y-auto">
+        {/* Modal Main Body (Flex Row / Col with Touchpad Scrolling) */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto custom-scrollbar min-h-0">
+          
+          {/* Left Pane: Live Camera OR Video Player */}
+          <div className="flex-1 relative bg-black flex flex-col items-center justify-center min-h-[300px] lg:min-h-[420px] border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden">
+            
+            {inputMode === 'camera' ? (
+              cameraError ? (
+                /* In-Pane Camera Error & Recovery Viewport */
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950 text-center space-y-4 z-10">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <AlertTriangle size={28} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-extrabold text-base mb-1">Camera Stream Unavailable</h4>
+                    <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
+                      The requested camera constraints failed. Select a connected camera device or switch to generic stream fallback.
+                    </p>
+                  </div>
+
+                  {videoDevices.length > 0 && (
+                    <div className="w-full max-w-xs space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Select Camera Device
+                      </label>
+                      <select
+                        value={selectedDeviceId}
+                        onChange={(e) => {
+                          setSelectedDeviceId(e.target.value);
+                          setUseGenericFallback(false);
+                          setCameraError(false);
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {videoDevices.map((d, i) => (
+                          <option key={d.deviceId || i} value={d.deviceId}>
+                            {d.label || `Camera ${i + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseGenericFallback(true);
+                        setCameraError(false);
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition shadow"
+                    >
+                      Try Default Camera ({'{ video: true }'})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInputMode('video')}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition border border-slate-700"
+                    >
+                      Switch to 360° Video Upload
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <Webcam
+                  ref={webcamRef}
+                  audio={false}
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={getVideoConstraints()}
+                  onUserMediaError={handleUserMediaError}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950">
+                {videoObjectUrl ? (
+                  <div className="relative w-full h-full flex flex-col items-center justify-center">
+                    <video
+                      ref={videoPlayerRef}
+                      src={videoObjectUrl}
+                      controls
+                      playsInline
+                      className="max-h-[320px] w-full rounded-2xl border border-slate-800 object-contain shadow-lg"
+                    />
+                    <div className="mt-4 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleExtractVideoFrames}
+                        disabled={isExtractingVideo}
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg transition flex items-center gap-2"
+                      >
+                        {isExtractingVideo ? (
+                          <><RefreshCw size={16} className="animate-spin" /> Processing Video ({videoExtractionProgress}%)...</>
+                        ) : (
+                          <><Film size={16} /> Extract 16 Spatial Sector Scans</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-3xl p-8 text-center cursor-pointer transition-all duration-300 max-w-md w-full bg-slate-900/50 hover:bg-slate-900 group">
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime"
+                      onChange={handleVideoSelect}
+                      className="hidden"
+                    />
+                    <FileVideo size={40} className="mx-auto text-slate-500 group-hover:text-blue-400 mb-2 transition" />
+                    <h4 className="text-white font-extrabold text-sm mb-1">Upload 360° Room Video</h4>
+                    <p className="text-slate-400 text-xs leading-relaxed mb-3">
+                      Select a pre-recorded MP4 video file. The system will extract 16 spatial sector frames automatically.
+                    </p>
+                    <span className="inline-block px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md group-hover:bg-blue-500 transition">
+                      Browse Video File
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
+
+            {/* Reticle Overlay (Only in Camera mode when stream active) */}
+            {inputMode === 'camera' && !cameraError && (
+              <>
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div 
+                    className={`w-52 h-52 sm:w-64 sm:h-64 border-2 rounded-3xl relative flex flex-col items-center justify-center transition-all duration-200 ${
+                      isAligned 
+                        ? 'border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.5)] scale-105' 
+                        : 'border-white/30'
+                    }`}
+                  >
+                    <div className={`absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 rounded-tl-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
+                    <div className={`absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 rounded-tr-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
+                    <div className={`absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 rounded-bl-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
+                    <div className={`absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-3xl transition-colors ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
+
+                    {/* Artificial Horizon */}
+                    <div 
+                      className="absolute inset-x-4 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent transition-transform duration-100 ease-out"
+                      style={{
+                        transform: `translateY(${Math.max(-80, Math.min(80, pitch * 2))}px) rotate(${-roll}deg)`
+                      }}
+                    />
+                    
+                    <div className="absolute inset-y-4 w-[1px] bg-emerald-400/40" />
+
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+                      <div className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${isAligned ? 'bg-emerald-400 border-white scale-125 shadow-[0_0_15px_rgba(16,185,129,0.9)]' : 'bg-blue-500/50 border-blue-400'}`} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Shutter Button */}
+                <div className="absolute bottom-4 left-0 right-0 z-30 flex items-center justify-center gap-4 pointer-events-auto">
+                  <button
+                    type="button"
+                    onClick={handleCapture}
+                    disabled={isCapturing || capturedPhotos.length >= TOTAL_SECTORS}
+                    className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 backdrop-blur flex items-center justify-center transition-all duration-300 active:scale-95 ${
+                      isAligned 
+                        ? 'bg-emerald-500/80 border-emerald-300 shadow-[0_0_25px_rgba(16,185,129,0.8)]' 
+                        : 'bg-white/20 border-white/80 hover:bg-white/40'
+                    } disabled:opacity-50`}
+                  >
+                    {isCapturing ? (
+                      <RefreshCw className="animate-spin text-white" size={24} />
+                    ) : (
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white transition-all" />
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Right Pane: Radar & Guided Sector Progression */}
+          <div className="w-full lg:w-88 bg-slate-900 p-5 flex flex-col justify-between overflow-y-auto custom-scrollbar shrink-0">
           
           <div>
             <div className="text-center mb-6">
