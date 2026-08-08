@@ -687,5 +687,6 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
