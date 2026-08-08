@@ -22,7 +22,7 @@ const ALLOWED_MIME = new Set([
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
   fileFilter(_req, file, cb) {
     if (ALLOWED_MIME.has(file.mimetype)) {
       cb(null, true);
@@ -82,7 +82,7 @@ router.post(
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(413).json({
             success: false,
-            error: { code: 'FILE_TOO_LARGE', message: 'File must be under 5 MB.' }
+            error: { code: 'FILE_TOO_LARGE', message: 'File must be under 50 MB.' }
           });
         }
         return res.status(400).json({
@@ -150,7 +150,7 @@ router.post(
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(413).json({
             success: false,
-            error: { code: 'FILE_TOO_LARGE', message: 'File must be under 5 MB.' }
+            error: { code: 'FILE_TOO_LARGE', message: 'File must be under 50 MB.' }
           });
         }
         return res.status(400).json({
