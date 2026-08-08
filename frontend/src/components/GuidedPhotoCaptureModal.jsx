@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, X, RefreshCw, UploadCloud, AlertTriangle, CheckCircle2, Navigation, Compass, Zap, Film, FileVideo, Video, Play, Pause } from 'lucide-react';
+import { Camera, X, RefreshCw, UploadCloud, AlertTriangle, Navigation, Compass, Zap, Film, FileVideo, Video, Settings2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { uploadDoc } from '../lib/api';
 import { useCameraMotion } from '../hooks/useCameraMotion';
+import { useCameraDevices } from '../hooks/useCameraDevices';
 import { analyzeFrameQuality } from '../utils/frameQualityAnalyzer';
 import { extractFramesFromVideo } from '../utils/videoFrameExtractor';
 
@@ -53,24 +54,33 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
   const [isCapturing, setIsCapturing] = useState(false);
   const [autoLockProgress, setAutoLockProgress] = useState(0);
   const [frameQuality, setFrameQuality] = useState({ isQualityOK: true, message: 'Calibrating...' });
+  
+  // Camera WebRTC Resilient State
   const [cameraError, setCameraError] = useState(false);
+  const [useGenericFallback, setUseGenericFallback] = useState(false);
 
   // Video File Mode State
   const [selectedVideoFile, setSelectedVideoFile] = useState(null);
   const [videoObjectUrl, setVideoObjectUrl] = useState(null);
   const [isExtractingVideo, setIsExtractingVideo] = useState(false);
   const [videoExtractionProgress, setVideoExtractionProgress] = useState(0);
-  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
 
   const TOTAL_SECTORS = 16;
   const SECTOR_ANGLE_STEP = 360 / TOTAL_SECTORS; // 22.5 degrees
+
+  // Camera Devices Enumeration Hook
+  const {
+    videoDevices,
+    selectedDeviceId,
+    setSelectedDeviceId,
+    refreshDevices
+  } = useCameraDevices(isOpen && inputMode === 'camera');
 
   // Integrated Sensor & Optical Motion Tracker Hook
   const {
     angle,
     pitch,
     roll,
-    isSensorAvailable,
     motionSpeed,
     requestSensorPermission
   } = useCameraMotion(isOpen && inputMode === 'camera', webcamRef);
@@ -86,11 +96,24 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
   // Sector alignment check (within ±8.5° of target and camera held level)
   const isAligned = angleDelta <= 8.5 && levelDelta <= 15 && motionSpeed < 35;
 
+  // Compute video constraints dynamically
+  const getVideoConstraints = () => {
+    if (useGenericFallback) {
+      return true; // Generic stream fallback
+    }
+    if (selectedDeviceId) {
+      return { deviceId: { exact: selectedDeviceId } };
+    }
+    return { facingMode: { ideal: 'environment' } };
+  };
+
   // Reset modal state on open
   useEffect(() => {
     if (isOpen) {
       setCameraError(false);
+      setUseGenericFallback(false);
       requestSensorPermission();
+      refreshDevices();
     } else {
       if (videoObjectUrl) {
         URL.revokeObjectURL(videoObjectUrl);
@@ -99,11 +122,11 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       setSelectedVideoFile(null);
       setIsExtractingVideo(false);
     }
-  }, [isOpen, requestSensorPermission, videoObjectUrl]);
+  }, [isOpen, requestSensorPermission, refreshDevices, videoObjectUrl]);
 
-  // Real-time Frame Quality Analysis Loop (Runs when in Camera mode)
+  // Real-time Frame Quality Analysis Loop
   useEffect(() => {
-    if (!isOpen || inputMode !== 'camera') return;
+    if (!isOpen || inputMode !== 'camera' || cameraError) return;
 
     const interval = setInterval(() => {
       if (webcamRef.current?.video) {
@@ -113,13 +136,12 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     }, 80);
 
     return () => clearInterval(interval);
-  }, [isOpen, inputMode]);
+  }, [isOpen, inputMode, cameraError]);
 
-  // Handle WebRTC Camera Errors gracefully (e.g. desktop laptops without back camera)
+  // Handle WebRTC Camera Errors safely (In-Pane Recovery)
   const handleUserMediaError = useCallback((err) => {
+    console.warn('Webcam stream error:', err);
     setCameraError(true);
-    toast.warning('Webcam unavailable or restricted. Switched to 360° Video Upload mode.');
-    setInputMode('video');
   }, []);
 
   // Handle Live Camera Snapshot Capture
@@ -170,7 +192,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
   // Auto-Snap Lock Timer Effect when Target Sector is Aligned & Level
   useEffect(() => {
-    if (!isOpen || inputMode !== 'camera' || isCapturing || capturedPhotos.length >= TOTAL_SECTORS) {
+    if (!isOpen || inputMode !== 'camera' || cameraError || isCapturing || capturedPhotos.length >= TOTAL_SECTORS) {
       setAutoLockProgress(0);
       return;
     }
@@ -194,7 +216,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isAligned, frameQuality.isQualityOK, isOpen, inputMode, isCapturing, capturedPhotos.length, handleCapture]);
+  }, [isAligned, frameQuality.isQualityOK, isOpen, inputMode, cameraError, isCapturing, capturedPhotos.length, handleCapture]);
 
   // Handle Video File Selection
   const handleVideoSelect = (e) => {
@@ -265,6 +287,9 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       ? `Video Selected: ${selectedVideoFile.name}` 
       : 'Upload a 360° MP4 video file to extract 16 spatial sector scans';
     statusBadgeColor = 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30';
+  } else if (cameraError) {
+    guidanceMessage = 'Camera restricted — select device or retry below';
+    statusBadgeColor = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
   } else if (motionSpeed > 40) {
     guidanceMessage = '⚠️ Moving too fast — hold steady!';
     statusBadgeColor = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
@@ -291,14 +316,72 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
         <div className="flex-1 relative bg-black flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden">
           
           {inputMode === 'camera' ? (
-            <Webcam
-              ref={webcamRef}
-              audio={false}
-              screenshotFormat="image/jpeg"
-              videoConstraints={{ facingMode: { ideal: "environment" } }}
-              onUserMediaError={handleUserMediaError}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+            cameraError ? (
+              /* In-Pane Camera Error & Recovery Viewport */
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950 text-center space-y-4 z-10">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <AlertTriangle size={28} />
+                </div>
+                <div>
+                  <h4 className="text-white font-extrabold text-base mb-1">Camera Stream Unavailable</h4>
+                  <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
+                    The requested camera constraints failed. Select a connected camera device or switch to generic stream fallback.
+                  </p>
+                </div>
+
+                {videoDevices.length > 0 && (
+                  <div className="w-full max-w-xs space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Select Camera Device
+                    </label>
+                    <select
+                      value={selectedDeviceId}
+                      onChange={(e) => {
+                        setSelectedDeviceId(e.target.value);
+                        setUseGenericFallback(false);
+                        setCameraError(false);
+                      }}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {videoDevices.map((d, i) => (
+                        <option key={d.deviceId || i} value={d.deviceId}>
+                          {d.label || `Camera ${i + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUseGenericFallback(true);
+                      setCameraError(false);
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition shadow"
+                  >
+                    Try Default Camera ({'{ video: true }'})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInputMode('video')}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition border border-slate-700"
+                  >
+                    Switch to 360° Video Upload
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <Webcam
+                ref={webcamRef}
+                audio={false}
+                screenshotFormat="image/jpeg"
+                videoConstraints={getVideoConstraints()}
+                onUserMediaError={handleUserMediaError}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-slate-950">
               {videoObjectUrl ? (
@@ -348,7 +431,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
           {/* Header Mode Selector & Info */}
           <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-            {/* Input Mode Tabs */}
+            {/* Input Mode Tabs & Camera Selector */}
             <div className="pointer-events-auto bg-black/70 backdrop-blur-md p-1 rounded-full border border-white/10 flex items-center gap-1">
               <button
                 type="button"
@@ -388,8 +471,29 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
             </div>
           </div>
 
-          {/* Reticle Overlay (Only in Camera mode) */}
-          {inputMode === 'camera' && (
+          {/* Camera Device Dropdown Header (When Camera Available) */}
+          {inputMode === 'camera' && !cameraError && videoDevices.length > 1 && (
+            <div className="absolute top-16 left-4 z-20 pointer-events-auto bg-black/70 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
+              <Settings2 size={12} className="text-blue-400" />
+              <select
+                value={selectedDeviceId}
+                onChange={(e) => {
+                  setSelectedDeviceId(e.target.value);
+                  setUseGenericFallback(false);
+                }}
+                className="bg-transparent text-white text-[10px] font-bold focus:outline-none cursor-pointer"
+              >
+                {videoDevices.map((d, i) => (
+                  <option key={d.deviceId || i} value={d.deviceId} className="bg-slate-900 text-white">
+                    {d.label || `Camera ${i + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Reticle Overlay (Only in Camera mode when stream active) */}
+          {inputMode === 'camera' && !cameraError && (
             <>
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                 <div 
