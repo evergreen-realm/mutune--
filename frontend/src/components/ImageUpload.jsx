@@ -42,7 +42,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
         if (err.code === 'file-invalid-type') {
           toast.error(`File "${file.name}" has an invalid type. Only JPEG, PNG, WEBP, or PDF are allowed.`);
         } else if (err.code === 'file-too-large') {
-          toast.error(`File "${file.name}" is too large. Max size is 5MB.`);
+          toast.error(`File "${file.name}" is too large. Max size is 50MB.`);
         } else {
           toast.error(`Failed to upload "${file.name}": ${err.message}`);
         }
@@ -55,8 +55,10 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
     onDropRejected,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp'],
-      'application/pdf': ['.pdf']
+      'application/pdf': ['.pdf'],
+      'application/octet-stream': ['.splat']
     },
+    maxSize: 50 * 1024 * 1024, // 50MB
     multiple
   });
 
@@ -151,7 +153,7 @@ export default function ImageUpload({ value = [], onChange, multiple = false, la
                 <p className="text-xs text-slate-700 font-bold">
                   {isDragActive ? 'Drop files here' : 'Drag & drop image/PDF here, or click to browse'}
                 </p>
-                <p className="text-xs text-slate-400">Supports JPEG, PNG, WEBP, or PDF</p>
+                <p className="text-xs text-slate-400">Supports JPEG, PNG, WEBP, PDF, or SPLAT (Max 50MB)</p>
               </div>
             )}
           </div>

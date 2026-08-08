@@ -43,9 +43,12 @@ function checkEnv() {
 function deployBackend() {
   console.log('\n🚀 Deploying backend to Render...');
   try {
-    execSync('curl -X POST https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys', {
-      env: { ...process.env, RENDER_API_KEY: process.env.RENDER_API_KEY }
-    });
+    const serviceId = process.env.RENDER_SERVICE_ID || 'srv-crhfl428ii6s7386dvt0';
+    const apiKey = process.env.RENDER_API_KEY || 'rnd_zEeYAd8T7eO95Azr49l1Z3GrJN3F';
+    
+    // Use proper string interpolation for Windows compatibility and add Bearer token
+    execSync(`curl -X POST https://api.render.com/v1/services/${serviceId}/deploys -H "Authorization: Bearer ${apiKey}" -H "Accept: application/json"`);
+    
     console.log('✅ Backend deploy triggered');
   } catch (e) {
     console.error('❌ Backend deploy failed:', e.message);

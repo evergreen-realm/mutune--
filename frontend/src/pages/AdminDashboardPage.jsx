@@ -23,6 +23,7 @@ import { getPropertyCoords } from '../utils/geoUtils';
 const MapWidget = React.lazy(() => import('../components/MapWidget'));
 import AgentPerformancePage from './AgentPerformancePage';
 import UnitDetailPopup from '../components/UnitDetailPopup';
+import ImageUpload from '../components/ImageUpload';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -1086,44 +1087,12 @@ export default function AdminDashboardPage({ dbUser }) {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-1.5">Photos (Image URLs)</label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <input 
-                      type="text" 
-                      id="new-photo-url-input"
-                      placeholder="Paste image URL here..." 
-                      className="flex-1 bg-surface-bright border border-border rounded-xl px-4 py-2 text-xs text-foreground focus:outline-none"
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('new-photo-url-input');
-                        if (input && input.value.trim()) {
-                          setEditForm({ ...editForm, photos: [...editForm.photos, input.value.trim()] });
-                          input.value = '';
-                        }
-                      }}
-                      className="px-4 py-2 bg-primary hover:bg-primary/95 text-white rounded-xl text-xs font-bold uppercase"
-                    >
-                      Add Url
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-1.5 bg-background/40 border border-border rounded-xl">
-                    {editForm.photos.map((ph, idx) => (
-                      <div key={idx} className="relative w-12 h-9 rounded overflow-hidden border border-border flex-shrink-0 group">
-                        <img src={ph} alt="preview" className="w-full h-full object-cover" />
-                        <button 
-                          type="button"
-                          onClick={() => setEditForm({ ...editForm, photos: editForm.photos.filter((_, i) => i !== idx) })}
-                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-500 text-[10px] font-bold transition"
-                        >
-                          Del
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <ImageUpload 
+                  label="Property Photos"
+                  multiple={true}
+                  value={editForm.photos}
+                  onChange={(urls) => setEditForm({ ...editForm, photos: urls })}
+                />
               </div>
               <div className="flex gap-3 pt-4 border-t border-border/40">
                 <button 

@@ -45,15 +45,35 @@ async function generateProperty3DModel(property) {
       logger.info(`Using Blender binary at: ${blenderPath}`);
       const scriptPath = path.join(__dirname, '..', '..', 'scripts', 'blender_building_generator.py');
 
+      let texturePath = null;
+      if (property.photos && property.photos.length > 0) {
+        try {
+          const photoUrl = property.photos[0];
+          const response = await axios.get(photoUrl, { responseType: 'arraybuffer' });
+          texturePath = path.join(__dirname, '..', '..', 'frontend', 'public', 'models', `temp_tex_${propertyCode}.jpg`);
+          fs.writeFileSync(texturePath, response.data);
+          logger.info(`Downloaded texture image to: ${texturePath}`);
+        } catch (err) {
+          logger.warn('Failed to download texture image for blender generation', { error: err.message });
+          texturePath = null;
+        }
+      }
+
       await new Promise((resolve, reject) => {
-        execFile(blenderPath, [
+        const args = [
           '--background', 
           '--python', scriptPath,
           '--',
           '--floors', floors.toString(),
           '--units', units.toString(),
           '--output', tempOutPath
-        ], (error, stdout, stderr) => {
+        ];
+        
+        if (texturePath) {
+          args.push('--texture_image', texturePath);
+        }
+        
+        execFile(blenderPath, args, (error, stdout, stderr) => {
           if (error) {
             logger.error('Blender execution failed', { error: error.message, stderr });
             return reject(error);
@@ -61,6 +81,10 @@ async function generateProperty3DModel(property) {
           resolve();
         });
       });
+
+      if (texturePath && fs.existsSync(texturePath)) {
+        fs.unlinkSync(texturePath); // cleanup texture
+      }
 
       if (fs.existsSync(tempOutPath)) {
         const buffer = fs.readFileSync(tempOutPath);

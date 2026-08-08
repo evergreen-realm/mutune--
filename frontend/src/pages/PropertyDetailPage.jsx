@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { 
   fetchProperty, addUnit, deletePropertyUnit, 
-  lockPropertyUnit, checkInAgent 
+  lockPropertyUnit, checkInAgent, generate3DModel
 } from '../lib/api';
 import { TableSkeleton } from '../components/SkeletonLoader';
 import SplatAssetManager from '../components/SplatAssetManager';
@@ -108,6 +108,17 @@ export default function PropertyDetailPage({ dbUser }) {
     },
     onError: (err) => {
       toast.error(err.response?.data?.error?.message || 'Operation failed. Check geolocation requirements.');
+    }
+  });
+
+  const generate3DModelMutation = useMutation({
+    mutationFn: () => generate3DModel(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['property', id] });
+      toast.success('3D model generation initiated! Please check back later.');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.error?.message || 'Failed to trigger 3D generation.');
     }
   });
 
@@ -569,18 +580,79 @@ export default function PropertyDetailPage({ dbUser }) {
             </div>
             
             <SplatAssetManager 
-              assets={
-                (property?.assets && property.assets.filter(a => a.type === 'splat')) || 
-                (property?.splatUrl ? [{
-                  id: 'splat-main',
-                  title: `${property.name} 3D Scan`,
-                  type: 'splat',
-                  splatUrl: property.splatUrl,
-                  status: 'ready',
-                  createdAt: property.createdAt || new Date().toISOString()
-                }] : [])
-              } 
+              assets={(() => {
+                const legacyAssets = property?.assets?.filter(a => a.type === 'splat') || [];
+                if (legacyAssets.length > 0) return legacyAssets;
+                
+                if (property?.splat_status && property.splat_status !== 'none') {
+                  return [{
+                    id: property._id + '-splat',
+                    title: `${property.name} 3D Scan`,
+                    type: 'splat',
+                    splatUrl: property.splat_model_url,
+                    status: property.splat_status === 'completed' ? 'ready' : (property.splat_status === 'failed' ? 'error' : 'processing'),
+                    createdAt: property.createdAt || new Date().toISOString()
+                  }];
+                }
+                
+                if (property?.splatUrl) {
+                  return [{
+                    id: 'splat-main',
+                    title: `${property.name} 3D Scan`,
+                    type: 'splat',
+                    splatUrl: property.splatUrl,
+                    status: 'ready',
+                    createdAt: property.createdAt || new Date().toISOString()
+                  }];
+                }
+                
+                return [];
+              })()} 
             />
+          </div>
+
+          {/* 3D Exterior Building Model Section */}
+          <div className="bg-white border border-gray-150 rounded-[28px] shadow-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="text-indigo-600" size={20} />
+                <h2 className="text-lg font-black text-slate-800">3D Exterior Model (.glb)</h2>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-500">
+              Procedurally generated 3D voxel model based on building dimensions and property photos.
+            </p>
+            
+            {property?.assets?.some(a => a.type === 'glb') ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-indigo-50 border border-indigo-100 p-4 rounded-xl gap-3">
+                 <div className="flex items-center gap-2 text-indigo-700 text-sm font-bold">
+                    <CheckCircle2 size={16} /> 3D Model Available
+                 </div>
+                 {canManage && (
+                   <button 
+                     onClick={() => generate3DModelMutation.mutate()} 
+                     disabled={generate3DModelMutation.isPending}
+                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                   >
+                     {generate3DModelMutation.isPending ? 'Regenerating...' : 'Regenerate'}
+                   </button>
+                 )}
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 border border-slate-200 p-4 rounded-xl gap-3">
+                 <span className="text-slate-600 text-xs font-semibold">No exterior 3D model generated yet.</span>
+                 {canManage && (
+                   <button 
+                     onClick={() => generate3DModelMutation.mutate()} 
+                     disabled={generate3DModelMutation.isPending}
+                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 shadow-sm whitespace-nowrap"
+                   >
+                     {generate3DModelMutation.isPending ? 'Generating...' : 'Generate Now'}
+                   </button>
+                 )}
+              </div>
+            )}
           </div>
         </div>
       </div>

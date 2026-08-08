@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useQueryClient } from '@tanstack/react-query';
-import { createProperty, addUnit, geocodeAddress } from '../lib/api';
+import { createProperty, addUnit, geocodeAddress, initiateSplatScan } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 import GuidedPhotoCaptureModal from '../components/GuidedPhotoCaptureModal';
 import {
@@ -315,6 +315,15 @@ function StepUnits({ form, addUnitFn, removeUnitFn, updateUnitFn }) {
             <label className={labelClass}>Size (sqft)</label>
             <input className={`${inputClass} max-w-[200px]`} type="number" min={0} value={unit.size_sqft} onChange={e => updateUnitFn(i, 'size_sqft', e.target.value)} placeholder="Optional" />
           </div>
+          <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <label className={labelClass}>Unit Interior Photos</label>
+            <ImageUpload 
+              value={unit.photos || []} 
+              onChange={urls => updateUnitFn(i, 'photos', urls)} 
+              multiple={true} 
+              label="Upload photos of this specific unit" 
+            />
+          </div>
         </div>
       ))}
     </div>
@@ -356,7 +365,7 @@ function StepPhotos({ form, setField, onLaunchCapture }) {
             <Sparkles className="text-blue-400" size={18} />
             <h3 className="text-slate-900 dark:text-white font-bold text-sm">360° 3D Gaussian Scan (Splat)</h3>
           </div>
-          {form.splatUrl && (
+          {(form.splat_model_url || (form.splatImageUrls && form.splatImageUrls.length > 0)) && (
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
               ✓ Scan Attached
             </span>
@@ -378,17 +387,30 @@ function StepPhotos({ form, setField, onLaunchCapture }) {
         </div>
 
         <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800">
-          <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
-            Direct .splat / 3D Asset URL (Optional)
-          </label>
-          <input
-            type="text"
-            value={form.splatUrl || ''}
-            onChange={e => setField('splatUrl', e.target.value)}
-            placeholder="https://example.com/scans/room.splat"
-            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+          <ImageUpload
+            value={form.splat_model_url ? [form.splat_model_url] : []}
+            onChange={urls => setField('splat_model_url', urls[0] || '')}
+            multiple={false}
+            label="Direct .splat / 3D Asset File (Optional)"
           />
         </div>
+      </div>
+      {/* Exterior 3D Building Generation Card */}
+      <div className="p-5 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 backdrop-blur mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="text-indigo-400" size={18} />
+            <h3 className="text-slate-900 dark:text-white font-bold text-sm">3D Exterior Building Model (.glb)</h3>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+             <input type="checkbox" checked={form.generate_synthetic_model} onChange={(e) => setField('generate_synthetic_model', e.target.checked)} className="accent-indigo-600 w-4 h-4" />
+             Enable Generation
+          </label>
+        </div>
+        <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+          Procedurally generate a 3D Voxel exterior model of this property for map display. 
+          If you've uploaded property photos, they will be used to texture the building. Otherwise, it will use basic geometry based on floors & unit count.
+        </p>
       </div>
     </div>
   );
@@ -465,13 +487,15 @@ const INITIAL_FORM = {
   num_floors: 1,
   year_built: '',
   address: { street: '', area: 'Nyali', city: 'Mombasa' },
-  units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '' }],
+  units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', photos: [] }],
   photos: [],
   floor_plan_url: '',
-  splatUrl: '',
+  splat_model_url: '',
+  splatImageUrls: [],
   assets: [],
   locationMethod: 'estimate',
-  location: { type: 'Point', coordinates: [39.6978, -4.0287] }
+  location: { type: 'Point', coordinates: [39.6978, -4.0287] },
+  generate_synthetic_model: true
 };
 
 export default function AddPropertyPage() {
@@ -483,23 +507,11 @@ export default function AddPropertyPage() {
   const [form, setForm] = useState(INITIAL_FORM);
 
   const handleCaptureComplete = (capturedPhotos) => {
-    const demoSplatUrl = capturedPhotos[0] || 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb';
     setForm(prev => ({
       ...prev,
-      splatUrl: demoSplatUrl,
-      assets: [
-        ...(prev.assets || []),
-        {
-          id: 'splat-' + Date.now(),
-          title: '360° Gaussian Room Scan',
-          type: 'splat',
-          splatUrl: demoSplatUrl,
-          status: 'ready',
-          createdAt: new Date().toISOString()
-        }
-      ]
+      splatImageUrls: capturedPhotos
     }));
-    toast.success('✨ 360° Scan captured! 3D Gaussian Splat model attached.');
+    toast.success('✨ 360° Scan photos captured! Processing will begin on submission.');
   };
 
   const setField = (path, value) => {
@@ -520,7 +532,7 @@ export default function AddPropertyPage() {
     const n = form.units.length + 1;
     setForm(prev => ({
       ...prev,
-      units: [...prev.units, { unit_number: `${n}`, type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '' }]
+      units: [...prev.units, { unit_number: `${n}`, type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', photos: [] }]
     }));
   };
 
@@ -586,9 +598,10 @@ export default function AddPropertyPage() {
         address: form.address,
         photos: form.photos,
         floor_plan_url: form.floor_plan_url,
-        splatUrl: form.splatUrl,
+        splat_model_url: form.splat_model_url,
         assets: form.assets,
-        location: { type: 'Point', coordinates: coords }
+        location: { type: 'Point', coordinates: coords },
+        generate_synthetic_model: form.generate_synthetic_model
       });
 
       const propertyId = res.data?._id;
@@ -604,7 +617,21 @@ export default function AddPropertyPage() {
           rent_kes: Number(unit.rent_kes) || 0,
           floor: unit.floor,
           size_sqft: unit.size_sqft ? Number(unit.size_sqft) : undefined,
+          photos: unit.photos || [],
         });
+      }
+
+      // 3. Trigger 3D Splat Processing if needed
+      if (form.splatImageUrls && form.splatImageUrls.length > 0) {
+        try {
+          await initiateSplatScan({
+            propertyId: propertyId,
+            imageUrls: form.splatImageUrls
+          });
+          toast.success('3D Scan processing initiated!');
+        } catch (scanErr) {
+          toast.error('Property created, but failed to initiate 3D scan processing.');
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ['properties'] });

@@ -228,14 +228,19 @@ router.post('/',
 
       logger.info('Property created', { propertyId: property._id, by: req.user._id });
 
-      // Automate 3D model generation in the background
-      const { generateProperty3DModel } = require('../services/model3d');
-      generateProperty3DModel(property).then(async (glbUrl) => {
-        property.glb_model_url = glbUrl;
-        await property.save();
-      }).catch(err => {
-        logger.error('Failed automated 3D model generation in background', { error: err.message });
-      });
+      // Automate 3D model generation in the background if requested
+      if (req.body.generate_synthetic_model !== false) {
+        const { generateProperty3DModel } = require('../services/model3d');
+        generateProperty3DModel(property).then(async (glbUrl) => {
+          property.glb_model_url = glbUrl;
+          if (!property.assets.some(a => a.type === 'glb')) {
+             property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+          }
+          await property.save();
+        }).catch(err => {
+          logger.error('Failed automated 3D model generation in background', { error: err.message });
+        });
+      }
 
       res.status(process.env.NODE_ENV === 'test' ? 200 : 201).json({ success: true, data: property });
     } catch (error) {
@@ -311,6 +316,46 @@ router.patch('/:id',
       }
       logger.info('Property updated', { propertyId: property._id, by: req.user._id });
       res.json({ success: true, data: property });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── POST /properties/:id/generate-3d-model ────────────────────────────────
+router.post('/:id/generate-3d-model',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent', 'landlord']),
+  [param('id').isMongoId()],
+  async (req, res, next) => {
+    try {
+      if (!validate(req, res)) return;
+      const property = await Property.findById(req.params.id);
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+
+      // Check agent/landlord scope
+      if (req.user.role === 'landlord' && property.landlord_id?.toString() !== req.user._id.toString()) {
+         return res.status(403).json({ success: false, error: { message: 'Not authorized for this property' } });
+      }
+
+      // Trigger generation immediately but wait for result to return (or async)
+      // Since generation might take a few seconds, let's await it to return the fresh URL to client
+      const { generateProperty3DModel } = require('../services/model3d');
+      const glbUrl = await generateProperty3DModel(property);
+      
+      property.glb_model_url = glbUrl;
+      const existingAsset = property.assets.find(a => a.type === 'glb');
+      if (existingAsset) {
+         existingAsset.url = glbUrl;
+      } else {
+         property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+      }
+      await property.save();
+
+      logger.info('Manual 3D model generation triggered', { propertyId: property._id, by: req.user._id });
+      res.json({ success: true, data: { glb_model_url: glbUrl, assets: property.assets } });
     } catch (error) {
       next(error);
     }
@@ -672,14 +717,19 @@ router.post('/landlord/submit',
         photos: photos || []
       });
 
-      // Automate 3D model generation in the background
-      const { generateProperty3DModel } = require('../services/model3d');
-      generateProperty3DModel(property).then(async (glbUrl) => {
-        property.glb_model_url = glbUrl;
-        await property.save();
-      }).catch(err => {
-        logger.error('Failed automated 3D model generation in background', { error: err.message });
-      });
+      // Automate 3D model generation in the background if requested
+      if (req.body.generate_synthetic_model !== false) {
+        const { generateProperty3DModel } = require('../services/model3d');
+        generateProperty3DModel(property).then(async (glbUrl) => {
+          property.glb_model_url = glbUrl;
+          if (!property.assets.some(a => a.type === 'glb')) {
+             property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+          }
+          await property.save();
+        }).catch(err => {
+          logger.error('Failed automated 3D model generation in background', { error: err.message });
+        });
+      }
 
       // Generate standard agency contract PDF and save to property
       try {

@@ -15,7 +15,8 @@ const unitSchema = new mongoose.Schema({
   unit_geolocation: {
     type:        { type: String, enum: ['Point'], default: undefined },
     coordinates: { type: [Number], default: undefined }  // [longitude, latitude]
-  }
+  },
+  photos: [String]
 }, { _id: true });
 
 const inventoryItemSchema = new mongoose.Schema({

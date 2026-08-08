@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument("--depth", type=float, default=20.0, help="Building depth (meters)")
     parser.add_argument("--floor_height", type=float, default=3.5, help="Height per floor (meters)")
     parser.add_argument("--output", type=str, default="frontend/public/models/building_generated.glb", help="Output GLB path")
+    parser.add_argument("--texture_image", type=str, default=None, help="Optional image to texture the walls")
     return parser.parse_args(argv)
 
 
@@ -38,12 +39,17 @@ def clear_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-def create_materials():
+def create_materials(texture_image=None):
     mat_wall = bpy.data.materials.new(name="WallMaterial")
     mat_wall.use_nodes = True
     bsdf_wall = mat_wall.node_tree.nodes.get("Principled BSDF")
     if bsdf_wall:
-        bsdf_wall.inputs["Base Color"].default_value = (0.15, 0.35, 0.75, 1.0)
+        if texture_image and os.path.exists(texture_image):
+            tex_image = mat_wall.node_tree.nodes.new('ShaderNodeTexImage')
+            tex_image.image = bpy.data.images.load(texture_image)
+            mat_wall.node_tree.links.new(tex_image.outputs['Color'], bsdf_wall.inputs['Base Color'])
+        else:
+            bsdf_wall.inputs["Base Color"].default_value = (0.15, 0.35, 0.75, 1.0)
         bsdf_wall.inputs["Roughness"].default_value = 0.4
 
     mat_glass = bpy.data.materials.new(name="GlassMaterial")
@@ -115,7 +121,7 @@ def export_glb(output_path):
 def main():
     args = parse_args()
     clear_scene()
-    mat_wall, mat_glass, mat_roof = create_materials()
+    mat_wall, mat_glass, mat_roof = create_materials(args.texture_image)
     generate_building(
         floors=args.floors,
         units=args.units,

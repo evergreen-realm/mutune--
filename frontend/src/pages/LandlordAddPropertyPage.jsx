@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { submitLandlordProperty, geocodeAddress } from '../lib/api';
+import { submitLandlordProperty, geocodeAddress, initiateSplatScan } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 import GuidedPhotoCaptureModal from '../components/GuidedPhotoCaptureModal';
 import { Building2, Home, ChevronRight, ChevronLeft, Check, Trash2, Plus, Camera, Box, Sparkles } from 'lucide-react';
@@ -42,15 +42,17 @@ export default function LandlordAddPropertyPage() {
   const [form, setForm] = useState({
     name: '', type: 'apartment', description: '', num_floors: 1, year_built: '',
     address: { street: '', area: '', city: 'Mombasa', county: 'Mombasa County' },
-    units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', amenities: [] }],
+    units: [{ unit_number: '1A', type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', amenities: [], photos: [] }],
     contract_terms: 'Standard 12-month management agreement. Mutune Estate Agency will manage the property and collect rent on behalf of the landlord. Agency fee: 10% of monthly rent. Agreement renewable annually.',
     signature_data_url: '',
     photos: [],
     floor_plan_url: '',
-    splatUrl: '',
+    splat_model_url: '',
+    splatImageUrls: [],
     assets: [],
     locationMethod: 'estimate',
-    location: { type: 'Point', coordinates: [39.6682, -4.0435] }
+    location: { type: 'Point', coordinates: [39.6682, -4.0435] },
+    generate_synthetic_model: true
   });
 
   const setField = (path, value) => {
@@ -69,7 +71,7 @@ export default function LandlordAddPropertyPage() {
 
   const addUnit = () => {
     const n = form.units.length + 1;
-    setForm(prev => ({ ...prev, units: [...prev.units, { unit_number: `${n}`, type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', amenities: [] }] }));
+    setForm(prev => ({ ...prev, units: [...prev.units, { unit_number: `${n}`, type: 'bedsitter', bedrooms: 1, bathrooms: 1, rent_kes: '', floor: 0, size_sqft: '', amenities: [], photos: [] }] }));
   };
 
   const removeUnit = (i) => {
@@ -197,9 +199,24 @@ export default function LandlordAddPropertyPage() {
         location: {
           type: 'Point',
           coordinates: coords
-        }
+        },
+        generate_synthetic_model: form.generate_synthetic_model
       };
       const res = await submitLandlordProperty(payload);
+      
+      // If we captured photos for a splat, initiate the scan
+      if (form.splatImageUrls && form.splatImageUrls.length > 0 && res.data && res.data._id) {
+        try {
+          await initiateSplatScan({
+            propertyId: res.data._id,
+            imageUrls: form.splatImageUrls
+          });
+          toast.success('3D Scan processing initiated!');
+        } catch (scanErr) {
+          toast.error('Property submitted, but failed to initiate 3D scan processing.');
+        }
+      }
+
       toast.success(res.message || 'Property submitted for approval!');
       navigate('/properties');
     } catch (err) {
@@ -213,23 +230,11 @@ export default function LandlordAddPropertyPage() {
   const back = () => setStep(s => Math.max(s - 1, 0));
 
   const handleCaptureComplete = (capturedPhotos) => {
-    const demoSplatUrl = capturedPhotos[0] || 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb';
     setForm(prev => ({
       ...prev,
-      splatUrl: demoSplatUrl,
-      assets: [
-        ...(prev.assets || []),
-        {
-          id: 'splat-' + Date.now(),
-          title: '360° Gaussian Room Scan',
-          type: 'splat',
-          splatUrl: demoSplatUrl,
-          status: 'ready',
-          createdAt: new Date().toISOString()
-        }
-      ]
+      splatImageUrls: capturedPhotos
     }));
-    toast.success('✨ 360° Scan captured! 3D Gaussian Splat model attached.');
+    toast.success('✨ 360° Scan photos captured! Processing will begin on submission.');
   };
 
   return (
@@ -449,6 +454,15 @@ export default function LandlordAddPropertyPage() {
                         <input type="number" min="0" value={unit.floor} onChange={e => updateUnit(i, 'floor', Number(e.target.value))} style={inputStyle} />
                       </div>
                     </div>
+                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--glass-border)' }}>
+                      <label style={labelStyle}>Unit Interior Photos</label>
+                      <ImageUpload
+                        value={unit.photos || []}
+                        onChange={urls => updateUnit(i, 'photos', urls)}
+                        multiple={true}
+                        label="Upload photos of this specific unit"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -489,7 +503,7 @@ export default function LandlordAddPropertyPage() {
                     <Sparkles className="text-indigo-400" size={18} />
                     <h3 className="text-white font-bold text-sm">360° 3D Gaussian Scan (Splat)</h3>
                   </div>
-                  {form.splatUrl && (
+                  {(form.splat_model_url || (form.splatImageUrls && form.splatImageUrls.length > 0)) && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       ✓ Scan Attached
                     </span>
@@ -511,17 +525,31 @@ export default function LandlordAddPropertyPage() {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-800">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                    Direct .splat / 3D Asset URL (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={form.splatUrl || ''}
-                    onChange={e => setField('splatUrl', e.target.value)}
-                    placeholder="https://example.com/scans/room.splat"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  <ImageUpload
+                    value={form.splat_model_url ? [form.splat_model_url] : []}
+                    onChange={urls => setField('splat_model_url', urls[0] || '')}
+                    multiple={false}
+                    label="Direct .splat / 3D Asset File (Optional)"
                   />
                 </div>
+              </div>
+
+              {/* Exterior 3D Building Generation Card */}
+              <div className="mt-4 p-5 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 backdrop-blur">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="text-indigo-400" size={18} />
+                    <h3 className="text-white font-bold text-sm">3D Exterior Building Model (.glb)</h3>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--title-text)', cursor: 'pointer', fontWeight: 700 }}>
+                     <input type="checkbox" checked={form.generate_synthetic_model} onChange={(e) => setField('generate_synthetic_model', e.target.checked)} className="accent-indigo-600" style={{ width: 16, height: 16 }} />
+                     Enable Generation
+                  </label>
+                </div>
+                <p className="text-slate-400 text-xs leading-relaxed">
+                  Procedurally generate a 3D Voxel exterior model of this property for map display. 
+                  If you've uploaded property photos, they will be used to texture the building. Otherwise, it will use basic geometry based on floors & unit count.
+                </p>
               </div>
             </div>
           )}

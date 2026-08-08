@@ -342,7 +342,7 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
       <div className={`w-full h-80 rounded-lg overflow-hidden border mt-10 relative ${
         isLight ? 'bg-surface-bright border-border' : 'bg-background border-border'
       }`}>
-        <ErrorBoundary key={viewMode} fallback={
+        <ErrorBoundary fallback={
           <div className="flex flex-col items-center justify-center h-full w-full bg-rose-950/20 text-rose-500/80 p-4 text-center">
             <Box size={24} className="mb-2 opacity-50" />
             <p className="text-xs font-bold font-mono">3D VIEW UNAVAILABLE</p>
@@ -361,15 +361,14 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
               <p className="text-xs font-mono">LOADING 3D ASSETS...</p>
             </div>
           }>
-            {viewMode === 'image' ? (
-              <Canvas camera={{ position: [8, 6, 8], fov: 45 }}>
-                <Suspense fallback={null}>
-                  <ambientLight intensity={isLight ? 0.6 : 0.4} />
-                  <hemisphereLight intensity={0.4} groundColor="#000000" color="#ffffff" />
-                  <directionalLight position={[10, 20, 10]} intensity={1.2} />
-                  <directionalLight position={[-10, 10, -10]} intensity={0.6} />
-                  <group position={[0, -1.0, 0]}>
-                    {/* Cinematic Render shows the colored GLB model */}
+            <Canvas camera={{ position: viewMode === 'image' ? [8, 6, 8] : [5, 4, 8], fov: 45 }}>
+              <Suspense fallback={null}>
+                <ambientLight intensity={isLight ? 0.6 : 0.4} />
+                <hemisphereLight intensity={0.4} groundColor="#000000" color="#ffffff" />
+                <directionalLight position={[10, 20, 10]} intensity={1.2} />
+                <directionalLight position={[-10, 10, -10]} intensity={0.6} />
+                <group position={[0, -1.0, 0]}>
+                  {viewMode === 'image' ? (
                     <GLTFBuildingModel 
                       unitCount={units.length} 
                       color={
@@ -382,62 +381,39 @@ export default function BuildingPreview3D({ property, selectedUnit, onClose, onU
                         })()
                       } 
                     />
+                  ) : (
+                    <>
+                      {units.map((unit, idx) => (
+                        <Unit3DBlock
+                          key={unit._id || idx}
+                          unit={unit}
+                          position={unitPositions[idx]}
+                          isSelected={selectedUnit?._id === unit._id}
+                          onHover={setHoveredUnit}
+                          onClick={onUnitSelect}
+                        />
+                      ))}
+                    </>
+                  )}
 
-                    <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
-                    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                      <planeGeometry args={[15, 15]} />
-                      <meshStandardMaterial color={groundColor} roughness={0.9} />
-                    </mesh>
-                  </group>
+                  <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
+                  <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                    <planeGeometry args={[15, 15]} />
+                    <meshStandardMaterial color={groundColor} roughness={0.9} />
+                  </mesh>
+                </group>
 
-                  <OrbitControls
-                    autoRotate
-                    autoRotateSpeed={1.5}
-                    enableDamping
-                    dampingFactor={0.05}
-                    maxPolarAngle={Math.PI / 2 - 0.05}
-                    minDistance={3}
-                    maxDistance={20}
-                  />
-                </Suspense>
-              </Canvas>
-            ) : (
-              <Canvas camera={{ position: [5, 4, 8], fov: 45 }}>
-                <Suspense fallback={null}>
-                  <ambientLight intensity={isLight ? 0.6 : 0.4} />
-                  <hemisphereLight intensity={0.4} groundColor="#000000" color="#ffffff" />
-                  <directionalLight position={[10, 20, 10]} intensity={1.2} />
-                  <directionalLight position={[-10, 10, -10]} intensity={0.6} />
-                  <group position={[0, -1.0, 0]}>
-                    {/* Simple View: Render ONLY the lightweight interactive blocks (no GLB) */}
-                    {units.map((unit, idx) => (
-                      <Unit3DBlock
-                        key={unit._id || idx}
-                        unit={unit}
-                        position={unitPositions[idx]}
-                        isSelected={selectedUnit?._id === unit._id}
-                        onHover={setHoveredUnit}
-                        onClick={onUnitSelect}
-                      />
-                    ))}
-
-                    <gridHelper args={[15, 15, gridColor1, gridColor2]} position={[0, 0.01, 0]} />
-                    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                      <planeGeometry args={[15, 15]} />
-                      <meshStandardMaterial color={groundColor} roughness={0.9} />
-                    </mesh>
-                  </group>
-
-                  <OrbitControls
-                    enableDamping
-                    dampingFactor={0.05}
-                    maxPolarAngle={Math.PI / 2 - 0.05}
-                    minDistance={3}
-                    maxDistance={20}
-                  />
-                </Suspense>
-              </Canvas>
-            )}
+                <OrbitControls
+                  autoRotate={viewMode === 'image'}
+                  autoRotateSpeed={1.5}
+                  enableDamping
+                  dampingFactor={0.05}
+                  maxPolarAngle={Math.PI / 2 - 0.05}
+                  minDistance={3}
+                  maxDistance={20}
+                />
+              </Suspense>
+            </Canvas>
           </Suspense>
         </ErrorBoundary>
       </div>
