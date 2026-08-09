@@ -256,6 +256,9 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
     };
   }, [isActive, isSensorAvailable, webcamRef]);
 
+  // Compute current sector (0-15) from angle for 16-sector compass
+  const currentSector = Math.round(((angle % 360 + 360) % 360) / 22.5) % 16;
+
   return {
     angle,
     pitch,
@@ -264,6 +267,7 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
     motionSpeed,
     permissionState,
     displacement,
+    currentSector,
     requestSensorPermission,
     resetDisplacement
   };

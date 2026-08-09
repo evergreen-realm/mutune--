@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import Lenis from 'lenis';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+
+gsap.registerPlugin(ScrollTrigger);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,17 +74,47 @@ export default function AppShellLayout({
   onLogout,
 }: AppShellLayoutProps) {
   const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
   const [isLarge, setIsLarge] = React.useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleResize = () => setIsLarge(window.innerWidth >= 1024);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // NOTE: Lenis smooth scroll is initialized globally in App.jsx (with GSAP ScrollTrigger integration).
-  // Do NOT add a second Lenis instance here — it would compete with the global one.
+  // ─── Lenis smooth scrolling for dashboard pages ───────────────────────────
+  useEffect(() => {
+    const wrapper = mainRef.current;
+    if (!wrapper) return;
+
+    const lenis = new Lenis({
+      wrapper,
+      content: wrapper,
+      duration: 1.1,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      touchMultiplier: 1.5,
+    });
+
+    // Connect Lenis to GSAP ScrollTrigger so scroll-driven animations work
+    lenis.on('scroll', ScrollTrigger.update);
+
+    // Tell ScrollTrigger about our custom scroller
+    ScrollTrigger.defaults({ scroller: wrapper });
+
+    // Single RAF driver via GSAP ticker
+    const tickerCb = (time: number) => lenis.raf(time * 1000);
+    gsap.ticker.add(tickerCb);
+    gsap.ticker.lagSmoothing(0);
+
+    return () => {
+      gsap.ticker.remove(tickerCb);
+      ScrollTrigger.defaults({ scroller: undefined });
+      lenis.destroy();
+    };
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
@@ -114,8 +149,8 @@ export default function AppShellLayout({
           onLogout={onLogout}
         />
 
-        {/* ── Animated page content ───────────────────────────────────── */}
-        <main id="main-scroll-wrapper" className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 custom-scrollbar">
+        {/* ── Animated page content with Lenis smooth scroll ─────────── */}
+        <main ref={mainRef} id="main-scroll-wrapper" className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 custom-scrollbar">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
