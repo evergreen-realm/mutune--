@@ -618,6 +618,7 @@ export default function AddPropertyPage() {
         try {
           await initiateSplatScan({
             propertyId: propertyId,
+            roomName: 'Main Room',
             imageUrls: form.splatImageUrls
           });
           toast.success('3D Scan processing initiated!');

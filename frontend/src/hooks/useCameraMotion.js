@@ -220,9 +220,12 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
 
           // Dead zone: ignore sub-threshold motion (noise)
           if (motion.magnitude >= DEAD_ZONE_PX) {
-            // Update angle based on horizontal displacement
+            // Update angle and pitch based on displacement
             const angleDelta = motion.dx * 1.2; // Scale factor: px -> degrees
+            const pitchDelta = motion.dy * 1.2; 
+            
             setAngle(prev => (prev + angleDelta + 360) % 360);
+            setPitch(prev => Math.max(-90, Math.min(90, prev + pitchDelta)));
 
             // Accumulate displacement for spatial tracking
             cumulativeDisp.current.x += Math.abs(motion.dx);

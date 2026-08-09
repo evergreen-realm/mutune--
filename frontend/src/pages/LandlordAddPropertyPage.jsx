@@ -209,6 +209,7 @@ export default function LandlordAddPropertyPage() {
         try {
           await initiateSplatScan({
             propertyId: res.data._id,
+            roomName: 'Main Room',
             imageUrls: form.splatImageUrls
           });
           toast.success('3D Scan processing initiated!');

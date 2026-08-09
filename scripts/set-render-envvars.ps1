@@ -45,7 +45,8 @@ $required = @(
   "CLOUDFLARE_R2_ACCESS_KEY_ID", "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
   "CLOUDFLARE_R2_PIPELINE_ACCESS_KEY_ID", "CLOUDFLARE_R2_PIPELINE_SECRET_ACCESS_KEY",
   "CLOUDFLARE_R2_ENDPOINT", "CLOUDFLARE_R2_PUBLIC_URL",
-  "MODAL_3D_SPLAT_WEBHOOK_URL", "MODAL_WEBHOOK_SECRET"
+  "MODAL_3D_SPLAT_WEBHOOK_URL", "MODAL_BLENDER_WEBHOOK_URL", "MODAL_WEBHOOK_SECRET",
+  "ADMIN_HARDCODED_PASSWORD", "ADMIN_PASSWORD", "SENTRY_DSN"
 )
 $missing = $required | Where-Object { -not (Get-Item "Env:\$_" -ErrorAction SilentlyContinue) }
 if ($missing) {
@@ -90,7 +91,11 @@ $envVars = @(
   @{key="BLENDER_PATH";                 value="blender"},
   @{key="BLENDER_SERVER_PATH";          value="/usr/bin/blender"},
   @{key="MODAL_3D_SPLAT_WEBHOOK_URL";   value=$env:MODAL_3D_SPLAT_WEBHOOK_URL},
-  @{key="MODAL_WEBHOOK_SECRET";         value=$env:MODAL_WEBHOOK_SECRET}
+  @{key="MODAL_BLENDER_WEBHOOK_URL";    value=$env:MODAL_BLENDER_WEBHOOK_URL},
+  @{key="MODAL_WEBHOOK_SECRET";         value=$env:MODAL_WEBHOOK_SECRET},
+  @{key="ADMIN_HARDCODED_PASSWORD";     value=$env:ADMIN_HARDCODED_PASSWORD},
+  @{key="ADMIN_PASSWORD";               value=$env:ADMIN_PASSWORD},
+  @{key="SENTRY_DSN";                   value=$env:SENTRY_DSN}
 )
 
 $headers = @{

@@ -232,11 +232,13 @@ router.post('/',
       if (req.body.generate_synthetic_model !== false) {
         const { generateProperty3DModel } = require('../services/model3d');
         generateProperty3DModel(property).then(async (glbUrl) => {
-          property.glb_model_url = glbUrl;
-          if (!property.assets.some(a => a.type === 'glb')) {
-             property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+          if (glbUrl) {
+            property.glb_model_url = glbUrl;
+            if (!property.assets.some(a => a.type === 'glb')) {
+               property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+            }
+            await property.save();
           }
-          await property.save();
         }).catch(err => {
           logger.error('Failed automated 3D model generation in background', { error: err.message });
         });
@@ -345,17 +347,19 @@ router.post('/:id/generate-3d-model',
       const { generateProperty3DModel } = require('../services/model3d');
       const glbUrl = await generateProperty3DModel(property);
       
-      property.glb_model_url = glbUrl;
-      const existingAsset = property.assets.find(a => a.type === 'glb');
-      if (existingAsset) {
-         existingAsset.url = glbUrl;
-      } else {
-         property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+      if (glbUrl) {
+        property.glb_model_url = glbUrl;
+        const existingAsset = property.assets.find(a => a.type === 'glb');
+        if (existingAsset) {
+           existingAsset.url = glbUrl;
+        } else {
+           property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+        }
+        await property.save();
       }
-      await property.save();
 
       logger.info('Manual 3D model generation triggered', { propertyId: property._id, by: req.user._id });
-      res.json({ success: true, data: { glb_model_url: glbUrl, assets: property.assets } });
+      res.json({ success: true, data: { glb_model_url: glbUrl || property.glb_model_url, assets: property.assets } });
     } catch (error) {
       next(error);
     }
@@ -721,11 +725,13 @@ router.post('/landlord/submit',
       if (req.body.generate_synthetic_model !== false) {
         const { generateProperty3DModel } = require('../services/model3d');
         generateProperty3DModel(property).then(async (glbUrl) => {
-          property.glb_model_url = glbUrl;
-          if (!property.assets.some(a => a.type === 'glb')) {
-             property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+          if (glbUrl) {
+            property.glb_model_url = glbUrl;
+            if (!property.assets.some(a => a.type === 'glb')) {
+               property.assets.push({ type: 'glb', url: glbUrl, title: '3D Exterior Model' });
+            }
+            await property.save();
           }
-          await property.save();
         }).catch(err => {
           logger.error('Failed automated 3D model generation in background', { error: err.message });
         });

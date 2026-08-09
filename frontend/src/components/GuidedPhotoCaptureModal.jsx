@@ -7,16 +7,12 @@ import { useCameraMotion } from '../hooks/useCameraMotion';
 import { useCameraDevices } from '../hooks/useCameraDevices';
 import { analyzeFrameQuality } from '../utils/frameQualityAnalyzer';
 import { extractFramesFromVideo } from '../utils/videoFrameExtractor';
+import { generateSphericalTargets, getClosestUncapturedTarget, projectTargetToScreen } from '../utils/sphericalTargets';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const SECTOR_COUNT = 16;
-const SECTOR_SIZE = 360 / SECTOR_COUNT; // 22.5° per sector
 const MIN_FRAMES = 16;
-const MAX_FRAMES = 32;
-
-// Direction labels for each of the 16 sectors
-const SECTOR_LABELS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+const MAX_FRAMES = 36;
 
 // How long camera must hold on an uncaptured sector before auto-capture (ms)
 const AUTO_CAPTURE_DWELL_MS = 800;
@@ -200,16 +196,10 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
   const [frameQuality, setFrameQuality] = useState({ isQualityOK: true, message: 'Calibrating...' });
   const [scanStarted, setScanStarted] = useState(false);
   const [reviewMode, setReviewMode] = useState(false);
+  const [scanDensity, setScanDensity] = useState('Detailed'); // 'Fast' | 'Detailed'
 
-  // 16-sector tracking state
-  const [sectors, setSectors] = useState(() =>
-    Array.from({ length: SECTOR_COUNT }, (_, i) => ({
-      id: i,
-      centerAngle: i * SECTOR_SIZE,
-      captured: false,
-      photoUrl: null
-    }))
-  );
+  // Spherical tracking state
+  const [targets, setTargets] = useState(() => generateSphericalTargets('Detailed'));
 
   // Camera WebRTC state
   const [cameraError, setCameraError] = useState(false);
@@ -233,20 +223,16 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
   const {
     angle, pitch, roll, motionSpeed, isSensorAvailable,
-    currentSector, requestSensorPermission, resetDisplacement
   } = useCameraMotion(isOpen && inputMode === 'camera' && scanStarted, webcamRef);
 
   // Computed values
-  const capturedCount = useMemo(() => sectors.filter(s => s.captured).length, [sectors]);
-  const allCaptured = capturedCount >= MIN_FRAMES;
-  const nextUncaptured = useMemo(() => {
-    // Find the nearest uncaptured sector from current position
-    for (let offset = 0; offset < SECTOR_COUNT; offset++) {
-      const idx = (currentSector + offset) % SECTOR_COUNT;
-      if (!sectors[idx].captured) return idx;
-    }
-    return -1;
-  }, [sectors, currentSector]);
+  const capturedCount = useMemo(() => targets.filter(t => t.captured).length, [targets]);
+  const allCaptured = capturedCount >= targets.length;
+  
+  // Find closest uncaptured target (dead-zone reticle)
+  const currentTarget = useMemo(() => {
+    return getClosestUncapturedTarget(angle, pitch, targets, 15);
+  }, [angle, pitch, targets]);
 
   // Guidance text
   const guidanceText = useMemo(() => {
@@ -256,13 +242,17 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     if (!frameQuality.isQualityOK) return `⚠️ ${frameQuality.message}`;
     if (allCaptured) return `✅ All ${capturedCount} angles captured — ready to generate!`;
     
-    const currentIsCaptured = sectors[currentSector]?.captured;
-    if (currentIsCaptured && nextUncaptured >= 0) {
-      const targetAngle = Math.round(nextUncaptured * SECTOR_SIZE);
-      return `↻ Rotate to ${SECTOR_LABELS[nextUncaptured]} (${targetAngle}°) — this angle is done`;
+    if (currentTarget) {
+      return `Aim at target (${Math.round(currentTarget.yaw)}°, ${Math.round(currentTarget.pitch)}°) — hold steady to capture (${capturedCount}/${targets.length})`;
     }
-    return `Aiming at ${SECTOR_LABELS[currentSector]} — hold steady to capture (${capturedCount}/${MIN_FRAMES})`;
-  }, [scanStarted, cameraError, motionSpeed, frameQuality, allCaptured, capturedCount, currentSector, sectors, nextUncaptured]);
+    
+    // Find next nearest if none is currently targeted
+    const nextUncaptured = targets.find(t => !t.captured);
+    if (nextUncaptured) {
+      return `↻ Move towards (${Math.round(nextUncaptured.yaw)}°, ${Math.round(nextUncaptured.pitch)}°) — this area is done`;
+    }
+    return `Scanning... (${capturedCount}/${targets.length})`;
+  }, [scanStarted, cameraError, motionSpeed, frameQuality, allCaptured, capturedCount, currentTarget, targets]);
 
   // Video constraints (Rule §14: soft ideal)
   const getVideoConstraints = () => {
@@ -278,10 +268,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       setUseGenericFallback(false);
       setScanStarted(false);
       setReviewMode(false);
-      setCapturedPhotos([]);
-      setSectors(Array.from({ length: SECTOR_COUNT }, (_, i) => ({
-        id: i, centerAngle: i * SECTOR_SIZE, captured: false, photoUrl: null
-      })));
+      setTargets(generateSphericalTargets(scanDensity));
       refreshDevices();
     } else {
       if (videoObjectUrl) { URL.revokeObjectURL(videoObjectUrl); setVideoObjectUrl(null); }
@@ -304,12 +291,11 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     return () => clearInterval(interval);
   }, [isOpen, inputMode, cameraError, scanStarted, reviewMode]);
 
-  // ─── Capture Logic ────────────────────────────────────────────────────────
-
-  const captureForSector = useCallback(async (sectorIdx) => {
+  const captureForTarget = useCallback(async (targetId) => {
     if (captureInFlightRef.current) return;
-    if (sectors[sectorIdx]?.captured) {
-      toast.info(`Sector ${SECTOR_LABELS[sectorIdx]} already captured`);
+    const target = targets.find(t => t.id === targetId);
+    if (!target || target.captured) {
+      toast.info(`Target already captured`);
       return;
     }
     if (capturedPhotos.length >= MAX_FRAMES) {
@@ -334,27 +320,26 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       }
       if (!imageSrc) throw new Error('Could not capture frame from webcam feed.');
 
-      const file = dataURLtoFile(imageSrc, `scan_sector_${sectorIdx}_${SECTOR_LABELS[sectorIdx]}_${Date.now()}.jpg`);
+      const file = dataURLtoFile(imageSrc, `scan_target_${targetId}_${Date.now()}.jpg`);
       const res = await uploadDoc(file);
 
       if (res?.success && res.url) {
-        // Mark sector as captured
-        setSectors(prev => prev.map((s, i) =>
-          i === sectorIdx ? { ...s, captured: true, photoUrl: res.url } : s
+        // Mark target as captured
+        setTargets(prev => prev.map(t =>
+          t.id === targetId ? { ...t, captured: true, photoUrl: res.url } : t
         ));
         setCapturedPhotos(prev => {
           const newPhotos = [
             ...prev,
             {
               url: res.url,
-              sectorIndex: sectorIdx,
-              sectorLabel: SECTOR_LABELS[sectorIdx],
+              targetId: targetId,
               angle: Math.round(angle),
               pitch: Math.round(pitch),
               roll: Math.round(roll)
             }
           ];
-          if (newPhotos.length >= MIN_FRAMES) {
+          if (newPhotos.length >= targets.length) {
              setTimeout(() => setReviewMode(true), 1500);
           }
           return newPhotos;
@@ -372,40 +357,34 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     }
   }, [angle, capturedPhotos.length, pitch, roll, sectors]);
 
-  // ─── Auto-Capture: Dwell timer on uncaptured sectors ──────────────────────
+  // ─── Auto-Capture: Dwell timer on uncaptured targets ──────────────────────
   useEffect(() => {
     if (!isOpen || inputMode !== 'camera' || !scanStarted || cameraError) return;
     if (!frameQuality.isQualityOK || motionSpeed > 30) {
-      // Clear dwell if moving too fast or quality is bad
       if (dwellTimerRef.current) { clearTimeout(dwellTimerRef.current); dwellTimerRef.current = null; }
       dwellSectorRef.current = -1;
       return;
     }
 
-    const targetSector = currentSector;
-    const sectorData = sectors[targetSector];
-    if (!sectorData || sectorData.captured || capturedPhotos.length >= MAX_FRAMES) {
+    const targetId = currentTarget?.id;
+    if (targetId === undefined || currentTarget.captured || capturedPhotos.length >= MAX_FRAMES) {
       if (dwellTimerRef.current) { clearTimeout(dwellTimerRef.current); dwellTimerRef.current = null; }
       dwellSectorRef.current = -1;
       return;
     }
 
-    // If we're still on the same uncaptured sector, let the timer run
-    if (dwellSectorRef.current === targetSector) return;
+    if (dwellSectorRef.current === targetId) return;
 
-    // New uncaptured sector — start dwell timer
     if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
-    dwellSectorRef.current = targetSector;
+    dwellSectorRef.current = targetId;
     dwellTimerRef.current = setTimeout(() => {
-      captureForSector(targetSector);
+      captureForTarget(targetId);
       dwellSectorRef.current = -1;
       dwellTimerRef.current = null;
     }, AUTO_CAPTURE_DWELL_MS);
 
-    return () => {
-      // Don't clear on every render — only clear if sector changes (handled above)
-    };
-  }, [currentSector, isOpen, inputMode, scanStarted, cameraError, frameQuality.isQualityOK, motionSpeed, sectors, capturedPhotos.length, captureForSector]);
+    return () => {};
+  }, [currentTarget, isOpen, inputMode, scanStarted, cameraError, frameQuality.isQualityOK, motionSpeed, targets, capturedPhotos.length, captureForTarget]);
 
   // ─── Start Scan (iOS permission from gesture — Rule §17) ──────────────────
   const handleStartScan = useCallback(async () => {
@@ -414,23 +393,21 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       resetDisplacement();
       setScanStarted(true);
       setCapturedPhotos([]);
-      setSectors(Array.from({ length: SECTOR_COUNT }, (_, i) => ({
-        id: i, centerAngle: i * SECTOR_SIZE, captured: false, photoUrl: null
-      })));
+      setTargets(generateSphericalTargets(scanDensity));
     }
-  }, [requestSensorPermission, isSensorAvailable, resetDisplacement]);
+  }, [requestSensorPermission, isSensorAvailable, resetDisplacement, scanDensity]);
 
-  // ─── Desktop manual sector click ──────────────────────────────────────────
-  const handleDesktopSectorClick = useCallback((sectorIdx) => {
+  // ─── Desktop manual target click ──────────────────────────────────────────
+  const handleDesktopSectorClick = useCallback((targetId) => {
     if (scanStarted) {
-      captureForSector(sectorIdx);
+      captureForTarget(targetId);
     }
-  }, [scanStarted, captureForSector]);
+  }, [scanStarted, captureForTarget]);
 
-  // ─── Manual shutter (captures current sector) ─────────────────────────────
+  // ─── Manual shutter (captures current target) ─────────────────────────────
   const handleManualCapture = useCallback(() => {
-    captureForSector(currentSector);
-  }, [captureForSector, currentSector]);
+    if (currentTarget) captureForTarget(currentTarget.id);
+  }, [captureForTarget, currentTarget]);
 
   // ─── Camera error handler ─────────────────────────────────────────────────
   const handleUserMediaError = useCallback((err) => {
@@ -456,10 +433,9 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     setIsExtractingVideo(true);
     setVideoExtractionProgress(0);
     try {
-      const frames = await extractFramesFromVideo(selectedVideoFile, (p) => setVideoExtractionProgress(p), MIN_FRAMES);
+      const frames = await extractFramesFromVideo(selectedVideoFile, (p) => setVideoExtractionProgress(p), targets.length);
       setCapturedPhotos(frames);
-      // Mark all sectors as captured for video mode
-      setSectors(prev => prev.map((s, i) => ({ ...s, captured: true, photoUrl: frames[i]?.url || s.photoUrl })));
+      setTargets(prev => prev.map((t, i) => ({ ...t, captured: true, photoUrl: frames[i]?.url || t.photoUrl })));
       playChimeSound();
       toast.success('🎉 Extracted spatial scans from video!');
       setReviewMode(true);
@@ -490,8 +466,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
   if (!isOpen) return null;
 
-  const progressPercent = Math.round((capturedCount / MIN_FRAMES) * 100);
-  const currentSectorIsCaptured = sectors[currentSector]?.captured;
+  const progressPercent = Math.round((capturedCount / targets.length) * 100);
 
   return (
     <div className="fixed inset-0 z-[9999] overflow-y-auto p-1.5 sm:p-3 flex items-center justify-center bg-slate-950/85 backdrop-blur-lg custom-scrollbar">
@@ -553,15 +528,15 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
             <div className="flex-1 w-full h-full flex flex-col items-center px-4 pt-12 pb-8 overflow-y-auto custom-scrollbar bg-slate-950">
                 <h2 className="text-white text-xl font-bold mb-6">Review 360° Source Frames ({capturedPhotos.length})</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 w-full max-w-6xl mb-8">
-                    {sectors.filter(s => s.captured).map((s, i) => (
+                    {targets.filter(t => t.captured).map((t, i) => (
                         <div key={i} className="aspect-square bg-slate-800 rounded-xl overflow-hidden border border-slate-700 relative group shadow-lg">
-                            {s.photoUrl ? (
-                                <img src={s.photoUrl} alt={`Sector ${s.id}`} className="w-full h-full object-cover" />
+                            {t.photoUrl ? (
+                                <img src={t.photoUrl} alt={`Target ${t.id}`} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-slate-500"><CheckCircle2 size={32}/></div>
                             )}
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-white text-xs font-bold uppercase tracking-widest">{SECTOR_LABELS[s.id]}</span>
+                                <span className="text-white text-xs font-bold uppercase tracking-widest">({Math.round(t.yaw)}°, {Math.round(t.pitch)}°)</span>
                             </div>
                         </div>
                     ))}
@@ -648,29 +623,25 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 border-[3px] border-white rounded-full shadow-[0_0_15px_rgba(0,0,0,0.8)]"></div>
                   </div>
 
-                  {/* Virtual Green Dots */}
-                  <div className="absolute top-1/2 left-1/2 w-full h-0 -translate-y-1/2 -translate-x-1/2 overflow-visible">
-                      {sectors.map((sector) => {
-                          if (sector.captured) return null; // Hide captured
+                  {/* Virtual Green Dots for 3D Targets */}
+                  <div className="absolute inset-0 overflow-hidden">
+                      {targets.map((target) => {
+                          if (target.captured) return null; // Hide captured
                           
-                          // Calculate distance from center (delta angle)
-                          let delta = (sector.centerAngle - angle + 540) % 360 - 180;
+                          const proj = projectTargetToScreen(target.yaw, target.pitch, angle, pitch);
                           
-                          // Only render if roughly within field of view (e.g., +/- 45 deg)
-                          if (Math.abs(delta) > 45) return null;
+                          // Only render if roughly within field of view
+                          if (!proj.visible) return null;
                           
-                          // Map delta to horizontal pixel offset (approximate field of view mapping)
-                          const pxPerDegree = window.innerWidth / 60; // Field of view approx 60 deg
-                          const translateX = delta * pxPerDegree;
-                          
-                          // We use 8 degrees as threshold for visual feedback
-                          const isAligned = Math.abs(delta) <= 8;
+                          // We use 10 degrees as threshold for visual feedback
+                          const isAligned = proj.distance <= 10;
 
                           return (
-                              <div key={sector.id} 
-                                   className={`absolute top-1/2 left-1/2 w-12 h-12 -mt-6 -ml-6 rounded-full flex flex-col items-center justify-center transition-transform duration-100 ${isAligned ? 'bg-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.8)] scale-125' : 'bg-emerald-500/60 shadow-lg'}`}
-                                   style={{ transform: `translateX(${translateX}px)` }}>
+                              <div key={target.id} 
+                                   className={`absolute w-12 h-12 -mt-6 -ml-6 rounded-full flex flex-col items-center justify-center transition-transform duration-100 ${isAligned ? 'bg-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.8)] scale-125 z-20' : 'bg-emerald-500/60 shadow-lg z-10'}`}
+                                   style={{ left: `${proj.x}%`, top: `${proj.y}%` }}>
                                    <div className="w-4 h-4 bg-white rounded-full shadow-inner mb-0.5"></div>
+                                   <span className="text-[8px] font-bold text-white leading-none">({Math.round(target.yaw)}°, {Math.round(target.pitch)}°)</span>
                               </div>
                           );
                       })}
@@ -681,31 +652,33 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                       <div className="w-full h-full bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,1)]" style={{ transform: `translateY(${pitch * 4}px) rotate(${-roll}deg)` }}></div>
                   </div>
 
-                  {/* Sector label in viewfinder */}
-                  <div className="absolute bottom-[20%] left-0 right-0 text-center pointer-events-none">
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                      currentSectorIsCaptured
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    }`}>
-                      {SECTOR_LABELS[currentSector]} ({Math.round(angle)}°)
-                      {currentSectorIsCaptured ? ' ✓' : ''}
-                    </span>
-                  </div>
+                  {/* Target label in viewfinder */}
+                  {currentTarget && (
+                    <div className="absolute bottom-[20%] left-0 right-0 text-center pointer-events-none z-20">
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                        currentTarget.captured
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      }`}>
+                        Target ({Math.round(currentTarget.yaw)}°, {Math.round(currentTarget.pitch)}°)
+                        {currentTarget.captured ? ' ✓' : ''}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Shutter button */}
                 <div className="absolute bottom-3 left-0 right-0 z-30 flex items-center justify-center gap-3 pointer-events-auto">
                   <button type="button" onClick={handleManualCapture}
-                    disabled={isCapturing || currentSectorIsCaptured || capturedPhotos.length >= MAX_FRAMES}
+                    disabled={isCapturing || (currentTarget && currentTarget.captured) || capturedPhotos.length >= MAX_FRAMES}
                     className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full border-4 backdrop-blur flex items-center justify-center transition-all duration-300 active:scale-95 ${
                       isCapturing ? 'bg-emerald-500/80 border-emerald-300'
-                        : currentSectorIsCaptured ? 'bg-amber-500/30 border-amber-400/50 cursor-not-allowed'
+                        : (currentTarget && currentTarget.captured) ? 'bg-amber-500/30 border-amber-400/50 cursor-not-allowed'
                         : 'bg-white/20 border-white/80 hover:bg-white/40'
                     } disabled:opacity-50`}>
                     {isCapturing ? (
                       <RefreshCw className="animate-spin text-white" size={20} />
-                    ) : currentSectorIsCaptured ? (
+                    ) : (currentTarget && currentTarget.captured) ? (
                       <RotateCcw className="text-amber-400" size={18} />
                     ) : (
                       <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white transition-all" />
@@ -752,34 +725,47 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                 </p>
               </div>
 
-              {/* Compass Radar (mobile/sensor available) */}
-              {inputMode === 'camera' && scanStarted && isSensorAvailable && (
-                <div className="flex justify-center mb-3 sm:mb-4">
-                  <CompassRadar sectors={sectors} currentSector={currentSector} angle={angle} size={200} />
+              {/* Target Density Selector */}
+              {inputMode === 'camera' && !scanStarted && (
+                <div className="mb-4">
+                  <label className="text-white text-xs font-bold mb-2 block">Scan Density</label>
+                  <div className="flex bg-slate-950 p-1 rounded-xl">
+                    <button type="button" onClick={() => setScanDensity('Fast')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${scanDensity === 'Fast' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                      Fast (16 Points)
+                    </button>
+                    <button type="button" onClick={() => setScanDensity('Detailed')}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${scanDensity === 'Detailed' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
+                      Detailed (34 Points)
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Desktop Sector Grid (no sensor) */}
-              {inputMode === 'camera' && scanStarted && !isSensorAvailable && (
-                <div className="mb-3 sm:mb-4">
-                  <DesktopSectorSelector sectors={sectors} onSectorClick={handleDesktopSectorClick} />
-                </div>
-              )}
-
-              {/* Compact compass for mobile when sensor is available */}
-              {inputMode === 'camera' && scanStarted && isSensorAvailable && (
-                <div className="grid grid-cols-8 gap-1 mb-3">
-                  {sectors.map((sector, i) => (
-                    <div key={i} className={`aspect-square rounded-md border flex items-center justify-center text-[8px] font-black transition-all ${
-                      sector.captured
-                        ? 'border-red-500/40 bg-red-500/10 text-red-400'
-                        : i === currentSector
-                          ? 'border-emerald-400 bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400'
-                          : 'border-slate-700 bg-slate-800/50 text-slate-500'
-                    }`}>
-                      {sector.captured ? '✓' : SECTOR_LABELS[i]}
-                    </div>
-                  ))}
+              {/* Target Grid Tracker */}
+              {inputMode === 'camera' && scanStarted && (
+                <div className="mb-3">
+                  <div className="text-[10px] text-slate-400 mb-1 flex justify-between">
+                    <span>Upper</span><span>Equator</span><span>Lower</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 justify-center max-h-48 overflow-y-auto custom-scrollbar p-1">
+                    {targets.map((target) => {
+                      const isCurrent = currentTarget?.id === target.id;
+                      return (
+                        <div key={target.id}
+                          onClick={() => !isSensorAvailable && handleDesktopSectorClick(target.id)}
+                          className={`w-6 h-6 rounded flex items-center justify-center text-[7px] font-black transition-all cursor-pointer ${
+                            target.captured
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                              : isCurrent
+                                ? 'bg-amber-500/30 text-amber-300 border border-amber-400 ring-1 ring-amber-400'
+                                : 'bg-slate-800 text-slate-500 border border-slate-700 hover:border-slate-500'
+                          }`}>
+                          {target.captured ? '✓' : target.id}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -804,24 +790,24 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
             {/* Bottom: Progress + Generate */}
             <div className="space-y-2.5 sm:space-y-3">
-              <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 sm:p-3">
-                <div className="flex justify-between items-center text-[10px] font-bold mb-1.5">
-                  <span className="text-slate-400 uppercase tracking-wider">Sectors Captured</span>
-                  <span className={`font-extrabold ${allCaptured ? 'text-emerald-400' : 'text-blue-400'}`}>
-                    {capturedCount}/{MIN_FRAMES}
-                  </span>
+                <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 sm:p-3">
+                  <div className="flex justify-between items-center text-[10px] font-bold mb-1.5">
+                    <span className="text-slate-400 uppercase tracking-wider">Targets Captured</span>
+                    <span className={`font-extrabold ${allCaptured ? 'text-emerald-400' : 'text-blue-400'}`}>
+                      {capturedCount}/{targets.length}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div className={`h-full transition-all duration-500 rounded-full ${
+                      allCaptured ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400'
+                    }`} style={{ width: `${Math.min(100, progressPercent)}%` }} />
+                  </div>
                 </div>
-                <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className={`h-full transition-all duration-500 rounded-full ${
-                    allCaptured ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400'
-                  }`} style={{ width: `${Math.min(100, progressPercent)}%` }} />
-                </div>
-              </div>
 
-              <button onClick={() => setReviewMode(true)}
-                disabled={isProcessing || capturedCount < MIN_FRAMES}
-                className={`w-full py-2.5 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition flex items-center justify-center gap-2 ${
-                  allCaptured
+                <button onClick={() => setReviewMode(true)}
+                  disabled={isProcessing || capturedCount < MIN_FRAMES}
+                  className={`w-full py-2.5 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition flex items-center justify-center gap-2 ${
+                    allCaptured
                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:scale-[1.02] shadow-[0_0_20px_rgba(79,70,229,0.4)]'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}>

@@ -5,7 +5,7 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    buildCommand: cd backend && npm install && (which blender || (mkdir -p /tmp/blender && curl -sL https://download.blender.org/release/Blender4.2/blender-4.2.0-linux-x64.tar.xz | tar -xJ -C /tmp/blender --strip-components=1))
+    buildCommand: cd backend && npm install
     startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
@@ -74,10 +74,8 @@ services:
         sync: false
       - key: CLOUDFLARE_R2_PIPELINE_BUCKET
         value: mutune-pipeline
-      - key: BLENDER_PATH
-        value: blender
-      - key: BLENDER_SERVER_PATH
-        value: /usr/bin/blender
+      - key: MODAL_BLENDER_WEBHOOK_URL
+        sync: false
       - key: CLOUDFLARE_R2_PUBLIC_URL
         sync: false
       - key: FRONTEND_URL
@@ -92,6 +90,5 @@ services:
         sync: false
       - key: MODAL_WEBHOOK_SECRET
         sync: false
-      - key: BLENDER_PATH
-        sync: false
+
     healthCheckPath: /api/v1/health
