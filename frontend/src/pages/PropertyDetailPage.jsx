@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 import { 
   fetchProperty, addUnit, deletePropertyUnit, 
-  lockPropertyUnit, checkInAgent, generate3DModel
+  lockPropertyUnit, checkInAgent, generate3DModel,
+  getPropertyScans, deleteScan
 } from '../lib/api';
 import { TableSkeleton } from '../components/SkeletonLoader';
 import SplatAssetManager from '../components/SplatAssetManager';
+import GuidedPhotoCaptureModal from '../components/GuidedPhotoCaptureModal';
 const MapWidget = React.lazy(() => import('../components/MapWidget'));
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -64,6 +66,9 @@ export default function PropertyDetailPage({ dbUser }) {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [checkinExpiry, setCheckinExpiry] = useState(null);
 
+  // 3D Scan Capture State
+  const [showCaptureModal, setShowCaptureModal] = useState(false);
+
   // Fetch single property details
   const { data, isLoading, error } = useQuery({
     queryKey: ['property', id],
@@ -71,6 +76,15 @@ export default function PropertyDetailPage({ dbUser }) {
   });
 
   const property = data?.data || null;
+
+  // Fetch multiple room scans
+  const { data: scansData } = useQuery({
+    queryKey: ['property-scans', id],
+    queryFn: () => getPropertyScans(id),
+    enabled: !!id
+  });
+
+  const propertyScans = scansData?.data || [];
 
   // Mutation to add unit
   const addUnitMutation = useMutation({
@@ -577,37 +591,66 @@ export default function PropertyDetailPage({ dbUser }) {
                 <Sparkles className="text-indigo-600" size={20} />
                 <h2 className="text-lg font-black text-slate-800">3D Gaussian Splat Scans</h2>
               </div>
+              {canManage && (
+                <button
+                  onClick={() => setShowCaptureModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                >
+                  <Plus size={16} /> New Room Scan
+                </button>
+              )}
             </div>
             
             <SplatAssetManager 
               assets={(() => {
-                const legacyAssets = property?.assets?.filter(a => a.type === 'splat') || [];
-                if (legacyAssets.length > 0) return legacyAssets;
+                const combinedAssets = [];
                 
-                if (property?.splat_status && property.splat_status !== 'none') {
-                  return [{
+                // Add the multi-room scans
+                if (propertyScans.length > 0) {
+                  propertyScans.forEach(scan => {
+                    combinedAssets.push({
+                      id: scan._id,
+                      title: scan.room_name || 'Room Scan',
+                      type: 'splat',
+                      splatUrl: scan.splat_url,
+                      status: scan.status === 'completed' ? 'ready' : (scan.status === 'failed' ? 'error' : 'processing'),
+                      createdAt: scan.createdAt
+                    });
+                  });
+                }
+
+                // Legacy fallback
+                const legacyAssets = property?.assets?.filter(a => a.type === 'splat') || [];
+                if (legacyAssets.length > 0) {
+                  legacyAssets.forEach(a => combinedAssets.push(a));
+                } else if (property?.splat_status && property.splat_status !== 'none') {
+                  combinedAssets.push({
                     id: property._id + '-splat',
-                    title: `${property.name} 3D Scan`,
+                    title: `${property.name} (Legacy Scan)`,
                     type: 'splat',
                     splatUrl: property.splat_model_url,
                     status: property.splat_status === 'completed' ? 'ready' : (property.splat_status === 'failed' ? 'error' : 'processing'),
                     createdAt: property.createdAt || new Date().toISOString()
-                  }];
+                  });
                 }
                 
-                if (property?.splatUrl) {
-                  return [{
-                    id: 'splat-main',
-                    title: `${property.name} 3D Scan`,
-                    type: 'splat',
-                    splatUrl: property.splatUrl,
-                    status: 'ready',
-                    createdAt: property.createdAt || new Date().toISOString()
-                  }];
-                }
-                
-                return [];
+                return combinedAssets;
               })()} 
+              onDelete={async (scanId) => {
+                if (scanId.includes('-splat')) {
+                  toast.info('Legacy scans must be deleted from property edit');
+                  return;
+                }
+                if (window.confirm('Delete this room scan?')) {
+                  try {
+                    await deleteScan(id, scanId);
+                    queryClient.invalidateQueries({ queryKey: ['property-scans', id] });
+                    toast.success('Scan deleted');
+                  } catch (err) {
+                    toast.error('Failed to delete scan');
+                  }
+                }
+              }}
             />
           </div>
 
@@ -656,6 +699,18 @@ export default function PropertyDetailPage({ dbUser }) {
           </div>
         </div>
       </div>
+
+      {/* HUD for 360 Scan */}
+      {showCaptureModal && (
+        <GuidedPhotoCaptureModal
+          isOpen={showCaptureModal}
+          onClose={() => {
+            setShowCaptureModal(false);
+            queryClient.invalidateQueries({ queryKey: ['property-scans', id] });
+          }}
+          propertyId={id}
+        />
+      )}
     </div>
   );
 }

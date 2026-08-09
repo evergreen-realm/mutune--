@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, X, RefreshCw, UploadCloud, AlertTriangle, Navigation, Zap, Film, FileVideo, Settings2, Play, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Camera, X, RefreshCw, AlertTriangle, Navigation, Zap, Film, FileVideo, Settings2, Play, CheckCircle2, RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { uploadDoc } from '../lib/api';
 import { useCameraMotion } from '../hooks/useCameraMotion';
@@ -199,6 +199,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
   const [isCapturing, setIsCapturing] = useState(false);
   const [frameQuality, setFrameQuality] = useState({ isQualityOK: true, message: 'Calibrating...' });
   const [scanStarted, setScanStarted] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
 
   // 16-sector tracking state
   const [sectors, setSectors] = useState(() =>
@@ -230,9 +231,8 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     videoDevices, selectedDeviceId, setSelectedDeviceId, refreshDevices
   } = useCameraDevices(isOpen && inputMode === 'camera');
 
-  // Motion Tracker Hook
   const {
-    angle, pitch, roll, motionSpeed, isSensorAvailable, displacement,
+    angle, pitch, roll, motionSpeed, isSensorAvailable,
     currentSector, requestSensorPermission, resetDisplacement
   } = useCameraMotion(isOpen && inputMode === 'camera' && scanStarted, webcamRef);
 
@@ -277,6 +277,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       setCameraError(false);
       setUseGenericFallback(false);
       setScanStarted(false);
+      setReviewMode(false);
       setCapturedPhotos([]);
       setSectors(Array.from({ length: SECTOR_COUNT }, (_, i) => ({
         id: i, centerAngle: i * SECTOR_SIZE, captured: false, photoUrl: null
@@ -294,14 +295,14 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
   // Frame quality analysis loop
   useEffect(() => {
-    if (!isOpen || inputMode !== 'camera' || cameraError || !scanStarted) return;
+    if (!isOpen || inputMode !== 'camera' || cameraError || !scanStarted || reviewMode) return;
     const interval = setInterval(() => {
       if (webcamRef.current?.video) {
         setFrameQuality(analyzeFrameQuality(webcamRef.current.video));
       }
     }, 120);
     return () => clearInterval(interval);
-  }, [isOpen, inputMode, cameraError, scanStarted]);
+  }, [isOpen, inputMode, cameraError, scanStarted, reviewMode]);
 
   // ─── Capture Logic ────────────────────────────────────────────────────────
 
@@ -341,17 +342,23 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
         setSectors(prev => prev.map((s, i) =>
           i === sectorIdx ? { ...s, captured: true, photoUrl: res.url } : s
         ));
-        setCapturedPhotos(prev => [
-          ...prev,
-          {
-            url: res.url,
-            sectorIndex: sectorIdx,
-            sectorLabel: SECTOR_LABELS[sectorIdx],
-            angle: Math.round(angle),
-            pitch: Math.round(pitch),
-            roll: Math.round(roll)
+        setCapturedPhotos(prev => {
+          const newPhotos = [
+            ...prev,
+            {
+              url: res.url,
+              sectorIndex: sectorIdx,
+              sectorLabel: SECTOR_LABELS[sectorIdx],
+              angle: Math.round(angle),
+              pitch: Math.round(pitch),
+              roll: Math.round(roll)
+            }
+          ];
+          if (newPhotos.length >= MIN_FRAMES) {
+             setTimeout(() => setReviewMode(true), 1500);
           }
-        ]);
+          return newPhotos;
+        });
 
         playChimeSound();
         if (navigator.vibrate) navigator.vibrate(80);
@@ -452,9 +459,10 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
       const frames = await extractFramesFromVideo(selectedVideoFile, (p) => setVideoExtractionProgress(p), MIN_FRAMES);
       setCapturedPhotos(frames);
       // Mark all sectors as captured for video mode
-      setSectors(prev => prev.map(s => ({ ...s, captured: true })));
+      setSectors(prev => prev.map((s, i) => ({ ...s, captured: true, photoUrl: frames[i]?.url || s.photoUrl })));
       playChimeSound();
       toast.success('🎉 Extracted spatial scans from video!');
+      setReviewMode(true);
     } catch (err) {
       toast.error('Failed to process video: ' + err.message);
     } finally {
@@ -541,6 +549,30 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
         </div>
 
         {/* ─── Main Body ─────────────────────────────────────────────── */}
+        {reviewMode ? (
+            <div className="flex-1 w-full h-full flex flex-col items-center px-4 pt-12 pb-8 overflow-y-auto custom-scrollbar bg-slate-950">
+                <h2 className="text-white text-xl font-bold mb-6">Review 360° Source Frames ({capturedPhotos.length})</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 w-full max-w-6xl mb-8">
+                    {sectors.filter(s => s.captured).map((s, i) => (
+                        <div key={i} className="aspect-square bg-slate-800 rounded-xl overflow-hidden border border-slate-700 relative group shadow-lg">
+                            {s.photoUrl ? (
+                                <img src={s.photoUrl} alt={`Sector ${s.id}`} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-500"><CheckCircle2 size={32}/></div>
+                            )}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="text-white text-xs font-bold uppercase tracking-widest">{SECTOR_LABELS[s.id]}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                
+                <button onClick={handleFinish} disabled={isProcessing}
+                    className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full font-black uppercase tracking-wider text-xs shadow-lg hover:scale-105 transition flex items-center gap-2 disabled:opacity-50 disabled:scale-100">
+                    {isProcessing ? <><RefreshCw size={16} className="animate-spin" /> Stitching Model...</> : 'Confirm & Stitch Model'}
+                </button>
+            </div>
+        ) : (
         <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto custom-scrollbar min-h-0">
 
           {/* Left: Camera Feed */}
@@ -608,42 +640,57 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
             {/* ─── Reticle & Shutter (camera mode, scan started) ───────── */}
             {inputMode === 'camera' && !cameraError && scanStarted && (
               <>
-                {/* Viewfinder reticle */}
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                  <div className={`w-40 h-40 sm:w-52 sm:h-52 md:w-64 md:h-64 border-2 rounded-2xl sm:rounded-3xl relative flex flex-col items-center justify-center transition-all duration-200 ${
-                    isCapturing ? 'border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.5)] scale-105'
-                      : currentSectorIsCaptured ? 'border-amber-400/50' : 'border-white/30'
-                  }`}>
-                    {/* Corner brackets */}
-                    <div className={`absolute top-0 left-0 w-6 h-6 sm:w-8 sm:h-8 border-t-4 border-l-4 rounded-tl-2xl sm:rounded-tl-3xl transition-colors ${isCapturing ? 'border-emerald-400' : 'border-blue-400'}`} />
-                    <div className={`absolute top-0 right-0 w-6 h-6 sm:w-8 sm:h-8 border-t-4 border-r-4 rounded-tr-2xl sm:rounded-tr-3xl transition-colors ${isCapturing ? 'border-emerald-400' : 'border-blue-400'}`} />
-                    <div className={`absolute bottom-0 left-0 w-6 h-6 sm:w-8 sm:h-8 border-b-4 border-l-4 rounded-bl-2xl sm:rounded-bl-3xl transition-colors ${isCapturing ? 'border-emerald-400' : 'border-blue-400'}`} />
-                    <div className={`absolute bottom-0 right-0 w-6 h-6 sm:w-8 sm:h-8 border-b-4 border-r-4 rounded-br-2xl sm:rounded-br-3xl transition-colors ${isCapturing ? 'border-emerald-400' : 'border-blue-400'}`} />
+                {/* Viewfinder reticle (AR Tracker) */}
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+                  {/* Bounding Box */}
+                  <div className={`relative w-[85%] max-w-xl aspect-[4/3] border-[3px] rounded-3xl transition-all duration-300 ${isCapturing ? 'border-emerald-400 bg-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.5)] scale-[1.02]' : currentSectorIsCaptured ? 'border-amber-400/50' : 'border-white/50'}`}>
+                      {/* Central Reticle */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 border-[3px] border-white rounded-full shadow-[0_0_15px_rgba(0,0,0,0.8)]"></div>
+                  </div>
 
-                    {/* Artificial horizon */}
-                    <div className="absolute inset-x-3 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent transition-transform duration-100 ease-out"
-                      style={{ transform: `translateY(${Math.max(-60, Math.min(60, pitch * 1.5))}px) rotate(${-roll}deg)` }} />
-                    <div className="absolute inset-y-3 w-[1px] bg-emerald-400/40" />
+                  {/* Virtual Green Dots */}
+                  <div className="absolute top-1/2 left-1/2 w-full h-0 -translate-y-1/2 -translate-x-1/2 overflow-visible">
+                      {sectors.map((sector) => {
+                          if (sector.captured) return null; // Hide captured
+                          
+                          // Calculate distance from center (delta angle)
+                          let delta = (sector.centerAngle - angle + 540) % 360 - 180;
+                          
+                          // Only render if roughly within field of view (e.g., +/- 45 deg)
+                          if (Math.abs(delta) > 45) return null;
+                          
+                          // Map delta to horizontal pixel offset (approximate field of view mapping)
+                          const pxPerDegree = window.innerWidth / 60; // Field of view approx 60 deg
+                          const translateX = delta * pxPerDegree;
+                          
+                          // We use 8 degrees as threshold for visual feedback
+                          const isAligned = Math.abs(delta) <= 8;
 
-                    {/* Center crosshair */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                      <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 transition-all duration-300 ${
-                        isCapturing ? 'bg-emerald-400 border-white scale-125 shadow-[0_0_15px_rgba(16,185,129,0.9)]'
-                          : currentSectorIsCaptured ? 'bg-amber-500/50 border-amber-400' : 'bg-blue-500/50 border-blue-400'
-                      }`} />
-                    </div>
+                          return (
+                              <div key={sector.id} 
+                                   className={`absolute top-1/2 left-1/2 w-12 h-12 -mt-6 -ml-6 rounded-full flex flex-col items-center justify-center transition-transform duration-100 ${isAligned ? 'bg-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.8)] scale-125' : 'bg-emerald-500/60 shadow-lg'}`}
+                                   style={{ transform: `translateX(${translateX}px)` }}>
+                                   <div className="w-4 h-4 bg-white rounded-full shadow-inner mb-0.5"></div>
+                              </div>
+                          );
+                      })}
+                  </div>
 
-                    {/* Sector label in viewfinder */}
-                    <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
-                      <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                        currentSectorIsCaptured
-                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                          : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                      }`}>
-                        {SECTOR_LABELS[currentSector]} ({Math.round(angle)}°)
-                        {currentSectorIsCaptured ? ' ✓' : ''}
-                      </span>
-                    </div>
+                  {/* Artificial Horizon */}
+                  <div className="absolute top-1/2 left-1/2 w-[85%] max-w-xl h-[1px] -translate-x-1/2 -translate-y-1/2 opacity-40">
+                      <div className="w-full h-full bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,1)]" style={{ transform: `translateY(${pitch * 4}px) rotate(${-roll}deg)` }}></div>
+                  </div>
+
+                  {/* Sector label in viewfinder */}
+                  <div className="absolute bottom-[20%] left-0 right-0 text-center pointer-events-none">
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                      currentSectorIsCaptured
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                    }`}>
+                      {SECTOR_LABELS[currentSector]} ({Math.round(angle)}°)
+                      {currentSectorIsCaptured ? ' ✓' : ''}
+                    </span>
                   </div>
                 </div>
 
@@ -771,18 +818,19 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                 </div>
               </div>
 
-              <button onClick={handleFinish}
+              <button onClick={() => setReviewMode(true)}
                 disabled={isProcessing || capturedCount < MIN_FRAMES}
                 className={`w-full py-2.5 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition flex items-center justify-center gap-2 ${
                   allCaptured
                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:scale-[1.02] shadow-[0_0_20px_rgba(79,70,229,0.4)]'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}>
-                {isProcessing ? (<><RefreshCw size={14} className="animate-spin" /> Processing...</>) : (<><UploadCloud size={14} /> Generate 3D Model</>)}
+                {isProcessing ? (<><RefreshCw size={14} className="animate-spin" /> Processing...</>) : (<><CheckCircle2 size={14} /> Review & Stitch</>)}
               </button>
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

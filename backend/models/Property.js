@@ -41,6 +41,15 @@ const inventoryItemSchema = new mongoose.Schema({
   audit_agent_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { _id: true });
 
+const scanSchema = new mongoose.Schema({
+  room_name: { type: String, required: true },
+  splat_model_url: String,
+  splat_status: { type: String, enum: ['processing', 'completed', 'failed'], default: 'processing' },
+  scan_images: [String],
+  thumbnail_url: String,
+  created_at: { type: Date, default: Date.now }
+});
+
 const propertySchema = new mongoose.Schema({
   property_code: { type: String, unique: true, required: true },
   name: { type: String, required: true },
@@ -76,6 +85,7 @@ const propertySchema = new mongoose.Schema({
   glb_model_url: String,
   splat_model_url: String,
   splat_status: { type: String, enum: ['none', 'processing', 'completed', 'failed'], default: 'none' },
+  scans: [scanSchema],
   floor_plan_url: String,
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }

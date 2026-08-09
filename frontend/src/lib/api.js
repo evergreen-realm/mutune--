@@ -49,6 +49,10 @@ export const addUnit               = (propertyId, data)  => api.post(`/propertie
 export const updateUnit            = (propertyId, unitId, data) => api.patch(`/properties/${propertyId}/units/${unitId}`, data);
 export const fetchVacantUnits      = ()                  => api.get('/properties/units/vacant');
 export const initiateSplatScan     = (data)              => api.post('/scans/initiate', data);
+export const getScanStatus         = (propertyId)        => api.get(`/scans/property/${propertyId}`);
+export const getPropertyScans      = (propertyId)        => api.get(`/scans/property/${propertyId}`);
+export const deleteScan            = (propertyId, scanId)=> api.delete(`/scans/property/${propertyId}/${scanId}`);
+export const getShareLink          = (propertyId, scanId)=> api.get(`/scans/share/${propertyId}/${scanId}`);
 
 // Phase 4: Unit geospatial indexing
 export const updateUnitGeolocation = (propertyId, unitId, data) => api.patch(`/properties/${propertyId}/units/${unitId}/geolocation`, data);

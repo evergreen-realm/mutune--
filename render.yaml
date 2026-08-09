@@ -81,10 +81,12 @@ services:
       - key: CLOUDFLARE_R2_PUBLIC_URL
         sync: false
       - key: FRONTEND_URL
-        value: https://mutunerent-web-mishael-s-alpha.vercel.app
+        value: https://mutune-alpha.vercel.app
       - key: SENTRY_DSN
         sync: false
       - key: ADMIN_HARDCODED_PASSWORD
+        sync: false
+      - key: ADMIN_PASSWORD
         sync: false
       - key: MODAL_3D_SPLAT_WEBHOOK_URL
         sync: false

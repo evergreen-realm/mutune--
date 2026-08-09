@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Maximize, Minimize, Loader2 } from 'lucide-react';
+import { X, Maximize, Minimize, Loader2, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
 
 export default function SplatViewerModal({ isOpen, onClose, splatUrl, title = '3D Splat View' }) {
@@ -143,10 +143,40 @@ export default function SplatViewerModal({ isOpen, onClose, splatUrl, title = '3
 
         {/* Controls Overlay */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-          <div className="px-5 py-2.5 bg-black/60 backdrop-blur border border-white/10 rounded-full pointer-events-auto">
+          <div className="px-5 py-2.5 bg-black/60 backdrop-blur border border-white/10 rounded-full pointer-events-auto shadow-lg">
             <p className="text-white/70 text-xs font-semibold">
-              <span className="text-white">Left Click</span> to Orbit • <span className="text-white">Right Click</span> to Pan • <span className="text-white">Scroll</span> to Zoom
+              <span className="text-white">Drag</span> to Orbit • <span className="text-white">Right Click</span> to Pan • <span className="text-white">Scroll</span> to Zoom
             </p>
+          </div>
+        </div>
+
+        {/* Virtual Joystick (D-Pad) */}
+        <div className="absolute bottom-6 left-6 z-10 pointer-events-auto flex flex-col items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+          <button 
+            onPointerDown={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', code: 'KeyW' }))}
+            onPointerUp={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', code: 'KeyW' }))}
+            onPointerLeave={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 'w', code: 'KeyW' }))}
+            className="w-12 h-12 bg-white/10 hover:bg-white/30 border border-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-md transition-colors shadow-lg"
+          ><ArrowUp size={20} /></button>
+          <div className="flex gap-1.5">
+            <button 
+              onPointerDown={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA' }))}
+              onPointerUp={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA' }))}
+              onPointerLeave={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA' }))}
+              className="w-12 h-12 bg-white/10 hover:bg-white/30 border border-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-md transition-colors shadow-lg"
+            ><ArrowLeft size={20} /></button>
+            <button 
+              onPointerDown={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', code: 'KeyS' }))}
+              onPointerUp={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 's', code: 'KeyS' }))}
+              onPointerLeave={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 's', code: 'KeyS' }))}
+              className="w-12 h-12 bg-white/10 hover:bg-white/30 border border-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-md transition-colors shadow-lg"
+            ><ArrowDown size={20} /></button>
+            <button 
+              onPointerDown={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', code: 'KeyD' }))}
+              onPointerUp={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 'd', code: 'KeyD' }))}
+              onPointerLeave={() => document.dispatchEvent(new KeyboardEvent('keyup', { key: 'd', code: 'KeyD' }))}
+              className="w-12 h-12 bg-white/10 hover:bg-white/30 border border-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-md transition-colors shadow-lg"
+            ><ArrowRight size={20} /></button>
           </div>
         </div>
 
