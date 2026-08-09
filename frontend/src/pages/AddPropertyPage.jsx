@@ -386,14 +386,6 @@ function StepPhotos({ form, setField, onLaunchCapture }) {
           </button>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800">
-          <ImageUpload
-            value={form.splat_model_url ? [form.splat_model_url] : []}
-            onChange={urls => setField('splat_model_url', urls[0] || '')}
-            multiple={false}
-            label="Direct .splat / 3D Asset File (Optional)"
-          />
-        </div>
       </div>
       {/* Exterior 3D Building Generation Card */}
       <div className="p-5 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 backdrop-blur mt-4">

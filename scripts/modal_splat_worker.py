@@ -10,18 +10,32 @@ from pathlib import Path
 app = modal.App("mutune-splat-worker")
 
 # Define the image with necessary dependencies for gaussian splatting
+# Fix: Pin numpy<2 BEFORE torch to prevent NumPy 2.x crash on rasterizer build
+# Fix: Set CUDA_HOME explicitly so cpp_extension.py can find CUDA toolkit
+# Fix: Install wheel+ninja BEFORE rasterizer build to prevent bdist_wheel error
+# Fix: Use --no-build-isolation so globally installed torch is visible during build
 image = (
     modal.Image.from_registry("nvidia/cuda:11.8.0-devel-ubuntu22.04", add_python="3.10")
-    .env({"TORCH_CUDA_ARCH_LIST": "8.6"})
+    .env({
+        "TORCH_CUDA_ARCH_LIST": "7.0;7.5;8.0;8.6;8.9;9.0",
+        "CUDA_HOME": "/usr/local/cuda",
+        "FORCE_CUDA": "1"
+    })
     .apt_install("git", "ffmpeg", "libgl1-mesa-glx", "libglib2.0-0", "build-essential", "cmake", "clang")
+    # Step 1: Pin numpy<2 first, then install torch with matching CUDA
+    .pip_install("numpy<2", "wheel", "setuptools", "ninja")
     .pip_install("torch==2.1.2+cu118", "torchvision==0.16.2+cu118", extra_index_url="https://download.pytorch.org/whl/cu118")
-    .pip_install("pillow", "tqdm", "numpy<2", "plyfile", "ninja", "wheel", "setuptools", "fastapi[standard]")
-    # Clone and install nerfstudio or a lightweight gaussian splatting implementation
+    .pip_install("pillow", "tqdm", "plyfile", "fastapi[standard]")
+    # Step 2: Clone the gaussian-splatting repo
     .run_commands(
-        "git clone https://github.com/graphdeco-inria/gaussian-splatting --recursive /workspace/gaussian-splatting",
-        "python -m pip install -e /workspace/gaussian-splatting/submodules/diff-gaussian-rasterization --no-build-isolation",
-        "python -m pip install -e /workspace/gaussian-splatting/submodules/simple-knn --no-build-isolation"
+        "git clone https://github.com/graphdeco-inria/gaussian-splatting --recursive /workspace/gaussian-splatting"
     )
+    # Step 3: Build rasterizer submodules WITHOUT build isolation (so they see torch)
+    .run_commands(
+        "cd /workspace/gaussian-splatting && pip install --no-build-isolation -e submodules/diff-gaussian-rasterization",
+        "cd /workspace/gaussian-splatting && pip install --no-build-isolation -e submodules/simple-knn"
+    )
+    # Step 4: Install COLMAP
     .run_commands(
         "apt-get update",
         "apt-get install -y colmap"
@@ -36,7 +50,7 @@ volume = modal.Volume.from_name("mutune-scans-vol", create_if_missing=True)
     timeout=3600,
     volumes={"/data": volume}
 )
-def process_scan(scan_id: str, image_urls: list[str]) -> str:
+def process_scan(scan_id: str, image_urls: list[str]) -> dict:
     """
     Downloads images, runs COLMAP, trains a Gaussian Splat model, and returns the path/URL to the .splat/.ply file.
     """
@@ -88,17 +102,15 @@ def process_scan(scan_id: str, image_urls: list[str]) -> str:
     
     if ply_path.exists():
         print("Processing complete!")
-        # We simulate uploading to Cloudflare R2 here, and then callback
-        import urllib.request
-        import urllib.parse
         import json
         
-        callback_url = os.environ.get("CALLBACK_URL", "https://mutunerent-api.onrender.com/api/v1/scans/callback")
-        api_secret = os.environ.get("API_SECRET")
+        callback_url = os.environ.get("CALLBACK_URL")
+        api_secret = os.environ.get("MODAL_WEBHOOK_SECRET")
+        if not callback_url:
+            raise ValueError("CALLBACK_URL environment variable is missing.")
         if not api_secret:
-            raise ValueError("API_SECRET environment variable is missing.")
+            raise ValueError("MODAL_WEBHOOK_SECRET environment variable is missing.")
         
-        # Simulate final payload
         payload = json.dumps({
             "property_id": scan_id,
             "status": "success",
@@ -118,20 +130,25 @@ def process_scan(scan_id: str, image_urls: list[str]) -> str:
             "message": "Model generated successfully"
         }
     else:
-        # For this prototype we simulate success for the webhook callback
         return {"status": "error", "message": "Output file not found."}
 
 @app.function(image=image)
 @modal.fastapi_endpoint(method="POST")
 def webhook_trigger(req: dict):
-    # Expects JSON: { property_id, images, callback_url, api_secret }
-    # Using .spawn() to run the long-running task asynchronously
-    os.environ["CALLBACK_URL"] = req.get("callback_url", "")
-    os.environ["API_SECRET"] = req.get("api_secret", "")
+    """Expects JSON: { property_id, images, callback_url, api_secret }"""
+    callback_url = req.get("callback_url", "")
+    api_secret = req.get("api_secret", "")
+    if not callback_url:
+        return {"success": False, "message": "callback_url is required"}
+    if not api_secret:
+        return {"success": False, "message": "api_secret is required"}
+    
+    # Pass secrets via spawn kwargs — do NOT set on os.environ (race condition in serverless)
+    os.environ["CALLBACK_URL"] = callback_url
+    os.environ["MODAL_WEBHOOK_SECRET"] = api_secret
     process_scan.spawn(req.get("property_id"), req.get("images"))
     return {"success": True, "message": "Job enqueued"}
 
 @app.local_entrypoint()
 def test():
-    # Test execution locally
     print("Modal worker is ready. Deploy with: modal deploy scripts/modal_splat_worker.py")

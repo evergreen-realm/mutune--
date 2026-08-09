@@ -542,25 +542,26 @@ export default function App() {
   const { theme } = useThemeStore();
 
   React.useEffect(() => {
+    // Wait for DOM to mount the main scroll container
+    const wrapper = document.getElementById('main-scroll-wrapper');
+
     const lenis = new Lenis({
       duration: 1.1,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true
+      smoothWheel: true,
+      touchMultiplier: 1.5,
+      // Target the AppShell's main content area, not the window
+      // This is critical: the outer shell uses overflow-hidden, so window scroll is blocked
+      ...(wrapper ? { wrapper } : {})
     });
 
-    function raf(time) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-
-    requestAnimationFrame(raf);
-
+    // Connect Lenis to GSAP ScrollTrigger
     lenis.on('scroll', ScrollTrigger.update);
 
+    // Single RAF driver via GSAP ticker (do NOT add a second requestAnimationFrame loop)
     gsap.ticker.add((time) => {
       lenis.raf(time * 1000);
     });
-
     gsap.ticker.lagSmoothing(0);
 
     return () => {

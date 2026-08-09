@@ -88,6 +88,8 @@ services:
         sync: false
       - key: MODAL_3D_SPLAT_WEBHOOK_URL
         sync: false
+      - key: MODAL_WEBHOOK_SECRET
+        sync: false
       - key: BLENDER_PATH
         sync: false
     healthCheckPath: /api/v1/health

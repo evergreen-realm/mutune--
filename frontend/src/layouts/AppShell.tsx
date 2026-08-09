@@ -115,7 +115,7 @@ export default function AppShellLayout({
         />
 
         {/* ── Animated page content ───────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main id="main-scroll-wrapper" className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 custom-scrollbar">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}

@@ -36,7 +36,7 @@ router.post('/initiate', requireAuth, async (req, res) => {
       property_id: propertyId,
       images: imageUrls,
       callback_url: callbackUrl,
-      api_secret: process.env.ADMIN_HARDCODED_PASSWORD // Shared secret
+      api_secret: process.env.MODAL_WEBHOOK_SECRET
     }).catch(err => console.error('Error invoking Modal webhook:', err.message));
 
     res.json({ success: true, message: '3D scan initiated successfully', splat_status: 'processing' });
@@ -51,7 +51,7 @@ router.post('/callback', async (req, res) => {
   try {
     const { property_id, status, splat_url, api_secret, error } = req.body;
 
-    if (api_secret !== process.env.ADMIN_HARDCODED_PASSWORD) {
+    if (!process.env.MODAL_WEBHOOK_SECRET || api_secret !== process.env.MODAL_WEBHOOK_SECRET) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 

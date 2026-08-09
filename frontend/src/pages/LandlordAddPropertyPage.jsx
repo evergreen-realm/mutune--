@@ -524,14 +524,6 @@ export default function LandlordAddPropertyPage() {
                   </button>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800">
-                  <ImageUpload
-                    value={form.splat_model_url ? [form.splat_model_url] : []}
-                    onChange={urls => setField('splat_model_url', urls[0] || '')}
-                    multiple={false}
-                    label="Direct .splat / 3D Asset File (Optional)"
-                  />
-                </div>
               </div>
 
               {/* Exterior 3D Building Generation Card */}
