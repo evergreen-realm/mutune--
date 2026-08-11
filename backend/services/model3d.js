@@ -69,11 +69,15 @@ async function generateProperty3DModel(property) {
   }
 
   // Fallback: Use static GLB based on building size
-  let fallbackModel = '/models/voxel_estate.glb';
-  if (floors > 5) {
-    fallbackModel = '/models/voxel_estate_large.glb'; // Hypothetical large model
+  // Actual files verified via: Get-ChildItem frontend/public/models/
+  // b_small.glb (1174KB), b_medium.glb (1815KB), b_large.glb (2378KB), b_tower.glb (3281KB)
+  let fallbackModel = '/models/b_medium.glb';
+  if (floors > 10) {
+    fallbackModel = '/models/b_tower.glb';
+  } else if (floors > 5) {
+    fallbackModel = '/models/b_large.glb';
   } else if (units < 4) {
-    fallbackModel = '/models/voxel_estate_small.glb'; // Hypothetical small model
+    fallbackModel = '/models/b_small.glb';
   }
   
   logger.info(`Using static fallback model: ${fallbackModel} due to primary failure.`);

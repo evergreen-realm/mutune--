@@ -45,7 +45,8 @@ volume = modal.Volume.from_name("mutune-scans-vol", create_if_missing=True)
     image=image, 
     gpu="A10G", 
     timeout=3600,
-    volumes={"/data": volume}
+    volumes={"/data": volume},
+    secrets=[modal.Secret.from_name("mutune-r2-secrets")]
 )
 def process_scan(property_id: str, scan_id: str, image_urls: list[str], callback_url: str, api_secret: str) -> dict:
     """
@@ -165,7 +166,7 @@ def send_webhook(callback_url, api_secret, property_id, scan_id, status, splat_u
     except Exception as e:
         print(f"Callback failed: {e}")
 
-@app.function(image=image, secrets=[modal.Secret.from_name("mutune-r2-secrets", require_missing=True)])
+@app.function(image=image, secrets=[modal.Secret.from_name("mutune-r2-secrets")])
 @modal.fastapi_endpoint(method="POST")
 def webhook_trigger(req: dict):
     """Expects JSON: { property_id, scan_id, images, callback_url, api_secret }"""

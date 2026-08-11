@@ -1,51 +1,70 @@
 /**
  * Generates a spherical constellation of target capture points.
- * We use simple rings for predictable user guidance.
+ * Targets are ordered sequentially: equator clockwise → upper ring → lower ring.
+ * This ordering drives the guidance UI so users follow a predictable path.
  * @param {string} density 'Fast' | 'Detailed'
- * @returns {Array} Array of target objects { id, yaw, pitch, captured }
+ * @returns {Array} Array of target objects { id, yaw, pitch, ring, captured }
  */
 export function generateSphericalTargets(density = 'Detailed') {
   const targets = [];
   let idCounter = 0;
 
-  const addRing = (pitch, numPoints) => {
+  const addRing = (pitch, numPoints, ringName) => {
     const step = 360 / numPoints;
     for (let i = 0; i < numPoints; i++) {
       targets.push({
         id: idCounter++,
         yaw: i * step,
         pitch: pitch,
+        ring: ringName,
         captured: false
       });
     }
   };
 
   if (density === 'Fast') {
-    // Fast: 16 points (12 equator, 4 top)
-    addRing(0, 12); // Equator
-    addRing(45, 4); // Upper ring
+    // Fast: 16 points — equator first (clockwise), then upper
+    addRing(0, 12, 'equator');  // IDs 0-11
+    addRing(45, 4, 'upper');    // IDs 12-15
   } else {
-    // Detailed: 34 points (16 equator, 10 upper, 8 lower)
-    addRing(0, 16);  // Equator
-    addRing(35, 10); // Upper ring
-    addRing(-25, 8); // Lower ring
+    // Detailed: 34 points — equator → upper → lower
+    addRing(0, 16, 'equator');  // IDs 0-15
+    addRing(35, 10, 'upper');   // IDs 16-25
+    addRing(-25, 8, 'lower');   // IDs 26-33
   }
 
   return targets;
 }
 
 /**
+ * Returns the next target in sequential order (by ID).
+ * This drives the UI guidance — users always know which target comes next.
+ * Unlike getClosestUncapturedTarget (which is used for alignment detection),
+ * this always returns the NEXT in the fixed sequence regardless of user position.
+ * @param {Array} targets
+ * @returns {Object|null}
+ */
+export function getNextSequentialTarget(targets) {
+  return targets.find(t => !t.captured) || null;
+}
+
+/**
  * Spatial Hashing / Distance check to see if current yaw/pitch is close to an uncaptured target.
- * We use an angular distance threshold.
+ * Returns the closest uncaptured target that is within thresholdDegrees.
+ * If none is within threshold, returns the globally closest uncaptured target anyway
+ * (so guidance never goes silent in irregular rooms where the user may be far from
+ * the next fixed-grid point).
  * @param {number} currentYaw 
  * @param {number} currentPitch 
  * @param {Array} targets 
  * @param {number} thresholdDegrees 
- * @returns {Object|null} The matched target or null
+ * @returns {Object|null} The matched target or null (only null when ALL targets captured)
  */
 export function getClosestUncapturedTarget(currentYaw, currentPitch, targets, thresholdDegrees = 10) {
   let closestTarget = null;
   let minDistance = Infinity;
+  let globalClosest = null;
+  let globalMinDist = Infinity;
 
   for (const target of targets) {
     if (target.captured) continue;
@@ -57,13 +76,21 @@ export function getClosestUncapturedTarget(currentYaw, currentPitch, targets, th
     
     const dist = Math.sqrt(dYaw * dYaw + dPitch * dPitch);
 
+    // Track global closest (regardless of threshold)
+    if (dist < globalMinDist) {
+      globalMinDist = dist;
+      globalClosest = target;
+    }
+
+    // Track within-threshold closest
     if (dist < minDistance && dist <= thresholdDegrees) {
       minDistance = dist;
       closestTarget = target;
     }
   }
 
-  return closestTarget;
+  // Always return a target if any remain uncaptured (prevents guidance from going silent)
+  return closestTarget || globalClosest;
 }
 
 /**
@@ -84,11 +111,34 @@ export function projectTargetToScreen(targetYaw, targetPitch, camYaw, camPitch, 
 
   const dPitch = targetPitch - camPitch;
 
-  const xPercent = 50 + (dYaw / fovX) * 50; 
-  const yPercent = 50 - (dPitch / fovY) * 50;
+  let xPercent = 50 + (dYaw / fovX) * 50; 
+  let yPercent = 50 - (dPitch / fovY) * 50;
 
-  const visible = xPercent > -20 && xPercent < 120 && yPercent > -20 && yPercent < 120;
+  const visible = xPercent >= 5 && xPercent <= 95 && yPercent >= 5 && yPercent <= 95;
+  let clamped = false;
+  let angleToTarget = 0;
+
+  if (!visible) {
+    clamped = true;
+    angleToTarget = Math.atan2(yPercent - 50, xPercent - 50) * (180 / Math.PI);
+    
+    // Clamp to boundaries (5% margin)
+    xPercent = Math.max(5, Math.min(95, xPercent));
+    yPercent = Math.max(5, Math.min(95, yPercent));
+    
+    // Push exactly to edge if out of bounds to maintain directional arrow
+    const dx = xPercent - 50;
+    const dy = yPercent - 50;
+    if (Math.abs(dx) > Math.abs(dy)) {
+        xPercent = dx > 0 ? 95 : 5;
+        yPercent = 50 + (dy / Math.abs(dx)) * 45;
+    } else {
+        yPercent = dy > 0 ? 95 : 5;
+        xPercent = 50 + (dx / Math.abs(dy)) * 45;
+    }
+  }
+
   const distance = Math.sqrt(dYaw * dYaw + dPitch * dPitch);
 
-  return { x: xPercent, y: yPercent, visible, distance };
+  return { x: xPercent, y: yPercent, visible, clamped, angleToTarget, distance };
 }

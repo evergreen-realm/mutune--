@@ -19,7 +19,7 @@ const BLOCK_SIZE = 8;
 const SEARCH_RANGE = 6;
 const CANVAS_W = 160;
 const CANVAS_H = 120;
-const DEAD_ZONE_PX = 2.5; // Minimum displacement to count as real motion
+const DEAD_ZONE_PX = 1.5; // Lowered: 2.5px was too high for 160×120 canvas, ignored real webcam motion
 const BLOCKS_X = Math.floor(CANVAS_W / BLOCK_SIZE); // 20
 const BLOCKS_Y = Math.floor(CANVAS_H / BLOCK_SIZE); // 15
 
@@ -168,8 +168,19 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
           orientationDetected = true;
           setIsSensorAvailable(true);
         }
+        // alpha: compass heading (0-360) → yaw
         setAngle(event.alpha || 0);
-        setPitch(event.beta || 0);
+
+        // beta: front-back tilt (-180 to 180)
+        //   0° = flat on table, 90° = upright, -90° = upside down
+        //   We normalize so upright (90°) = pitch 0° (level scanning position)
+        //   Tilting phone up from upright → positive pitch, down → negative
+        const rawBeta = event.beta || 0;
+        const normalizedPitch = rawBeta - 90; // upright → 0°
+        setPitch(Math.max(-90, Math.min(90, normalizedPitch)));
+
+        // gamma: left-right tilt (-90 to 90) → roll
+        //   0° = no tilt, ±90° = tilted sideways
         setRoll(event.gamma || 0);
       }
     };
@@ -221,8 +232,8 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
           // Dead zone: ignore sub-threshold motion (noise)
           if (motion.magnitude >= DEAD_ZONE_PX) {
             // Update angle and pitch based on displacement
-            const angleDelta = motion.dx * 1.2; // Scale factor: px -> degrees
-            const pitchDelta = motion.dy * 1.2; 
+            const angleDelta = motion.dx * 3.5; // Scale factor: px → degrees (was 1.2 — too low for 160×120)
+            const pitchDelta = motion.dy * 2.5; // Vertical slightly less sensitive than horizontal
             
             setAngle(prev => (prev + angleDelta + 360) % 360);
             setPitch(prev => Math.max(-90, Math.min(90, prev + pitchDelta)));

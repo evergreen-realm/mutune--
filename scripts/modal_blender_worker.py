@@ -8,26 +8,26 @@ from pathlib import Path
 
 app = modal.App("mutune-blender-worker")
 
-# Define the image with blender installed. Mount the local script into the image.
+# Define the image with blender installed and the generator script baked in.
 image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("blender", "curl")
     .pip_install("boto3", "fastapi[standard]")
+    # Mount the blender generator script into the container (replaces deprecated modal.Mount)
+    .add_local_file(
+        local_path="scripts/blender_building_generator.py",
+        remote_path="/workspace/blender_building_generator.py",
+        copy=True
+    )
 )
 
 volume = modal.Volume.from_name("mutune-blender-vol", create_if_missing=True)
-
-# Mount the blender script into the container
-script_mount = modal.Mount.from_local_file(
-    local_path="scripts/blender_building_generator.py",
-    remote_path="/workspace/blender_building_generator.py"
-)
 
 @app.function(
     image=image,
     timeout=600,
     volumes={"/data": volume},
-    mounts=[script_mount]
+    secrets=[modal.Secret.from_name("mutune-r2-secrets")]
 )
 def generate_blender_model(property_id: str, property_code: str, floors: int, units: int, texture_url: str, callback_url: str, api_secret: str) -> dict:
     import boto3
@@ -132,7 +132,7 @@ def send_webhook(callback_url, api_secret, property_id, property_code, status, g
     except Exception as e:
         print(f"Callback failed: {e}")
 
-@app.function(image=image, secrets=[modal.Secret.from_name("mutune-r2-secrets", require_missing=True)])
+@app.function(image=image, secrets=[modal.Secret.from_name("mutune-r2-secrets")])
 @modal.fastapi_endpoint(method="POST")
 def webhook_trigger(req: dict):
     """Expects JSON: { property_id, property_code, floors, units, texture_url, callback_url, api_secret }"""

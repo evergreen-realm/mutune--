@@ -933,4 +933,45 @@ router.post('/:id/reject',
   }
 );
 
+// ─── POST /properties/blender-webhook ─────────────────────────────────────────
+// Callback endpoint for Modal Blender worker to report completion.
+// model3d.js sends a callback_url pointing here when triggering the worker.
+router.post('/blender-webhook', async (req, res) => {
+  try {
+    const { property_id, status, model_url, api_secret, error } = req.body;
+
+    // Verify webhook secret
+    const expectedSecret = process.env.WEBHOOK_SECRET_KEY;
+    if (!expectedSecret) {
+      logger.error('WEBHOOK_SECRET_KEY not configured — cannot verify blender webhook');
+      return res.status(500).json({ success: false, message: 'Webhook secret not configured' });
+    }
+    if (api_secret !== expectedSecret) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!property_id) {
+      return res.status(400).json({ success: false, message: 'Missing property_id' });
+    }
+
+    const property = await Property.findById(property_id);
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    if (status === 'success' && model_url) {
+      property.model3d = model_url;
+      await property.save();
+      logger.info('Blender webhook: model3d updated', { propertyId: property_id, model_url });
+    } else {
+      logger.error('Blender webhook: generation failed', { propertyId: property_id, error });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Blender webhook error:', err);
+    res.status(500).json({ success: false, message: 'Internal error' });
+  }
+});
+
 module.exports = router;
