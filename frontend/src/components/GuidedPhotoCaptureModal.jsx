@@ -103,6 +103,10 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     requestSensorPermission, resetDisplacement
   } = useCameraMotion(isOpen && inputMode === 'camera' && scanStarted, webcamRef);
 
+  const [virtualYaw, setVirtualYaw] = useState(0);
+  const [virtualPitch, setVirtualPitch] = useState(0);
+  const [dragStart, setDragStart] = useState(null);
+
   const currentYaw = isSensorAvailable ? angle : virtualYaw;
   const currentPitch = isSensorAvailable ? pitch : virtualPitch;
 
@@ -610,6 +614,24 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
               {/* ─── Reticle & Shutter (camera mode, scan started) ───────── */}
               {inputMode === 'camera' && !cameraError && scanStarted && (
                 <>
+                    {/* ─── 360° Room Sector Coverage Mask (NYC Pilot style) ─── */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+                      {targets.filter(t => t.ring === 'equator').map((t) => {
+                        const sectorAngle = 36; // 10 equator sectors
+                        const relativeYaw = ((t.yaw - currentYaw + 540) % 360) - 180;
+                        const startAngle = relativeYaw - sectorAngle / 2;
+
+                        return (
+                          <div key={`mask-${t.id}`}
+                            className={`absolute inset-0 transition-opacity duration-500 ${t.captured ? 'opacity-0' : 'opacity-80 bg-slate-950'}`}
+                            style={{
+                              clipPath: t.captured ? 'none' : `conic-gradient(from ${startAngle + 180}deg at 50% 50%, #020617 0deg ${sectorAngle}deg, transparent ${sectorAngle}deg 360deg)`
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+
                     {/* Viewfinder reticle (AR Tracker) */}
                     <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
                       {/* Bounding Box (NYC Pilot minimal thin white frame) */}
