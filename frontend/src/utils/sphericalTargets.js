@@ -1,7 +1,8 @@
 /**
  * Generates a spherical constellation of target capture points.
- * Targets are ordered sequentially: equator clockwise → upper ring → lower ring.
+ * Targets are ordered sequentially: equator clockwise → upper ring.
  * This ordering drives the guidance UI so users follow a predictable path.
+ * NYC Pilot uses 16 total targets — we match that count.
  * @param {string} density 'Fast' | 'Detailed'
  * @returns {Array} Array of target objects { id, yaw, pitch, ring, captured }
  */
@@ -23,14 +24,15 @@ export function generateSphericalTargets(density = 'Detailed') {
   };
 
   if (density === 'Fast') {
-    // Fast: 16 points — equator first (clockwise), then upper
-    addRing(0, 12, 'equator');  // IDs 0-11
-    addRing(45, 4, 'upper');    // IDs 12-15
+    // Fast: 10 points on the equator (every 36°)
+    addRing(0, 10, 'equator');
   } else {
-    // Detailed: 34 points — equator → upper → lower
-    addRing(0, 16, 'equator');  // IDs 0-15
-    addRing(35, 10, 'upper');   // IDs 16-25
-    addRing(-25, 8, 'lower');   // IDs 26-33
+    // Detailed: 16 points (10 equator @ 36° → 6 upper @ 60°)
+    // Matches NYC Pilot's 16-target count with added ceiling coverage.
+    // Lower ring removed: phone cameras capture floor in equator shots,
+    // and looking down is the most error-prone gesture.
+    addRing(0, 10, 'equator');
+    addRing(40, 6, 'upper');
   }
 
   return targets;
@@ -60,7 +62,7 @@ export function getNextSequentialTarget(targets) {
  * @param {number} thresholdDegrees 
  * @returns {Object|null} The matched target or null (only null when ALL targets captured)
  */
-export function getClosestUncapturedTarget(currentYaw, currentPitch, targets, thresholdDegrees = 10) {
+export function getClosestUncapturedTarget(currentYaw, currentPitch, targets, thresholdDegrees = 20) {
   let closestTarget = null;
   let minDistance = Infinity;
   let globalClosest = null;

@@ -1,141 +1,75 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-/**
- * Custom hook for device motion tracking with two backends:
- *   1. Mobile: DeviceOrientationEvent + DeviceMotionEvent (gyroscope + accelerometer)
- *   2. Desktop: Block-Matching SAD optical flow via HTML5 Canvas
- *
- * Returns cumulative displacement (for continuous spatial tracking of irregular rooms)
- * and instantaneous angle/pitch/roll for the HUD overlay.
- *
- * Key design decisions:
- *   - Block-matching uses 8×8 blocks with ±6px search range (SAD metric)
- *   - Dead zone: displacement < 2.5px per frame is treated as stationary (ignores sensor noise)
- *   - iOS 13+ permission must be requested from a user gesture — we expose requestSensorPermission
- *     as a callable that components invoke from onClick, NOT from useEffect
- */
+// ─── Complementary Filter Constants ──────────────────────────────────────────
+// α = 0.98: trust gyroscope 98% for smooth short-term tracking,
+// compass 2% for long-term drift correction.
+// At 60 Hz, this corrects ~1.2° of drift per second.
+const FILTER_ALPHA = 0.98;
 
-const BLOCK_SIZE = 8;
-const SEARCH_RANGE = 6;
-const CANVAS_W = 160;
-const CANVAS_H = 120;
-const DEAD_ZONE_PX = 1.5; // Lowered: 2.5px was too high for 160×120 canvas, ignored real webcam motion
-const BLOCKS_X = Math.floor(CANVAS_W / BLOCK_SIZE); // 20
-const BLOCKS_Y = Math.floor(CANVAS_H / BLOCK_SIZE); // 15
+// Dead-zone: raw rotationRate magnitude below this (deg/s) is treated as "Still".
+// Normal hand tremor is ~3-7 deg/s. This prevents phantom "Moving" readings.
+const MOTION_DEAD_ZONE = 3;
 
-/**
- * Compute Sum of Absolute Differences between two blocks.
- * @param {Uint8ClampedArray} cur - Current frame grayscale data (w * h)
- * @param {Uint8ClampedArray} prev - Previous frame grayscale data (w * h)
- * @param {number} bx - Block top-left x in current frame
- * @param {number} by - Block top-left y in current frame
- * @param {number} sx - Search offset x in previous frame
- * @param {number} sy - Search offset y in previous frame
- * @param {number} w - Frame width
- * @returns {number} SAD value
- */
-function computeSAD(cur, prev, bx, by, sx, sy, w) {
-  let sad = 0;
-  for (let dy = 0; dy < BLOCK_SIZE; dy++) {
-    for (let dx = 0; dx < BLOCK_SIZE; dx++) {
-      const cx = bx + dx;
-      const cy = by + dy;
-      const px = bx + dx + sx;
-      const py = by + dy + sy;
-      // Bounds check
-      if (px < 0 || px >= CANVAS_W || py < 0 || py >= CANVAS_H) {
-        sad += 128; // Penalty for out-of-bounds
-        continue;
-      }
-      sad += Math.abs(cur[cy * w + cx] - prev[py * w + px]);
-    }
-  }
-  return sad;
-}
+// Exponential moving average factors
+const VELOCITY_SMOOTH = 0.3;   // Gyro velocity EMA (0.3 = responsive, 0.7 = smooth)
+const SPEED_SMOOTH = 0.15;     // Motion speed EMA (0.15 = very smooth display)
+const PITCH_SMOOTH = 0.15;     // Pitch EMA (matches previous implementation)
 
-/**
- * Convert RGBA ImageData to grayscale Uint8ClampedArray (single channel).
- */
-function rgbaToGray(rgba) {
-  const len = rgba.length / 4;
-  const gray = new Uint8ClampedArray(len);
-  for (let i = 0; i < len; i++) {
-    const offset = i * 4;
-    // Perceptual luminance
-    gray[i] = Math.round(0.299 * rgba[offset] + 0.587 * rgba[offset + 1] + 0.114 * rgba[offset + 2]);
-  }
-  return gray;
-}
+// ─── Vector-based heading fusion ─────────────────────────────────────────────
+// Converts both angles to unit vectors, averages with weights, converts back.
+// This correctly handles the 0°/360° boundary (e.g., fusing 359° and 1° → 0°).
+function fuseHeading(prevFused, gyroRate, compassHeading, dt, currentSpeed = 0) {
+  // Step 1: Integrate gyroscope → predicted angle
+  const gyroAngle = (prevFused + gyroRate * dt + 360) % 360;
 
-/**
- * Run block matching across the frame grid, return average displacement vector.
- * @param {Uint8ClampedArray} curGray - Current frame grayscale
- * @param {Uint8ClampedArray} prevGray - Previous frame grayscale
- * @returns {{ dx: number, dy: number, magnitude: number }}
- */
-function blockMatchMotion(curGray, prevGray) {
-  let totalDx = 0;
-  let totalDy = 0;
-  let blockCount = 0;
-
-  for (let by = 0; by < BLOCKS_Y; by++) {
-    for (let bx = 0; bx < BLOCKS_X; bx++) {
-      const blockX = bx * BLOCK_SIZE;
-      const blockY = by * BLOCK_SIZE;
-
-      let bestSAD = Infinity;
-      let bestSx = 0;
-      let bestSy = 0;
-
-      // Search in ±SEARCH_RANGE around the block position
-      for (let sy = -SEARCH_RANGE; sy <= SEARCH_RANGE; sy++) {
-        for (let sx = -SEARCH_RANGE; sx <= SEARCH_RANGE; sx++) {
-          const sad = computeSAD(curGray, prevGray, blockX, blockY, sx, sy, CANVAS_W);
-          if (sad < bestSAD) {
-            bestSAD = sad;
-            bestSx = sx;
-            bestSy = sy;
-          }
-        }
-      }
-
-      totalDx += bestSx;
-      totalDy += bestSy;
-      blockCount++;
-    }
+  // Step 2: If no compass available, return gyro-only (graceful degradation)
+  if (compassHeading === null || compassHeading === undefined || isNaN(compassHeading)) {
+    return gyroAngle;
   }
 
-  const avgDx = totalDx / blockCount;
-  const avgDy = totalDy / blockCount;
-  const magnitude = Math.sqrt(avgDx * avgDx + avgDy * avgDy);
+  // Motion-gated adaptive alpha: 1.0 during active motion (zero noise injection), 0.998 when stationary
+  const alpha = currentSpeed >= 3 ? 1.0 : 0.998;
 
-  return { dx: avgDx, dy: avgDy, magnitude };
+  // Step 3: Convert both angles to unit vectors, weighted blend
+  const toRad = Math.PI / 180;
+  const x = alpha * Math.cos(gyroAngle * toRad) + (1 - alpha) * Math.cos(compassHeading * toRad);
+  const y = alpha * Math.sin(gyroAngle * toRad) + (1 - alpha) * Math.sin(compassHeading * toRad);
+
+  // Step 4: Convert back to degrees (0–360)
+  return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
 }
 
+// ─── Hook ────────────────────────────────────────────────────────────────────
 export function useCameraMotion(isActive = false, webcamRef = null) {
-  const [angle, setAngle] = useState(0);           // 0..360 degrees (Yaw)
+  const [angle, setAngle] = useState(0);           // 0..360 degrees (Fused Yaw)
   const [pitch, setPitch] = useState(0);            // -90..90 degrees
   const [roll, setRoll] = useState(0);              // -180..180 degrees
   const [isSensorAvailable, setIsSensorAvailable] = useState(false);
   const [motionSpeed, setMotionSpeed] = useState(0);
   const [permissionState, setPermissionState] = useState('prompt');
-  const [displacement, setDisplacement] = useState({ x: 0, y: 0, total: 0 });
 
-  const prevGrayRef = useRef(null);
-  const canvasRef = useRef(null);
-  const animFrameRef = useRef(null);
-  const cumulativeDisp = useRef({ x: 0, y: 0 });
+  // ─── Refs for raw sensor data (updated at sensor rate, no re-renders) ──────
+  const compassRef = useRef(null);              // Absolute heading from compass (0-360)
+  const gyroRef = useRef({ alpha: 0, beta: 0, gamma: 0 }); // Raw rotationRate (deg/s)
+  const pitchRef = useRef(0);                   // Raw beta from orientation
+  const rollRef = useRef(0);                    // Raw gamma from orientation
+  const prevPitchSmooth = useRef(null);         // Previous smoothed pitch
+  const prevGammaSmooth = useRef(null);         // Previous smoothed roll (gamma)
 
-  // Reset cumulative displacement (call when starting a new scan)
-  const resetDisplacement = useCallback(() => {
-    cumulativeDisp.current = { x: 0, y: 0 };
-    setDisplacement({ x: 0, y: 0, total: 0 });
-  }, []);
+  // ─── Internal fusion state (mutated in rAF, not React state) ───────────────
+  const fusedYawRef = useRef(0);                // Current fused heading
+  const smoothedVelocityRef = useRef(0);        // EMA-smoothed gyro velocity
+  const smoothedSpeedRef = useRef(0);           // EMA-smoothed motion speed
+  const lastFrameTimeRef = useRef(null);        // For dt calculation in rAF
+  const lastMotionTimeRef = useRef(null);       // For dt calculation in devicemotion
+  const rAFRef = useRef(null);                  // rAF handle for cleanup
+  const sensorDetectedRef = useRef(false);      // Has any sensor fired?
 
-  /**
-   * Request permission for iOS 13+ devices.
-   * MUST be called from a user gesture (onClick handler).
-   */
+  // ─── Compass fallback state ────────────────────────────────────────────────
+  const initialAlphaOffsetRef = useRef(null);   // For relative alpha fallback
+  const hasAbsoluteCompassRef = useRef(false);  // Did we get an absolute reading?
+
+  // ─── Permission request (iOS §17: must be from user gesture) ───────────────
   const requestSensorPermission = useCallback(async () => {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       try {
@@ -151,127 +85,211 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
         return false;
       }
     }
-    // Android / desktop — no permission needed, will detect via event
+    // Also request DeviceMotionEvent permission on iOS if available
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        await DeviceMotionEvent.requestPermission();
+      } catch (err) {
+        console.warn('DeviceMotion permission denied:', err);
+      }
+    }
     return true;
   }, []);
 
-  // Listen to mobile DeviceOrientationEvent
+  // ─── Unified sensor effect ─────────────────────────────────────────────────
   useEffect(() => {
     if (!isActive) return;
 
-    let orientationDetected = false;
+    // Reset internal state on activation
+    fusedYawRef.current = 0;
+    smoothedVelocityRef.current = 0;
+    smoothedSpeedRef.current = 0;
+    lastFrameTimeRef.current = null;
+    lastMotionTimeRef.current = null;
+    sensorDetectedRef.current = false;
+    compassRef.current = null;
+    initialAlphaOffsetRef.current = null;
+    hasAbsoluteCompassRef.current = false;
+    prevPitchSmooth.current = null;
+    prevGammaSmooth.current = null;
 
-    const handleOrientation = (event) => {
-      // Only count as sensor available if we get real data (not all nulls)
-      if (event.alpha !== null && event.alpha !== undefined) {
-        if (!orientationDetected) {
-          orientationDetected = true;
-          setIsSensorAvailable(true);
-        }
-        // alpha: compass heading (0-360) → yaw
-        setAngle(event.alpha || 0);
-
-        // beta: front-back tilt (-180 to 180)
-        //   0° = flat on table, 90° = upright, -90° = upside down
-        //   We normalize so upright (90°) = pitch 0° (level scanning position)
-        //   Tilting phone up from upright → positive pitch, down → negative
-        const rawBeta = event.beta || 0;
-        const normalizedPitch = rawBeta - 90; // upright → 0°
-        setPitch(Math.max(-90, Math.min(90, normalizedPitch)));
-
-        // gamma: left-right tilt (-90 to 90) → roll
-        //   0° = no tilt, ±90° = tilted sideways
-        setRoll(event.gamma || 0);
+    // ── Listener 1: Compass heading (absolute orientation) ─────────────────
+    // Priority cascade:
+    //   1. deviceorientationabsolute (Android Chrome 50+)
+    //   2. webkitCompassHeading (iOS Safari)
+    //   3. Relative alpha with initial offset (fallback)
+    const handleAbsoluteOrientation = (event) => {
+      // iOS: webkitCompassHeading is the most direct compass reading
+      if (event.webkitCompassHeading !== undefined && !isNaN(event.webkitCompassHeading)) {
+        compassRef.current = event.webkitCompassHeading;
+        hasAbsoluteCompassRef.current = true;
+        return;
+      }
+      // Android absolute: event.absolute === true and alpha is available
+      if (event.absolute === true && event.alpha !== null && !isNaN(event.alpha)) {
+        compassRef.current = (360 - event.alpha) % 360;
+        hasAbsoluteCompassRef.current = true;
+        return;
       }
     };
 
-    window.addEventListener('deviceorientation', handleOrientation, true);
+    // ── Listener 2: Orientation (pitch, roll, + compass fallback) ──────────
+    const handleOrientation = (event) => {
+      if (event.beta !== null && event.beta !== undefined) {
+        if (!sensorDetectedRef.current) {
+          sensorDetectedRef.current = true;
+          setIsSensorAvailable(true);
+        }
 
-    // Give the sensor 1.5 seconds to report — if nothing arrives, it's not available
+        pitchRef.current = event.beta || 0;
+        rollRef.current = event.gamma || 0;
+
+        // Compass fallback: if absolute event never fired, use relative alpha
+        if (!hasAbsoluteCompassRef.current && event.alpha !== null && !isNaN(event.alpha)) {
+          if (initialAlphaOffsetRef.current === null) {
+            initialAlphaOffsetRef.current = event.alpha;
+          }
+          compassRef.current = (360 - (event.alpha - initialAlphaOffsetRef.current) + 360) % 360;
+        }
+      }
+    };
+
+    // ── Listener 3: Gyroscope (rotationRate for yaw integration) ───────────
+    const handleMotion = (event) => {
+      const rate = event.rotationRate;
+      if (!rate || rate.alpha === null) return;
+
+      if (!sensorDetectedRef.current) {
+        sensorDetectedRef.current = true;
+        setIsSensorAvailable(true);
+      }
+
+      gyroRef.current = {
+        alpha: rate.alpha || 0,
+        beta: rate.beta || 0,
+        gamma: rate.gamma || 0
+      };
+
+      // Track timing for gyro dt (separate from rAF dt)
+      lastMotionTimeRef.current = performance.now();
+    };
+
+    // ── rAF Loop: reads all refs, applies filter, writes React state ───────
+    const updateLoop = (timestamp) => {
+      if (!lastFrameTimeRef.current) {
+        lastFrameTimeRef.current = timestamp;
+        rAFRef.current = requestAnimationFrame(updateLoop);
+        return;
+      }
+
+      const dt = (timestamp - lastFrameTimeRef.current) / 1000;
+      lastFrameTimeRef.current = timestamp;
+
+      // Guard against huge dt (e.g., tab was backgrounded)
+      if (dt > 0 && dt < 0.5) {
+        // ── 3D Vector Yaw Projection ───────────────────────────────────────
+        const screenOrientation = window.screen?.orientation?.angle || window.orientation || 0;
+        const pitchRad = (pitchRef.current - 90) * (Math.PI / 180);
+
+        let gyroY, gyroZ;
+        if (screenOrientation === 90 || screenOrientation === -90) {
+          gyroY = gyroRef.current.beta || 0;
+          gyroZ = gyroRef.current.alpha || 0;
+        } else {
+          gyroY = gyroRef.current.gamma || 0;
+          gyroZ = gyroRef.current.alpha || 0;
+        }
+
+        // Project 3D rotation rate vector onto world vertical axis
+        const rawYawVelocity = gyroY * Math.cos(pitchRad) + gyroZ * Math.sin(pitchRad);
+
+        // EMA smoothing on gyro velocity (removes single-frame spikes from tremor)
+        smoothedVelocityRef.current =
+          (1 - VELOCITY_SMOOTH) * smoothedVelocityRef.current +
+          VELOCITY_SMOOTH * rawYawVelocity;
+
+        // Apply adaptive speed-gated complementary filter
+        fusedYawRef.current = fuseHeading(
+          fusedYawRef.current,
+          smoothedVelocityRef.current,
+          compassRef.current,
+          dt,
+          smoothedSpeedRef.current
+        );
+
+        setAngle(fusedYawRef.current);
+
+        // ── Pitch: EMA smoothed, normalized (upright = 0°) ────────────────
+        const rawPitch = pitchRef.current;
+        if (prevPitchSmooth.current === null) {
+          prevPitchSmooth.current = rawPitch;
+        }
+        const smoothedPitch = prevPitchSmooth.current + PITCH_SMOOTH * (rawPitch - prevPitchSmooth.current);
+        prevPitchSmooth.current = smoothedPitch;
+        const normalizedPitch = smoothedPitch - 90; // beta=90 when upright (Rule §22)
+        setPitch(Math.max(-90, Math.min(90, normalizedPitch)));
+
+        // ── Roll: EMA smoothed ────────────────────────────────────────────
+        const rawGamma = rollRef.current;
+        if (prevGammaSmooth.current === null) {
+          prevGammaSmooth.current = rawGamma;
+        }
+        const smoothedGamma = prevGammaSmooth.current + PITCH_SMOOTH * (rawGamma - prevGammaSmooth.current);
+        prevGammaSmooth.current = smoothedGamma;
+        setRoll(smoothedGamma);
+
+        // ── Motion Speed: dead-zone + EMA ─────────────────────────────────
+        const rawSpeed = Math.sqrt(
+          gyroRef.current.alpha ** 2 +
+          gyroRef.current.beta ** 2 +
+          gyroRef.current.gamma ** 2
+        );
+        // Dead-zone: below threshold, treat as 0
+        const filteredSpeed = rawSpeed < MOTION_DEAD_ZONE ? 0 : rawSpeed;
+        smoothedSpeedRef.current =
+          (1 - SPEED_SMOOTH) * smoothedSpeedRef.current +
+          SPEED_SMOOTH * filteredSpeed;
+        setMotionSpeed(Math.min(100, Math.round(smoothedSpeedRef.current)));
+      }
+
+      rAFRef.current = requestAnimationFrame(updateLoop);
+    };
+
+    // ── Register all listeners ─────────────────────────────────────────────
+    // Try absolute orientation first (Android Chrome 50+)
+    window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
+    // Standard orientation for pitch/roll + compass fallback
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    // Gyroscope for rotationRate
+    window.addEventListener('devicemotion', handleMotion, true);
+    // Start rAF loop
+    rAFRef.current = requestAnimationFrame(updateLoop);
+
+    // Fallback: if no sensor fires within 1.5s, mark unavailable
     const fallbackTimer = setTimeout(() => {
-      if (!orientationDetected) {
+      if (!sensorDetectedRef.current) {
         setIsSensorAvailable(false);
       }
     }, 1500);
 
+    // ── Cleanup ────────────────────────────────────────────────────────────
     return () => {
+      window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation, true);
       window.removeEventListener('deviceorientation', handleOrientation, true);
+      window.removeEventListener('devicemotion', handleMotion, true);
+      if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
       clearTimeout(fallbackTimer);
     };
   }, [isActive]);
 
-  // Desktop fallback: Block-Matching SAD Optical Flow
-  useEffect(() => {
-    if (!isActive || isSensorAvailable) {
-      // Clean up if we switch away
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      prevGrayRef.current = null;
-      return;
-    }
-
-    // Lazy-create canvas
-    if (!canvasRef.current) {
-      canvasRef.current = document.createElement('canvas');
-      canvasRef.current.width = CANVAS_W;
-      canvasRef.current.height = CANVAS_H;
-    }
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    const processFrame = () => {
-      const video = webcamRef?.current?.video;
-      if (video && video.readyState === 4 && video.videoWidth > 0) {
-        ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
-        const imgData = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H);
-        const curGray = rgbaToGray(imgData.data);
-
-        if (prevGrayRef.current) {
-          const motion = blockMatchMotion(curGray, prevGrayRef.current);
-
-          // Dead zone: ignore sub-threshold motion (noise)
-          if (motion.magnitude >= DEAD_ZONE_PX) {
-            // Update angle and pitch based on displacement
-            const angleDelta = motion.dx * 3.5; // Scale factor: px → degrees (was 1.2 — too low for 160×120)
-            const pitchDelta = motion.dy * 2.5; // Vertical slightly less sensitive than horizontal
-            
-            setAngle(prev => (prev + angleDelta + 360) % 360);
-            setPitch(prev => Math.max(-90, Math.min(90, prev + pitchDelta)));
-
-            // Accumulate displacement for spatial tracking
-            cumulativeDisp.current.x += Math.abs(motion.dx);
-            cumulativeDisp.current.y += Math.abs(motion.dy);
-            const total = Math.sqrt(
-              cumulativeDisp.current.x ** 2 + cumulativeDisp.current.y ** 2
-            );
-            setDisplacement({
-              x: cumulativeDisp.current.x,
-              y: cumulativeDisp.current.y,
-              total
-            });
-
-            setMotionSpeed(Math.min(100, Math.round(motion.magnitude * 8)));
-          } else {
-            setMotionSpeed(0);
-          }
-        }
-
-        // Bug 6 fix: Clone the data so it can't be recycled by the canvas context
-        prevGrayRef.current = new Uint8ClampedArray(curGray);
-      }
-
-      animFrameRef.current = requestAnimationFrame(processFrame);
-    };
-
-    animFrameRef.current = requestAnimationFrame(processFrame);
-
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [isActive, isSensorAvailable, webcamRef]);
-
-  // Compute current sector (0-15) from angle for 16-sector compass
-  const currentSector = Math.round(((angle % 360 + 360) % 360) / 22.5) % 16;
+  // Backwards-compatible no-op
+  const resetDisplacement = useCallback(() => {
+    fusedYawRef.current = 0;
+    smoothedVelocityRef.current = 0;
+    compassRef.current = null;
+    initialAlphaOffsetRef.current = null;
+    hasAbsoluteCompassRef.current = false;
+  }, []);
 
   return {
     angle,
@@ -280,8 +298,7 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
     isSensorAvailable,
     motionSpeed,
     permissionState,
-    displacement,
-    currentSector,
+    currentSector: 0, // Backwards compatibility
     requestSensorPermission,
     resetDisplacement
   };

@@ -1,0 +1,115 @@
+﻿commit a37230af9eac944a33e9482422f84d547178708f
+Author: evergreen-realm <malukimeshack@zetech.ac.ke>
+Date:   Tue Aug 11 11:03:00 2026 +0300
+
+    fix: disable desktop 3D scan, normalize DeviceOrientation beta, fix Modal v1.3 workers, cleanup dead scripts
+    
+    - Disable live camera scanning on desktop (Rule 22): webcams can't rotate 360°
+    - Default to Video Upload tab on desktop with notice banner
+    - Fix DeviceOrientation beta normalization: beta=90° (upright) now maps to pitch=0° (level)
+      This was causing permanent 'Level the camera' blocking on mobile
+    - Fix Modal v1.3 API: replace modal.Mount with image.add_local_file
+    - Fix Modal secrets: remove invalid require_missing param, add R2 secrets to processing functions
+    - Delete dead one-time migration scripts (copy_cinematic_assets, copy_vortex_assets)
+    - Add __pycache__ to .gitignore
+    - Add Rule 22 to AGENTS.md
+
+diff --git a/frontend/src/hooks/useCameraMotion.js b/frontend/src/hooks/useCameraMotion.js
+index e352f41..c632701 100644
+--- a/frontend/src/hooks/useCameraMotion.js
++++ b/frontend/src/hooks/useCameraMotion.js
+@@ -19,7 +19,7 @@ const BLOCK_SIZE = 8;
+ const SEARCH_RANGE = 6;
+ const CANVAS_W = 160;
+ const CANVAS_H = 120;
+-const DEAD_ZONE_PX = 2.5; // Minimum displacement to count as real motion
++const DEAD_ZONE_PX = 1.5; // Lowered: 2.5px was too high for 160×120 canvas, ignored real webcam motion
+ const BLOCKS_X = Math.floor(CANVAS_W / BLOCK_SIZE); // 20
+ const BLOCKS_Y = Math.floor(CANVAS_H / BLOCK_SIZE); // 15
+ 
+@@ -168,8 +168,19 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
+           orientationDetected = true;
+           setIsSensorAvailable(true);
+         }
++        // alpha: compass heading (0-360) → yaw
+         setAngle(event.alpha || 0);
+-        setPitch(event.beta || 0);
++
++        // beta: front-back tilt (-180 to 180)
++        //   0° = flat on table, 90° = upright, -90° = upside down
++        //   We normalize so upright (90°) = pitch 0° (level scanning position)
++        //   Tilting phone up from upright → positive pitch, down → negative
++        const rawBeta = event.beta || 0;
++        const normalizedPitch = rawBeta - 90; // upright → 0°
++        setPitch(Math.max(-90, Math.min(90, normalizedPitch)));
++
++        // gamma: left-right tilt (-90 to 90) → roll
++        //   0° = no tilt, ±90° = tilted sideways
+         setRoll(event.gamma || 0);
+       }
+     };
+@@ -221,8 +232,8 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
+           // Dead zone: ignore sub-threshold motion (noise)
+           if (motion.magnitude >= DEAD_ZONE_PX) {
+             // Update angle and pitch based on displacement
+-            const angleDelta = motion.dx * 1.2; // Scale factor: px -> degrees
+-            const pitchDelta = motion.dy * 1.2; 
++            const angleDelta = motion.dx * 3.5; // Scale factor: px → degrees (was 1.2 — too low for 160×120)
++            const pitchDelta = motion.dy * 2.5; // Vertical slightly less sensitive than horizontal
+             
+             setAngle(prev => (prev + angleDelta + 360) % 360);
+             setPitch(prev => Math.max(-90, Math.min(90, prev + pitchDelta)));
+
+commit 8c6ba17554fa117eefa9898c9b5db5df65e8b132
+Author: evergreen-realm <malukimeshack@zetech.ac.ke>
+Date:   Sun Aug 9 19:05:51 2026 +0300
+
+    feat(ar): integrate 3D spherical targets in GuidedPhotoCaptureModal and fix model3d fallback
+
+diff --git a/frontend/src/hooks/useCameraMotion.js b/frontend/src/hooks/useCameraMotion.js
+index a553f9d..e352f41 100644
+--- a/frontend/src/hooks/useCameraMotion.js
++++ b/frontend/src/hooks/useCameraMotion.js
+@@ -220,9 +220,12 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
+ 
+           // Dead zone: ignore sub-threshold motion (noise)
+           if (motion.magnitude >= DEAD_ZONE_PX) {
+-            // Update angle based on horizontal displacement
++            // Update angle and pitch based on displacement
+             const angleDelta = motion.dx * 1.2; // Scale factor: px -> degrees
++            const pitchDelta = motion.dy * 1.2; 
++            
+             setAngle(prev => (prev + angleDelta + 360) % 360);
++            setPitch(prev => Math.max(-90, Math.min(90, prev + pitchDelta)));
+ 
+             // Accumulate displacement for spatial tracking
+             cumulativeDisp.current.x += Math.abs(motion.dx);
+
+commit 9466c980aeeb1228b89da2c2a414c13d51f2572c
+Author: evergreen-realm <malukimeshack@zetech.ac.ke>
+Date:   Sun Aug 9 11:00:05 2026 +0300
+
+    fix: restore admin auth, add Lenis smooth scroll to dashboard, rewrite guided capture with 16-sector compass radar
+
+diff --git a/frontend/src/hooks/useCameraMotion.js b/frontend/src/hooks/useCameraMotion.js
+index 496f90e..a553f9d 100644
+--- a/frontend/src/hooks/useCameraMotion.js
++++ b/frontend/src/hooks/useCameraMotion.js
+@@ -256,6 +256,9 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
+     };
+   }, [isActive, isSensorAvailable, webcamRef]);
+ 
++  // Compute current sector (0-15) from angle for 16-sector compass
++  const currentSector = Math.round(((angle % 360 + 360) % 360) / 22.5) % 16;
++
+   return {
+     angle,
+     pitch,
+@@ -264,6 +267,7 @@ export function useCameraMotion(isActive = false, webcamRef = null) {
+     motionSpeed,
+     permissionState,
+     displacement,
++    currentSector,
+     requestSensorPermission,
+     resetDisplacement
+   };
