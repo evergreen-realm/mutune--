@@ -54,50 +54,7 @@ const playChimeSound = () => {
   } catch (e) { /* Ignore audio context restrictions */ }
 };
 
-// ─── Heading-Up Rotating Compass Radar Component ─────────────────────────────
 
-function CompassRadar({ targets, angle, onTargetClick, size = 200 }) {
-  const center = size / 2;
-  const outerR = (size / 2) - 12;
-  const innerR = outerR - 22;
-
-  return (
-    <svg viewBox={`0 0 ${size} ${size}`} width="100%" height="100%" style={{ maxHeight: size }} className="drop-shadow-lg mx-auto select-none">
-      {/* Outer rings */}
-      <circle cx={center} cy={center} r={outerR} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth="1" />
-      <circle cx={center} cy={center} r={innerR} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth="1" strokeDasharray="4 4" />
-      <circle cx={center} cy={center} r={8} fill="rgba(59,130,246,0.3)" stroke="rgba(59,130,246,0.8)" strokeWidth="1" />
-
-      {/* Heading Cone (Points UP to indicate current camera facing direction) */}
-      <path d={`M ${center} ${center} L ${center - outerR * 0.35} ${center - outerR} A ${outerR} ${outerR} 0 0 1 ${center + outerR * 0.35} ${center - outerR} Z`}
-            fill="rgba(59,130,246,0.25)" stroke="rgba(59,130,246,0.6)" strokeWidth="1" />
-
-      {/* Dynamic Rotating Targets (Transformed relative to current angle) */}
-      {targets.map((target) => {
-        const relYaw = (target.yaw - angle + 360) % 360;
-        const rad = (relYaw - 90) * (Math.PI / 180);
-        const r = target.pitch > 10 ? innerR - 18 : target.pitch < -10 ? outerR : innerR;
-        const cx = center + r * Math.cos(rad);
-        const cy = center + r * Math.sin(rad);
-        return (
-          <circle
-            key={target.id}
-            cx={cx}
-            cy={cy}
-            r={target.captured ? 4 : 6}
-            fill={target.captured ? 'rgba(239,68,68,0.8)' : 'rgba(34,197,94,1)'}
-            stroke={target.captured ? 'none' : 'rgba(255,255,255,0.8)'}
-            strokeWidth="1.5"
-            onClick={() => onTargetClick && onTargetClick(target.id)}
-            className="cursor-pointer hover:scale-150 transition-transform"
-          >
-            <title>{`Target ${target.id} (${Math.round(target.yaw)}°, ${Math.round(target.pitch)}°)`}</title>
-          </circle>
-        );
-      })}
-    </svg>
-  );
-}
 
 // ─── Main Modal Component ───────────────────────────────────────────────────
 
@@ -119,12 +76,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
   const [reviewMode, setReviewMode] = useState(false);
   const [scanDensity, setScanDensity] = useState('Detailed'); // 'Fast' | 'Detailed'
   const [isGenerating, setIsGenerating] = useState(false);
-  const [compassCollapsed, setCompassCollapsed] = useState(false);
   const [roomIndex, setRoomIndex] = useState(1); // Multi-room: tracks which room the user is scanning
-
-  const [dragStart, setDragStart] = useState(null);
-  const [virtualYaw, setVirtualYaw] = useState(0);
-  const [virtualPitch, setVirtualPitch] = useState(0);
 
   // Spherical tracking state
   const [targets, setTargets] = useState(() => generateSphericalTargets('Detailed'));
@@ -151,8 +103,8 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     requestSensorPermission, resetDisplacement
   } = useCameraMotion(isOpen && inputMode === 'camera' && scanStarted, webcamRef);
 
-  const currentYaw = isSensorAvailable ? angle : virtualYaw;
-  const currentPitch = isSensorAvailable ? pitch : virtualPitch;
+  const currentYaw = angle;
+  const currentPitch = pitch;
 
   // Computed values
   const capturedCount = useMemo(() => targets.filter(t => t.captured).length, [targets]);
@@ -163,20 +115,22 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
   // Closest target within alignment range: drives auto-lock ("you're aimed at target #5")
   const alignedTarget = useMemo(() => {
-    return getClosestUncapturedTarget(currentYaw, currentPitch, targets, 15);
-  }, [currentYaw, currentPitch, targets]);
+    // Only allow snapping to targets in the active ring to prevent skipping ahead
+    const activeRingTargets = targets.filter(t => t.ring === (sequentialTarget?.ring || 'equator'));
+    return getClosestUncapturedTarget(currentYaw, currentPitch, activeRingTargets, 15);
+  }, [currentYaw, currentPitch, targets, sequentialTarget]);
 
   // The "current" target for UI display: show the sequential target for guidance,
   // but when aligned with ANY uncaptured target, prioritize that for auto-capture
   const currentTarget = alignedTarget || sequentialTarget;
 
   // Spatial alignment & level math
-  const levelDelta = Math.abs(currentPitch) + Math.abs(roll);
+  const levelDelta = Math.abs(currentPitch);
   const targetYawDelta = currentTarget ? (((currentTarget.yaw - currentYaw + 540) % 360) - 180) : 0;
   const targetPitchDelta = currentTarget ? (currentTarget.pitch - currentPitch) : 0;
 
   const isAligned = currentTarget && !currentTarget.captured &&
-    Math.abs(targetYawDelta) <= 8.5 && Math.abs(targetPitchDelta) <= 10 && levelDelta <= 15 && motionSpeed < 35;
+    Math.abs(targetYawDelta) <= 20 && Math.abs(targetPitchDelta) <= 20 && motionSpeed < 50;
 
   // Unified Guidance Priority Queue — NYC Pilot style
   const guidanceText = useMemo(() => {
@@ -185,7 +139,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     if (motionSpeed > 40) return '⚠️ Slow down — hold device steady';
     if (!frameQuality.isQualityOK) return `⚠️ ${frameQuality.message}`;
     if (allCaptured) return `✅ All ${capturedCount} photos captured! Tap Review to stitch.`;
-    if (levelDelta > 15) return '📐 Level the camera with the horizon';
+    if (levelDelta > 35) return '📐 Level the camera with the horizon';
     if (isAligned) return `🎯 Hold steady — capturing... (${capturedCount + 1}/${targets.length})`;
 
     // Ring-aware progress label
@@ -331,27 +285,42 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     }
   }, [capturedPhotos, roll, targets, currentYaw, currentPitch]);
 
+  const misalignedSinceRef = useRef(null);
+
   // ─── Auto-Snap Lock Timer with Gradual Decay ──────────────────────────────
-  // Instead of hard-resetting to 0 on brief misalignment (which punishes natural hand shake),
-  // decay gradually: lose 10% per tick when misaligned, gain 25% per tick when aligned.
+  // 3-Second Auto-Lock: increments ~3.34% per 100ms tick.
   useEffect(() => {
     if (!isOpen || inputMode !== 'camera' || !scanStarted || cameraError || isCapturing || reviewMode || allCaptured) {
       setAutoLockProgress(0);
+      misalignedSinceRef.current = null;
       return;
     }
 
     const timer = setInterval(() => {
       setAutoLockProgress(prev => {
         if (isAligned && frameQuality.isQualityOK && currentTarget && !currentTarget.captured) {
-          // Aligned: ramp up
+          // Aligned: reset misaligned timer, ramp up over 3 seconds
+          misalignedSinceRef.current = null;
           if (prev >= 100) {
             captureForTarget(currentTarget.id);
             return 0;
           }
-          return prev + 25;
+          return prev + 3.34;
         } else {
-          // Misaligned: gradual decay instead of hard reset
-          return Math.max(0, prev - 10);
+          // Misaligned: check jitter window
+          if (!misalignedSinceRef.current) {
+            misalignedSinceRef.current = Date.now();
+            return prev; // Pause progress
+          }
+          const misalignedDuration = Date.now() - misalignedSinceRef.current;
+          if (misalignedDuration < 500) {
+            return prev; // Still in jitter window, pause progress
+          } else if (misalignedDuration > 1000) {
+            return 0; // Continuous misalignment, reset to 0
+          } else {
+            // Between 0.5s and 1.0s, start decaying
+            return Math.max(0, prev - 20);
+          }
         }
       });
     }, 100);
@@ -370,20 +339,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     }
   }, [requestSensorPermission, isSensorAvailable, resetDisplacement, scanDensity]);
 
-  // ─── Desktop Mouse Drag Handlers ──────────────────────────────────────────
-  const handleMouseDown = (e) => {
-    if (isSensorAvailable || !scanStarted) return;
-    setDragStart({ x: e.clientX, y: e.clientY });
-  };
-  const handleMouseMove = (e) => {
-    if (!dragStart || isSensorAvailable || !scanStarted) return;
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
-    setVirtualYaw(prev => (prev - dx * 0.3 + 360) % 360);
-    setVirtualPitch(prev => Math.max(-90, Math.min(90, prev + dy * 0.3)));
-    setDragStart({ x: e.clientX, y: e.clientY });
-  };
-  const handleMouseUp = () => setDragStart(null);
+
 
   // ─── Manual shutter ───────────────────────────────────────────────────────
   const handleManualCapture = useCallback(() => {
@@ -499,17 +455,16 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
           <div className="flex flex-wrap items-center gap-1.5">
             {/* Mode Tabs */}
             <div className="bg-black/60 p-0.5 sm:p-1 rounded-full border border-white/10 flex items-center gap-0.5">
-              <button type="button"
-                onClick={() => isTouchDevice && setInputMode('camera')}
-                disabled={!isTouchDevice}
-                title={!isTouchDevice ? 'Live scanning requires a mobile phone with gyroscope' : 'Use your phone camera to scan 360°'}
-                className={`px-2 sm:px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition flex items-center gap-1 ${
-                  !isTouchDevice
-                    ? 'text-slate-600 cursor-not-allowed opacity-50'
-                    : inputMode === 'camera' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                }`}>
-                <Camera size={11} /> Live {!isTouchDevice && '📱'}
-              </button>
+              {isTouchDevice && (
+                <button type="button"
+                  onClick={() => setInputMode('camera')}
+                  title="Use your phone camera to scan 360°"
+                  className={`px-2 sm:px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition flex items-center gap-1 ${
+                    inputMode === 'camera' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}>
+                  <Camera size={11} /> Live 📱
+                </button>
+              )}
               <button type="button" onClick={() => setInputMode('video')}
                 className={`px-2 sm:px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition flex items-center gap-1 ${inputMode === 'video' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
                 <Film size={11} /> Video
@@ -587,15 +542,25 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                 className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full font-black uppercase tracking-wider text-xs shadow-lg hover:scale-105 transition flex items-center gap-2 disabled:opacity-50 disabled:scale-100">
                 {isProcessing ? <><RefreshCw size={16} className="animate-spin" /> Stitching Model...</> : 'Confirm & Stitch Model'}
               </button>
+
+              <button type="button" onClick={() => {
+                if (window.confirm('This will discard current live captures. Continue?')) {
+                   setReviewMode(false);
+                   setInputMode('video');
+                   setScanStarted(false);
+                   setCapturedPhotos([]);
+                }
+              }}
+                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-full font-black uppercase tracking-wider text-xs border border-amber-500/30 transition flex items-center gap-2">
+                <FileVideo size={14} /> Images look off? Re-record as video
+              </button>
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto custom-scrollbar min-h-0"
-               onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+          <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar min-h-0">
 
-            {/* Left: Camera Feed */}
-            <div className="flex-1 relative bg-black flex flex-col items-center justify-center min-h-[220px] sm:min-h-[300px] lg:min-h-[400px] border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden"
-                 onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} style={{ cursor: (!isSensorAvailable && scanStarted) ? 'grab' : 'default' }}>
+            {/* Camera Feed */}
+            <div className="flex-1 relative bg-black flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] overflow-hidden">
               {inputMode === 'camera' ? (
                 cameraError ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-950 text-center space-y-3 z-10">
@@ -682,6 +647,12 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                       {guidanceText}
                     </div>
                   </div>
+                  {/* Progress Badge */}
+                  <div className="absolute top-4 right-4 z-30 pointer-events-none">
+                    <div className="px-3 py-1.5 bg-black/60 backdrop-blur-md text-white font-black text-sm rounded-lg border border-white/20 shadow-lg">
+                      {capturedCount} / {targets.length}
+                    </div>
+                  </div>
                   {/* Viewfinder reticle (AR Tracker) */}
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
                     {/* Bounding Box */}
@@ -707,7 +678,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                     {/* Virtual AR Breadcrumb for Current Target */}
                     <div className="absolute inset-0 pointer-events-none">
                       {currentTarget && !currentTarget.captured && (() => {
-                        const proj = projectTargetToScreen(currentTarget.yaw, currentTarget.pitch, currentYaw, currentPitch);
+                        const proj = projectTargetToScreen(currentTarget.yaw, currentTarget.pitch, currentYaw, currentPitch, isTouchDevice ? 70 : 60, isTouchDevice ? 55 : 45);
                         const isTargetAligned = proj.distance <= 10;
 
                         if (proj.clamped) {
@@ -722,10 +693,17 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
 
                         // Render target dot
                         return (
-                          <div className={`absolute w-16 h-16 -mt-8 -ml-8 rounded-full flex flex-col items-center justify-center transition-all duration-100 z-20 ${
-                            isTargetAligned ? 'bg-emerald-500 shadow-[0_0_50px_rgba(16,185,129,1)] scale-125 animate-pulse' : 'bg-emerald-500/60 shadow-[0_0_25px_rgba(16,185,129,0.6)]'
-                          }`} style={{ left: `${proj.x}%`, top: `${proj.y}%` }}>
-                            <div className="w-5 h-5 bg-white rounded-full shadow-inner mb-0.5" />
+                          <div className={`absolute w-8 h-8 -mt-4 -ml-4 flex items-center justify-center transition-all duration-100 z-20`} style={{ left: `${proj.x}%`, top: `${proj.y}%` }}>
+                            {/* Radial Progress Ring */}
+                            {isTargetAligned && autoLockProgress > 0 && (
+                              <svg className="absolute inset-0 w-full h-full -rotate-90">
+                                <circle cx="16" cy="16" r="14" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
+                                <circle cx="16" cy="16" r="14" fill="none" stroke="#ffffff" strokeWidth="3"
+                                        strokeDasharray={`${(autoLockProgress / 100) * 88} 88`} strokeLinecap="round" />
+                              </svg>
+                            )}
+                            {/* Solid Green Dot */}
+                            <div className={`w-4 h-4 rounded-full bg-emerald-500 ${isTargetAligned ? 'shadow-[0_0_12px_rgba(16,185,129,1)]' : 'shadow-[0_0_4px_rgba(16,185,129,0.5)]'}`} />
                           </div>
                         );
                       })()}
@@ -738,27 +716,34 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                     </div>
                   </div>
 
-                  {/* Shutter button with Auto-Lock Progress Ring */}
-                  <div className="absolute bottom-3 left-0 right-0 z-30 flex items-center justify-center gap-3 pointer-events-auto">
-                    <button type="button" onClick={handleManualCapture}
-                      disabled={isCapturing || (currentTarget && currentTarget.captured) || capturedPhotos.length >= MAX_FRAMES}
-                      className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 backdrop-blur flex items-center justify-center transition-all duration-300 active:scale-95 ${
-                        isCapturing || isAligned
-                          ? 'bg-emerald-500/80 border-emerald-300 shadow-[0_0_30px_rgba(16,185,129,0.8)] scale-105'
-                          : (currentTarget && currentTarget.captured)
-                            ? 'bg-amber-500/30 border-amber-400/50 cursor-not-allowed'
-                            : 'bg-white/20 border-white/80 hover:bg-white/40'
-                      } disabled:opacity-50`}>
-                      {isCapturing ? (
-                        <RefreshCw className="animate-spin text-white" size={22} />
-                      ) : (
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white transition-all flex items-center justify-center">
-                          {autoLockProgress > 0 && (
-                            <span className="text-[9px] font-black text-slate-900">{autoLockProgress}%</span>
-                          )}
-                        </div>
-                      )}
-                    </button>
+                  {/* Capture controls & Review Button */}
+                  <div className="absolute bottom-6 left-0 right-0 z-30 flex items-center justify-center gap-4 pointer-events-auto">
+                    {allCaptured ? (
+                      <button onClick={() => setReviewMode(true)}
+                        className="px-8 py-3 rounded-full font-black text-xs uppercase tracking-widest transition shadow-[0_0_20px_rgba(79,70,229,0.4)] bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:scale-105 flex items-center justify-center gap-2">
+                        <CheckCircle2 size={16} /> Review & Stitch ({capturedCount})
+                      </button>
+                    ) : (
+                      <button type="button" onClick={handleManualCapture}
+                        disabled={isCapturing || (currentTarget && currentTarget.captured) || capturedPhotos.length >= MAX_FRAMES}
+                        className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 backdrop-blur flex items-center justify-center transition-all duration-300 active:scale-95 ${
+                          isCapturing || isAligned
+                            ? 'bg-emerald-500/80 border-emerald-300 shadow-[0_0_30px_rgba(16,185,129,0.8)] scale-105'
+                            : (currentTarget && currentTarget.captured)
+                              ? 'bg-amber-500/30 border-amber-400/50 cursor-not-allowed'
+                              : 'bg-white/20 border-white/80 hover:bg-white/40'
+                        } disabled:opacity-50`}>
+                        {isCapturing ? (
+                          <RefreshCw className="animate-spin text-white" size={22} />
+                        ) : (
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white transition-all flex items-center justify-center">
+                            {autoLockProgress > 0 && (
+                              <span className="text-[9px] font-black text-slate-900">{Math.round(autoLockProgress)}%</span>
+                            )}
+                          </div>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -787,98 +772,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
               )}
             </div>
 
-            {/* ─── Right Pane: Heading-Up Compass Radar + Progress ────── */}
-            <div className="w-full lg:w-96 bg-slate-900 p-3 sm:p-4 flex flex-col justify-between overflow-y-auto custom-scrollbar shrink-0">
-              <div>
-                <div className="text-center mb-3 sm:mb-4">
-                  <button type="button" onClick={() => setCompassCollapsed(prev => !prev)}
-                    className="w-full flex items-center justify-center gap-1.5 text-white font-black text-sm sm:text-base mb-0.5 hover:text-blue-300 transition">
-                    <Compass size={16} className="text-blue-400" /> Heading-Up Compass Radar
-                    <span className="text-[10px] text-slate-500 ml-1">{compassCollapsed ? '▸ Show' : '▾ Hide'}</span>
-                  </button>
-                  {!compassCollapsed && (
-                    <p className="text-slate-400 text-[10px] sm:text-xs leading-relaxed">
-                      {inputMode === 'camera'
-                        ? isSensorAvailable
-                          ? 'Rotate slowly. Top of radar is your view direction.'
-                          : 'Click target dots below or drag camera feed to steer.'
-                        : 'Upload 360° video to extract spatial frames.'}
-                    </p>
-                  )}
-                </div>
 
-                {/* Target Density Selector */}
-                {inputMode === 'camera' && !scanStarted && (
-                  <div className="mb-4">
-                    <label className="text-white text-xs font-bold mb-2 block">Scan Density</label>
-                    <div className="flex bg-slate-950 p-1 rounded-xl">
-                      <button type="button" onClick={() => setScanDensity('Fast')}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${scanDensity === 'Fast' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        Fast (16 Points)
-                      </button>
-                      <button type="button" onClick={() => setScanDensity('Detailed')}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${scanDensity === 'Detailed' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        Detailed (34 Points)
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Heading-Up Rotating Compass Radar View (collapsible) */}
-                {inputMode === 'camera' && scanStarted && !compassCollapsed && (
-                  <div className="mb-3 flex justify-center py-2 bg-slate-950/50 rounded-2xl border border-slate-800 transition-all duration-300">
-                    <div className="w-full max-w-[200px] aspect-square relative">
-                      <CompassRadar targets={targets} angle={currentYaw} onTargetClick={captureForTarget} size={200} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Motion indicator */}
-                {scanStarted && inputMode === 'camera' && (
-                  <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 sm:p-3 mb-3">
-                    <div className="flex justify-between items-center text-[10px] font-bold mb-1.5">
-                      <span className="text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                        <Zap size={10} className="text-blue-400" /> Motion Speed
-                      </span>
-                      <span className={`font-extrabold ${motionSpeed > 40 ? 'text-amber-400' : motionSpeed > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                        {motionSpeed > 40 ? 'Too Fast' : motionSpeed > 0 ? 'Moving' : 'Still'}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all duration-200 ${motionSpeed > 40 ? 'bg-amber-500' : 'bg-blue-500'}`}
-                        style={{ width: `${Math.min(100, motionSpeed)}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Bottom: Progress + Generate */}
-              <div className="space-y-2.5 sm:space-y-3">
-                <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 sm:p-3">
-                  <div className="flex justify-between items-center text-[10px] font-bold mb-1.5">
-                    <span className="text-slate-400 uppercase tracking-wider">Targets Captured</span>
-                    <span className={`font-extrabold ${allCaptured ? 'text-emerald-400' : 'text-blue-400'}`}>
-                      {capturedCount}/{targets.length}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                    <div className={`h-full transition-all duration-500 rounded-full ${
-                      allCaptured ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400'
-                    }`} style={{ width: `${Math.min(100, progressPercent)}%` }} />
-                  </div>
-                </div>
-
-                <button onClick={() => setReviewMode(true)}
-                  disabled={isProcessing || capturedCount < MIN_FRAMES}
-                  className={`w-full py-2.5 sm:py-3 rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition flex items-center justify-center gap-2 ${
-                    capturedCount >= MIN_FRAMES
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:scale-[1.02] shadow-[0_0_20px_rgba(79,70,229,0.4)]'
-                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  }`}>
-                  {isProcessing ? (<><RefreshCw size={14} className="animate-spin" /> Processing...</>) : (<><CheckCircle2 size={14} /> Review & Stitch ({capturedCount})</>)}
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
