@@ -92,6 +92,7 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
   const [videoExtractionProgress, setVideoExtractionProgress] = useState(0);
 
   const captureInFlightRef = useRef(false);
+  const misalignedSinceRef = useRef(null);
 
   // Camera Devices Hook
   const {
