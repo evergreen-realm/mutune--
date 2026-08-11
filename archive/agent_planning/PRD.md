@@ -140,7 +140,7 @@ See Section 7 for detailed security requirements. Summary targets:
 | API uptime | 99.9 % (Render health checks, auto-restart on crash) |
 | Frontend uptime | 99.9 % (Vercel edge network) |
 | Database uptime | 99.95 % (MongoDB Atlas replica set, 3-node cluster) |
-| Degraded mode | If Clerk is unavailable, API returns 401 with cached RBAC checks where safe |
+| Degraded mode ] If Clerk is unavailable, API returns 401 with cached RBAC checks where safe |
 | Health monitoring | `/api/v1/health` endpoint returns `ok` + timestamp; Sentry alerts on 5xx errors |
 
 ### 3.5 Maintainability
