@@ -142,5 +142,12 @@ export function projectTargetToScreen(targetYaw, targetPitch, camYaw, camPitch, 
 
   const distance = Math.sqrt(dYaw * dYaw + dPitch * dPitch);
 
-  return { x: xPercent, y: yPercent, visible, clamped, angleToTarget, distance };
+  return {
+    x: Number(xPercent.toFixed(2)),
+    y: Number(yPercent.toFixed(2)),
+    visible,
+    clamped,
+    angleToTarget,
+    distance
+  };
 }

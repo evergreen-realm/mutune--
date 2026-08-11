@@ -271,8 +271,8 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     }
   }, [capturedPhotos, roll, targets, currentYaw, currentPitch]);
 
-  // ─── Auto-Snap Lock Timer with Gradual Decay ──────────────────────────────
-  // 800ms Auto-Lock: increments 12.5% per 100ms tick.
+  // ─── Instant Auto-Snap Lock Timer (<300ms) ──────────────────────────────────
+  // 300ms Instant Auto-Lock: increments 33.4% per 100ms tick.
   useEffect(() => {
     if (!isOpen || inputMode !== 'camera' || !scanStarted || cameraError || isCapturing || reviewMode || allCaptured) {
       setAutoLockProgress(0);
@@ -283,16 +283,16 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
     const timer = setInterval(() => {
       setAutoLockProgress(prev => {
         if (isAligned && frameQuality.isQualityOK && currentTarget && !currentTarget.captured) {
-          // Aligned: reset misaligned timer, ramp up over 800ms
+          // Aligned: reset misaligned timer, ramp up over 300ms
           misalignedSinceRef.current = null;
           if (prev >= 100) {
             captureForTarget(currentTarget.id);
             return 0;
           }
-          return prev + 12.5;
+          return prev + 33.4;
         } else {
-          // Misaligned: quick decay
-          return Math.max(0, prev - 20);
+          // Misaligned: instant reset
+          return Math.max(0, prev - 33.4);
         }
       });
     }, 100);
@@ -610,89 +610,75 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
               {/* ─── Reticle & Shutter (camera mode, scan started) ───────── */}
               {inputMode === 'camera' && !cameraError && scanStarted && (
                 <>
-                  {/* ─── Directional Text Overlay (NYC Pilot style) ─────────── */}
-                  <div className="absolute top-4 left-0 right-0 z-30 flex justify-center pointer-events-none">
-                    <div className={`px-4 py-2 rounded-full text-sm font-bold backdrop-blur-md transition-all duration-300 ${isAligned ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 shadow-[0_0_20px_rgba(16,185,129,0.4)]'
-                        : motionSpeed > 40 ? 'bg-amber-500/30 text-amber-300 border border-amber-400/40'
-                          : 'bg-black/50 text-white border border-white/20'
-                      }`}>
-                      {guidanceText}
-                    </div>
-                  </div>
-                  {/* Viewfinder reticle (AR Tracker) */}
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
-                    {/* Bounding Box */}
-                    <div className={`relative w-[85%] max-w-xl aspect-[4/3] border-[3px] rounded-3xl transition-all duration-300 ${isAligned
-                        ? 'border-emerald-400 bg-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.6)] scale-[1.03]'
-                        : (currentTarget && currentTarget.captured)
-                          ? 'border-amber-400/50'
-                          : 'border-white/50'
-                      }`}>
-                      {/* Corner Accents */}
-                      <div className={`absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 rounded-tl-2xl ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
-                      <div className={`absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 rounded-tr-2xl ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
-                      <div className={`absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 rounded-bl-2xl ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
-                      <div className={`absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 rounded-br-2xl ${isAligned ? 'border-emerald-400' : 'border-blue-400'}`} />
+                    {/* Viewfinder reticle (AR Tracker) */}
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+                      {/* Bounding Box (NYC Pilot minimal thin white frame) */}
+                      <div className={`relative w-[85%] max-w-xl aspect-[4/3] border rounded-2xl transition-all duration-300 ${isAligned
+                          ? 'border-emerald-400 bg-emerald-500/10 shadow-[0_0_40px_rgba(16,185,129,0.5)] scale-[1.02]'
+                          : (currentTarget && currentTarget.captured)
+                            ? 'border-amber-400/40'
+                            : 'border-white/30'
+                        }`}>
+                        {/* Central Reticle */}
+                        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 border-2 rounded-full shadow-[0_0_12px_rgba(0,0,0,0.8)] transition-colors ${isAligned ? 'border-emerald-400 bg-emerald-400/40 scale-110' : 'border-white/80'
+                          }`} />
+                      </div>
 
-                      {/* Central Reticle */}
-                      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 border-[3px] rounded-full shadow-[0_0_15px_rgba(0,0,0,0.8)] transition-colors ${isAligned ? 'border-emerald-400 bg-emerald-400/50 scale-125' : 'border-white'
-                        }`} />
-                    </div>
+                      {/* Virtual AR Breadcrumb for Current Target */}
+                      <div className="absolute inset-0 pointer-events-none">
+                        {currentTarget && !currentTarget.captured && (() => {
+                          const proj = projectTargetToScreen(currentTarget.yaw, currentTarget.pitch, currentYaw, currentPitch, isTouchDevice ? 70 : 60, isTouchDevice ? 55 : 45);
+                          const isTargetAligned = proj.distance <= 15;
 
-                    {/* Virtual AR Breadcrumb for Current Target */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      {currentTarget && !currentTarget.captured && (() => {
-                        const proj = projectTargetToScreen(currentTarget.yaw, currentTarget.pitch, currentYaw, currentPitch, isTouchDevice ? 70 : 60, isTouchDevice ? 55 : 45);
-                        const isTargetAligned = proj.distance <= 10;
+                          if (proj.clamped) {
+                            // Render edge pointer arrow
+                            return (
+                              <div className="absolute w-10 h-10 -mt-5 -ml-5 flex items-center justify-center text-emerald-400 z-30 transition-transform duration-100 drop-shadow-[0_0_15px_rgba(16,185,129,0.8)]"
+                                style={{ left: `${proj.x}%`, top: `${proj.y}%`, transform: `rotate(${proj.angleToTarget}deg)` }}>
+                                <Navigation size={32} className="fill-emerald-500 stroke-emerald-200" />
+                              </div>
+                            );
+                          }
 
-                        if (proj.clamped) {
-                          // Render edge pointer arrow
+                          // Render NYC Pilot target dot with surrounding white radial SVG progress ring stroke
                           return (
-                            <div className="absolute w-10 h-10 -mt-5 -ml-5 flex items-center justify-center text-emerald-400 z-30 transition-transform duration-100 drop-shadow-[0_0_15px_rgba(16,185,129,0.8)]"
-                              style={{ left: `${proj.x}%`, top: `${proj.y}%`, transform: `rotate(${proj.angleToTarget}deg)` }}>
-                              <Navigation size={32} className="fill-emerald-500 stroke-emerald-200" />
+                            <div className="absolute w-10 h-10 -mt-5 -ml-5 flex items-center justify-center transition-all duration-100 z-20"
+                              style={{ left: `${proj.x}%`, top: `${proj.y}%` }}>
+                              {/* White Radial Progress Ring Stroke */}
+                              {isTargetAligned && autoLockProgress > 0 && (
+                                <svg className="absolute inset-0 w-full h-full -rotate-90">
+                                  <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
+                                  <circle cx="20" cy="20" r="16" fill="none" stroke="#ffffff" strokeWidth="3"
+                                    strokeDasharray={`${(autoLockProgress / 100) * 100.5} 100.5`} strokeLinecap="round" />
+                                </svg>
+                              )}
+                              {/* Solid Green Target Dot */}
+                              <div className={`w-5 h-5 rounded-full bg-emerald-500 transition-all duration-200 ${isTargetAligned ? 'shadow-[0_0_16px_rgba(16,185,129,1)] scale-110' : 'shadow-[0_0_6px_rgba(16,185,129,0.6)]'}`}>
+                                <div className="w-1.5 h-1.5 bg-white rounded-full mx-auto mt-1.75 shadow-inner" />
+                              </div>
                             </div>
                           );
-                        }
-
-                        // Render target dot
-                        return (
-                          <div className={`absolute w-6 h-6 -mt-3 -ml-3 rounded-full flex flex-col items-center justify-center transition-all duration-100 z-20 ${isTargetAligned ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]' : 'bg-emerald-500/60 shadow-[0_0_4px_rgba(16,185,129,0.6)]'
-                            }`} style={{ left: `${proj.x}%`, top: `${proj.y}%` }}>
-                            <div className="w-2 h-2 bg-white rounded-full shadow-inner" />
-                          </div>
-                        );
-                      })()}
+                        })()}
+                      </div>
                     </div>
 
-                    {/* Horizon Level Line */}
-                    <div className="absolute top-1/2 left-1/2 w-[85%] max-w-xl h-[1px] -translate-x-1/2 -translate-y-1/2 opacity-40">
-                      <div className={`w-full h-full ${levelDelta > 15 ? 'bg-amber-400' : 'bg-emerald-400'} shadow-[0_0_10px_rgba(16,185,129,1)]`}
-                        style={{ transform: `translateY(${Math.max(-80, Math.min(80, currentPitch * 3))}px) rotate(${-roll}deg)` }} />
-                    </div>
-                  </div>
-
-                  {/* Shutter button with Auto-Lock Progress Ring */}
-                  <div className="absolute bottom-3 left-0 right-0 z-30 flex items-center justify-center gap-3 pointer-events-auto">
-                    <button type="button" onClick={handleManualCapture}
-                      disabled={isCapturing || (currentTarget && currentTarget.captured) || capturedPhotos.length >= MAX_FRAMES}
-                      className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 backdrop-blur flex items-center justify-center transition-all duration-300 active:scale-95 ${isCapturing || isAligned
-                          ? 'bg-emerald-500/80 border-emerald-300 shadow-[0_0_30px_rgba(16,185,129,0.8)] scale-105'
-                          : (currentTarget && currentTarget.captured)
-                            ? 'bg-amber-500/30 border-amber-400/50 cursor-not-allowed'
-                            : 'bg-white/20 border-white/80 hover:bg-white/40'
-                        } disabled:opacity-50`}>
-                      {isCapturing ? (
-                        <RefreshCw className="animate-spin text-white" size={22} />
-                      ) : (
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white transition-all flex items-center justify-center">
-                          {autoLockProgress > 0 && (
-                            <span className="text-[9px] font-black text-slate-900">{Math.round(autoLockProgress)}%</span>
-                          )}
+                    {/* NYC Pilot Bottom Progress Bar Overlay */}
+                    <div className="absolute bottom-4 left-6 right-6 z-30 flex items-center justify-between pointer-events-auto bg-slate-950/70 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded-2xl">
+                      <div className="flex items-center gap-3 flex-1 max-w-md">
+                        <span className="text-white text-xs font-black tracking-wider uppercase whitespace-nowrap">{capturedCount} of {targets.length}</span>
+                        <div className="h-2 flex-1 bg-slate-800 rounded-full overflow-hidden border border-white/10">
+                          <div className={`h-full transition-all duration-300 rounded-full ${allCaptured ? 'bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-emerald-500'}`}
+                            style={{ width: `${Math.min(100, (capturedCount / targets.length) * 100)}%` }} />
                         </div>
+                      </div>
+
+                      {capturedCount >= MIN_FRAMES && (
+                        <button type="button" onClick={() => setReviewMode(true)}
+                          className="px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition flex items-center gap-1.5">
+                          <CheckCircle2 size={14} /> Review & Stitch ({capturedCount})
+                        </button>
                       )}
-                    </button>
-                  </div>
+                    </div>
                 </>
               )}
 
