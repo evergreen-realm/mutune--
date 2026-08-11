@@ -24,9 +24,17 @@ export class ErrorBoundary extends React.Component {
               <AlertTriangle className="w-8 h-8 text-red-500" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Something went wrong</h2>
-            <p className="text-slate-400 mb-8">
+            <p className="text-slate-400 mb-4">
               We encountered an unexpected error. Please try refreshing the page.
             </p>
+            {this.state.error && (
+              <div className="mb-6 p-3 bg-red-950/60 border border-red-500/30 rounded-xl text-left overflow-x-auto max-h-36 text-xs font-mono">
+                <p className="font-bold text-red-400 mb-1">{this.state.error.name || 'Error'}: {this.state.error.message}</p>
+                {this.state.error.stack && (
+                  <pre className="text-[10px] text-red-300/70 whitespace-pre-wrap">{this.state.error.stack}</pre>
+                )}
+              </div>
+            )}
             <button
               onClick={() => window.location.reload()}
               className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
