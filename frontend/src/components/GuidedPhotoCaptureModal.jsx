@@ -632,8 +632,8 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                       })}
                     </div>
 
-                    {/* Viewfinder reticle (AR Tracker) */}
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+                    {/* Viewfinder reticle (NYC Pilot Minimalist AR Tracker) */}
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-20">
                       {/* Bounding Box (NYC Pilot minimal thin white frame) */}
                       <div className={`relative w-[85%] max-w-xl aspect-[4/3] border rounded-2xl transition-all duration-300 ${isAligned
                           ? 'border-emerald-400 bg-emerald-500/10 shadow-[0_0_40px_rgba(16,185,129,0.5)] scale-[1.02]'
@@ -641,46 +641,37 @@ export default function GuidedPhotoCaptureModal({ isOpen, onClose, onComplete })
                             ? 'border-amber-400/40'
                             : 'border-white/30'
                         }`}>
-                        {/* Central Reticle */}
-                        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 border-2 rounded-full shadow-[0_0_12px_rgba(0,0,0,0.8)] transition-colors ${isAligned ? 'border-emerald-400 bg-emerald-400/40 scale-110' : 'border-white/80'
-                          }`} />
-                      </div>
 
-                      {/* Virtual AR Breadcrumb for Current Target */}
-                      <div className="absolute inset-0 pointer-events-none">
-                        {currentTarget && !currentTarget.captured && (() => {
-                          const proj = projectTargetToScreen(currentTarget.yaw, currentTarget.pitch, currentYaw, currentPitch, isTouchDevice ? 70 : 60, isTouchDevice ? 55 : 45);
-                          const isTargetAligned = proj.distance <= 15;
+                        {/* Static Perimeter Target Dots (Top, Right, Bottom, Left anchors - NYC Pilot style) */}
+                        <div className={`absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] border-2 border-white transition-transform ${isAligned && targetPitchDelta > 5 ? 'scale-125 bg-emerald-400' : 'scale-100'}`} />
+                        <div className={`absolute top-1/2 -right-3 -translate-y-1/2 w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] border-2 border-white transition-transform ${isAligned && targetYawDelta > 5 ? 'scale-125 bg-emerald-400' : 'scale-100'}`} />
+                        <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] border-2 border-white transition-transform ${isAligned && targetPitchDelta < -5 ? 'scale-125 bg-emerald-400' : 'scale-100'}`} />
+                        <div className={`absolute top-1/2 -left-3 -translate-y-1/2 w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)] border-2 border-white transition-transform ${isAligned && targetYawDelta < -5 ? 'scale-125 bg-emerald-400' : 'scale-100'}`} />
 
-                          if (proj.clamped) {
-                            // Render edge pointer arrow
-                            return (
-                              <div className="absolute w-10 h-10 -mt-5 -ml-5 flex items-center justify-center text-emerald-400 z-30 transition-transform duration-100 drop-shadow-[0_0_15px_rgba(16,185,129,0.8)]"
-                                style={{ left: `${proj.x}%`, top: `${proj.y}%`, transform: `rotate(${proj.angleToTarget}deg)` }}>
-                                <Navigation size={32} className="fill-emerald-500 stroke-emerald-200" />
-                              </div>
-                            );
-                          }
+                        {/* Central Reticle with NYC White Radial Progress Stroke & Green Inner Center */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 flex items-center justify-center pointer-events-none">
+                          {/* Outer White Radial Progress Ring SVG */}
+                          <svg className="absolute inset-0 w-full h-full -rotate-90">
+                            <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="3" />
+                            {autoLockProgress > 0 && (
+                              <circle cx="28" cy="28" r="24" fill="none" stroke="#ffffff" strokeWidth="3.5"
+                                strokeDasharray={`${(autoLockProgress / 100) * 150.8} 150.8`} strokeLinecap="round" />
+                            )}
+                          </svg>
 
-                          // Render NYC Pilot target dot with surrounding white radial SVG progress ring stroke
-                          return (
-                            <div className="absolute w-10 h-10 -mt-5 -ml-5 flex items-center justify-center transition-all duration-100 z-20"
-                              style={{ left: `${proj.x}%`, top: `${proj.y}%` }}>
-                              {/* White Radial Progress Ring Stroke */}
-                              {isTargetAligned && autoLockProgress > 0 && (
-                                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                                  <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
-                                  <circle cx="20" cy="20" r="16" fill="none" stroke="#ffffff" strokeWidth="3"
-                                    strokeDasharray={`${(autoLockProgress / 100) * 100.5} 100.5`} strokeLinecap="round" />
-                                </svg>
-                              )}
-                              {/* Solid Green Target Dot */}
-                              <div className={`w-5 h-5 rounded-full bg-emerald-500 transition-all duration-200 ${isTargetAligned ? 'shadow-[0_0_16px_rgba(16,185,129,1)] scale-110' : 'shadow-[0_0_6px_rgba(16,185,129,0.6)]'}`}>
-                                <div className="w-1.5 h-1.5 bg-white rounded-full mx-auto mt-1.75 shadow-inner" />
-                              </div>
-                            </div>
-                          );
-                        })()}
+                          {/* Solid Green Center Target Dot */}
+                          <div className={`w-7 h-7 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center transition-all duration-200 ${isAligned ? 'shadow-[0_0_20px_rgba(16,185,129,1)] scale-110' : 'shadow-[0_0_8px_rgba(16,185,129,0.6)]'}`}>
+                            <div className="w-2 h-2 bg-white rounded-full shadow-inner" />
+                          </div>
+                        </div>
+
+                        {/* Directional Edge Navigation Pointer (if target is outside central reticle) */}
+                        {!isAligned && currentTarget && !currentTarget.captured && (
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 transition-transform duration-100 pointer-events-none"
+                            style={{ transform: `translate(-50%, -50%) rotate(${Math.atan2(targetPitchDelta, targetYawDelta) * (180 / Math.PI)}deg) translateX(55px)` }}>
+                            <Navigation size={22} className="fill-emerald-400 stroke-emerald-100 drop-shadow-[0_0_10px_rgba(16,185,129,0.9)]" />
+                          </div>
+                        )}
                       </div>
                     </div>
 
