@@ -221,7 +221,8 @@ export default function LandlordAddPropertyPage() {
       toast.success(res.message || 'Property submitted for approval!');
       navigate('/properties');
     } catch (err) {
-      toast.error(err?.error?.message || 'Submission failed. Please try again.');
+      const msg = err?.error?.message || err?.message || err?.response?.data?.message || (typeof err?.error === 'string' ? err.error : (typeof err === 'string' ? err : 'Submission failed. Please try again.'));
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

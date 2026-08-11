@@ -631,7 +631,7 @@ export default function AddPropertyPage() {
       toast.success(`✅ Property "${form.name}" registered — awaiting admin approval`);
       navigate('/properties');
     } catch (err) {
-      const msg = err?.error?.message || err?.message || 'Failed to create property';
+      const msg = err?.error?.message || err?.message || err?.response?.data?.message || (typeof err?.error === 'string' ? err.error : (typeof err === 'string' ? err : 'Failed to create property'));
       toast.error(msg);
     } finally {
       setSubmitting(false);
