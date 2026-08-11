@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useQueryClient } from '@tanstack/react-query';
-import { createProperty, addUnit, geocodeAddress, initiateSplatScan } from '../lib/api';
+import { createProperty, addUnit, geocodeAddress } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
-import GuidedPhotoCaptureModal from '../components/GuidedPhotoCaptureModal';
 import {
   Building2, Home, ChevronRight, ChevronLeft, Check,
   Trash2, Plus, MapPin, Layers, Camera, Sparkles
@@ -331,7 +330,7 @@ function StepUnits({ form, addUnitFn, removeUnitFn, updateUnitFn }) {
 }
 
 // ── Step 2: Photos & Floor Plan ────────────────────────────────────────────────────────────
-function StepPhotos({ form, setField, onLaunchCapture }) {
+function StepPhotos({ form, setField }) {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-slate-500 dark:text-slate-400 text-xs">
@@ -358,35 +357,7 @@ function StepPhotos({ form, setField, onLaunchCapture }) {
         />
       </div>
 
-      {/* 360° 3D Gaussian Scan Card */}
-      <div className="p-5 rounded-2xl border border-blue-500/30 bg-blue-950/20 backdrop-blur">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="text-blue-400" size={18} />
-            <h3 className="text-slate-900 dark:text-white font-bold text-sm">360° 3D Gaussian Scan (Splat)</h3>
-          </div>
-          {(form.splat_model_url || (form.splatImageUrls && form.splatImageUrls.length > 0)) && (
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              ✓ Scan Attached
-            </span>
-          )}
-        </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed mb-4">
-          Capture 16 overlapping photos to generate an interactive 3D Gaussian Splat model for potential tenants to tour on the map.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            type="button"
-            onClick={onLaunchCapture}
-            className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white transition shadow-lg shadow-blue-600/20"
-          >
-            <Camera size={15} />
-            Launch 360° Room Capture HUD
-          </button>
-        </div>
 
-      </div>
       {/* Exterior 3D Building Generation Card */}
       <div className="p-5 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 backdrop-blur mt-4">
         <div className="flex items-center justify-between mb-3">
@@ -495,16 +466,7 @@ export default function AddPropertyPage() {
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
-
-  const handleCaptureComplete = (capturedPhotos) => {
-    setForm(prev => ({
-      ...prev,
-      splatImageUrls: capturedPhotos
-    }));
-    toast.success('✨ 360° Scan photos captured! Processing will begin on submission.');
-  };
 
   const setField = (path, value) => {
     setForm(prev => {
@@ -613,19 +575,7 @@ export default function AddPropertyPage() {
         });
       }
 
-      // 3. Trigger 3D Splat Processing if needed
-      if (form.splatImageUrls && form.splatImageUrls.length > 0) {
-        try {
-          await initiateSplatScan({
-            propertyId: propertyId,
-            roomName: 'Main Room',
-            imageUrls: form.splatImageUrls
-          });
-          toast.success('3D Scan processing initiated!');
-        } catch (scanErr) {
-          toast.error('Property created, but failed to initiate 3D scan processing.');
-        }
-      }
+
 
       queryClient.invalidateQueries({ queryKey: ['properties'] });
       toast.success(`✅ Property "${form.name}" registered — awaiting admin approval`);
@@ -640,11 +590,7 @@ export default function AddPropertyPage() {
 
   return (
     <div className="relative text-slate-900 dark:text-slate-100">
-      <GuidedPhotoCaptureModal
-        isOpen={isCaptureOpen}
-        onClose={() => setIsCaptureOpen(false)}
-        onComplete={handleCaptureComplete}
-      />
+
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-[10%] -right-[5%] w-[500px] h-[500px] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[40px]" />
       </div>
@@ -674,7 +620,7 @@ export default function AddPropertyPage() {
 
           {step === 0 && <StepDetails form={form} setField={setField} />}
           {step === 1 && <StepUnits form={form} addUnitFn={addUnitFn} removeUnitFn={removeUnitFn} updateUnitFn={updateUnitFn} />}
-          {step === 2 && <StepPhotos form={form} setField={setField} onLaunchCapture={() => setIsCaptureOpen(true)} />}
+          {step === 2 && <StepPhotos form={form} setField={setField} />}
           {step === 3 && <StepReview form={form} />}
         </div>
 

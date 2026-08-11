@@ -2,9 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { submitLandlordProperty, geocodeAddress, initiateSplatScan } from '../lib/api';
+import { submitLandlordProperty, geocodeAddress } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
-import GuidedPhotoCaptureModal from '../components/GuidedPhotoCaptureModal';
 import { Building2, Home, ChevronRight, ChevronLeft, Check, Trash2, Plus, Camera, Box, Sparkles } from 'lucide-react';
 
 const STEPS = ['Property Details', 'Units', 'Photos', 'Contract & Sign'];
@@ -37,7 +36,7 @@ export default function LandlordAddPropertyPage() {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSigned, setHasSigned] = useState(false);
-  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+
 
   const [form, setForm] = useState({
     name: '', type: 'apartment', description: '', num_floors: 1, year_built: '',
@@ -204,19 +203,7 @@ export default function LandlordAddPropertyPage() {
       };
       const res = await submitLandlordProperty(payload);
       
-      // If we captured photos for a splat, initiate the scan
-      if (form.splatImageUrls && form.splatImageUrls.length > 0 && res.data && res.data._id) {
-        try {
-          await initiateSplatScan({
-            propertyId: res.data._id,
-            roomName: 'Main Room',
-            imageUrls: form.splatImageUrls
-          });
-          toast.success('3D Scan processing initiated!');
-        } catch (scanErr) {
-          toast.error('Property submitted, but failed to initiate 3D scan processing.');
-        }
-      }
+
 
       toast.success(res.message || 'Property submitted for approval!');
       navigate('/properties');
@@ -231,21 +218,11 @@ export default function LandlordAddPropertyPage() {
   const next = () => { if (validateStep()) setStep(s => Math.min(s + 1, STEPS.length - 1)); };
   const back = () => setStep(s => Math.max(s - 1, 0));
 
-  const handleCaptureComplete = (capturedPhotos) => {
-    setForm(prev => ({
-      ...prev,
-      splatImageUrls: capturedPhotos
-    }));
-    toast.success('✨ 360° Scan photos captured! Processing will begin on submission.');
-  };
+
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--page-bg-gradient)', padding: '24px', position: 'relative' }}>
-      <GuidedPhotoCaptureModal
-        isOpen={isCaptureOpen}
-        onClose={() => setIsCaptureOpen(false)}
-        onComplete={handleCaptureComplete}
-      />
+
       <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
         <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)', filter: 'blur(40px)' }} />
       </div>
@@ -498,35 +475,7 @@ export default function LandlordAddPropertyPage() {
                 />
               </div>
 
-              {/* 360° 3D Gaussian Scan Card */}
-              <div className="mt-4 p-5 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 backdrop-blur">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="text-indigo-400" size={18} />
-                    <h3 className="text-white font-bold text-sm">360° 3D Gaussian Scan (Splat)</h3>
-                  </div>
-                  {(form.splat_model_url || (form.splatImageUrls && form.splatImageUrls.length > 0)) && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      ✓ Scan Attached
-                    </span>
-                  )}
-                </div>
-                <p className="text-slate-400 text-xs leading-relaxed mb-4">
-                  Capture 16 overlapping photos to generate an interactive 3D Gaussian Splat model for potential tenants to tour on the interactive map.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsCaptureOpen(true)}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg shadow-indigo-600/20"
-                  >
-                    <Camera size={15} />
-                    Launch 360° Room Capture HUD
-                  </button>
-                </div>
 
-              </div>
 
               {/* Exterior 3D Building Generation Card */}
               <div className="mt-4 p-5 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 backdrop-blur">
