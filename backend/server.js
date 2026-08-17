@@ -1,7 +1,9 @@
 require("./instrument.js");
 require('dotenv').config();
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+if (process.env.NODE_ENV !== 'production') {
+  const dns = require('dns');
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+}
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -177,9 +179,11 @@ const accrueRent = require('./cron/accrueRent');
 
 const startServer = async () => {
   await connectDB();
-  const ensureIndexes = require('./config/indexes');
-  await ensureIndexes();
-  app.listen(PORT, () => logger.info('Server started', { port: PORT, env: process.env.NODE_ENV || 'development' }));
+  app.listen(PORT, () => {
+    logger.info('Server started', { port: PORT, env: process.env.NODE_ENV || 'development' });
+    const ensureIndexes = require('./config/indexes');
+    ensureIndexes().catch(err => logger.error('Index sync error', { error: err.message }));
+  });
   tenantLeaseCleanup.start();
   logger.info('Cron scheduled: tenant lease cleanup (daily 00:05 EAT)');
   lateFeeApplicator.start();

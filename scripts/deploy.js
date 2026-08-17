@@ -43,7 +43,7 @@ function checkEnv() {
 function deployBackend() {
   console.log('\n🚀 Deploying backend to Render...');
   try {
-    const serviceId = process.env.RENDER_SERVICE_ID || 'srv-crhfl428ii6s7386dvt0';
+    const serviceId = process.env.RENDER_SERVICE_ID || 'srv-d8klpsjbc2fs73cnmrr0';
     const apiKey = process.env.RENDER_API_KEY || 'rnd_zEeYAd8T7eO95Azr49l1Z3GrJN3F';
     
     // Use proper string interpolation for Windows compatibility and add Bearer token
