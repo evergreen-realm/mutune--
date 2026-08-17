@@ -12,8 +12,56 @@ const Tenant = require('../models/Tenant');
 const { transition } = require('../utils/stateMachine');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
+const AuditLog = require('../models/AuditLog');
+const { postJournalEntry } = require('../services/financials');
 const logger = require('../utils/logger');
 
+/**
+ * @openapi
+ * /payments/initiate-stk:
+ *   post:
+ *     summary: Initiate M-Pesa STK Push
+ *     description: Triggers an M-Pesa STK Push prompt to tenant's mobile phone for rent, deposit, or utility payment.
+ *     tags:
+ *       - Payments
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tenant_id
+ *               - unit_id
+ *               - amount
+ *             properties:
+ *               tenant_id:
+ *                 type: string
+ *               unit_id:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *                 example: 35000
+ *               payment_type:
+ *                 type: string
+ *                 enum: [rent, deposit, penalty, water, electricity, service_charge]
+ *                 default: rent
+ *     responses:
+ *       200:
+ *         description: STK push initiated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 checkoutRequestId:
+ *                   type: string
+ */
 router.post('/initiate-stk',
   requireAuth,
   requirePermission('pay:rent'),
@@ -38,7 +86,7 @@ router.post('/initiate-stk',
       const stk = await mpesaService.initiateSTKPush({
         phone: tenant.phone,
         amount,
-        accountReference: `${property.property_code}-${unit_id}`,
+        accountReference: `TNT-${tenant._id.toString().slice(-6).toUpperCase()}-${property.property_code}`,
         transactionDesc: `${payment_type} for ${property.name}`
       });
       const payment = await Payment.create({
@@ -489,5 +537,224 @@ router.post('/:id/void', requireAuth, requireRole(['admin', 'super_admin']), asy
     res.json({ success: true, message: 'Payment voided successfully', data: payment });
   } catch (error) { next(error); }
 });
+
+// ─── GET /api/v1/payments/unmatched — List unmatched payment queue ───────────
+router.get('/unmatched', requireAuth, requireRole(['admin', 'super_admin', 'agent']), async (req, res, next) => {
+  try {
+    const unmatched = await Payment.find({
+      $or: [
+        { status: 'pending' },
+        { status: 'discrepancy' },
+        { tenant_id: { $exists: false } },
+        { tenant_id: null }
+      ]
+    })
+      .sort({ created_at: -1 })
+      .lean();
+
+    res.json({ success: true, data: unmatched, count: unmatched.length });
+  } catch (error) { next(error); }
+});
+
+// ─── POST /api/v1/payments/unmatched/:id/assign — Manually assign unmatched payment ─
+router.post('/unmatched/:id/assign',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent']),
+  [
+    body('tenant_id').isMongoId().withMessage('Valid tenant_id is required')
+  ],
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { tenant_id } = req.body;
+
+      const payment = await Payment.findById(id);
+      if (!payment) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Payment not found' } });
+      }
+
+      const tenant = await Tenant.findById(tenant_id);
+      if (!tenant) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Tenant not found' } });
+      }
+
+      payment.tenant_id = tenant._id;
+      payment.property_id = tenant.current_property_id;
+      payment.unit_id = tenant.current_unit_id;
+      payment.status = 'completed';
+      payment.discrepancy_flag = false;
+      payment.notes = `${payment.notes || ''}\n[RECONCILED] Manually assigned to ${tenant.full_name} (${tenant.tenant_code}) by ${req.user.email}`.trim();
+      await payment.save();
+
+      // Deduct tenant arrears
+      tenant.arrears_kes = Math.max(0, (tenant.arrears_kes || 0) - payment.amount_kes);
+      await tenant.save();
+
+      logger.info('Unmatched payment manually assigned', { paymentId: id, tenantId: tenant._id, by: req.user._id });
+      res.json({ success: true, message: 'Payment successfully matched to tenant', data: payment });
+    } catch (error) { next(error); }
+  }
+);
+
+// ─── POST /api/v1/payments/mpesa/query-status — Query M-Pesa Transaction Status ─
+router.post('/mpesa/query-status',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    body('transaction_id').notEmpty().withMessage('Transaction ID is required')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+      }
+
+      const { transaction_id } = req.body;
+      const statusRes = await mpesaService.queryTransactionStatus(transaction_id);
+
+      await AuditLog.create({
+        action: 'MPESA_TRANSACTION_STATUS_QUERY',
+        resource: `Payment:${transaction_id}`,
+        user_id: req.user._id,
+        details: { transaction_id, response: statusRes }
+      });
+
+      res.json({ success: true, data: statusRes });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── POST /api/v1/payments/mpesa/reverse — Initiate M-Pesa Transaction Reversal ─
+router.post('/mpesa/reverse',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  [
+    body('transaction_id').notEmpty().withMessage('Transaction ID is required'),
+    body('amount').isNumeric().withMessage('Reversal amount required'),
+    body('reason').optional().isString()
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+      }
+
+      const { transaction_id, amount, reason = 'Disputed rent reversal' } = req.body;
+      const payment = await Payment.findOne({
+        $or: [
+          { transaction_id },
+          { mpesa_receipt: transaction_id }
+        ]
+      });
+
+      const reversalRes = await mpesaService.reverseTransaction({
+        transactionId: payment?.mpesa_receipt || transaction_id,
+        amount,
+        reason
+      });
+
+      if (payment) {
+        payment.status = 'reversed';
+        payment.workflow_state = 'MANUAL_REVIEW';
+        payment.notes = `${payment.notes || ''}\n[REVERSED] Reversed by ${req.user.email} on ${new Date().toISOString()}: ${reason}`.trim();
+        await payment.save();
+
+        // Post Reversing Double-Entry Journal Entry
+        try {
+          await postJournalEntry({
+            reference_type: 'manual_adjustment',
+            reference_id: payment._id,
+            property_id: payment.property_id,
+            line_items: [
+              { account_code: '1100', debit_kes: Number(amount), credit_kes: 0, description: `Rent Receivable Restored (Reversal: ${transaction_id})` },
+              { account_code: '1010', debit_kes: 0, credit_kes: Number(amount), description: `M-Pesa Operating Account (Reversed: ${transaction_id})` }
+            ],
+            posted_by_user_id: req.user._id,
+            notes: `M-Pesa Transaction Reversal: ${reason}`
+          });
+        } catch (glErr) {
+          logger.error('Failed to post GL reversal entry', { error: glErr.message });
+        }
+      }
+
+      await AuditLog.create({
+        action: 'MPESA_TRANSACTION_REVERSED',
+        resource: `Payment:${transaction_id}`,
+        user_id: req.user._id,
+        details: { transaction_id, amount, reason, response: reversalRes }
+      });
+
+      logger.info('M-Pesa reversal requested', { transaction_id, amount, by: req.user._id });
+      res.json({ success: true, message: 'Reversal request submitted to Safaricom', data: reversalRes });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /api/v1/payments/mpesa/balance — Query M-Pesa Organization Working Float ──
+router.get('/mpesa/balance',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  async (req, res, next) => {
+    try {
+      const balance = await mpesaService.queryAccountBalance();
+      res.json({ success: true, data: balance });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── POST /api/v1/payments/mpesa/register-urls — Register C2B URLs with Safaricom ─
+/**
+ * @openapi
+ * /payments/mpesa/register-urls:
+ *   post:
+ *     summary: Register M-Pesa C2B confirmation and validation URLs with Safaricom
+ *     description: Registers C2B Callback URLs with Safaricom Daraja gateway for automated payment notifications.
+ *     tags:
+ *       - Payments
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: C2B URLs registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ */
+router.post('/mpesa/register-urls',
+  requireAuth,
+  requireRole(['admin', 'super_admin']),
+  async (req, res, next) => {
+    try {
+      const result = await mpesaService.registerC2BUrls();
+      res.json({ success: true, message: 'C2B URLs registered with Safaricom', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Callback listeners for M-Pesa Async Endpoints
+router.post('/status/result', (req, res) => { logger.info('Status Result Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/status/timeout', (req, res) => { logger.warn('Status Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/reversal/result', (req, res) => { logger.info('Reversal Result Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/reversal/timeout', (req, res) => { logger.warn('Reversal Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/balance/result', (req, res) => { logger.info('Balance Result Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/balance/timeout', (req, res) => { logger.warn('Balance Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
 
 module.exports = router;

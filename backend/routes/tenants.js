@@ -18,7 +18,33 @@ const validate = (req, res) => {
   return true;
 };
 
-// ─── GET /tenants ─────────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /tenants:
+ *   get:
+ *     summary: Retrieve tenants list with role-scoping and pagination
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Paginated list of tenants
+ */
 router.get('/', requireAuth, requirePermission('view:assigned'), async (req, res, next) => {
   try {
     const { page = 1, limit = 20, property_id, status, search } = req.query;
@@ -77,7 +103,24 @@ router.get('/', requireAuth, requirePermission('view:assigned'), async (req, res
   }
 });
 
-// ─── GET /tenants/:id ────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /tenants/{id}:
+ *   get:
+ *     summary: Get detailed profile of a tenant
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Full tenant profile data
+ */
 router.get('/:id',
   requireAuth,
   requirePermission('view:assigned'),
@@ -122,7 +165,24 @@ router.get('/:id',
   }
 );
 
-// ─── POST /tenants ────────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /tenants:
+ *   post:
+ *     summary: Onboard a new tenant and assign unit
+ *     tags: [Tenants]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Tenant'
+ *     responses:
+ *       201:
+ *         description: Tenant onboarded successfully
+ */
 router.post('/',
   requireAuth,
   requireRole(['admin', 'super_admin', 'agent']),

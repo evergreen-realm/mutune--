@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -49,7 +49,6 @@ export const addUnit               = (propertyId, data)  => api.post(`/propertie
 export const updateUnit            = (propertyId, unitId, data) => api.patch(`/properties/${propertyId}/units/${unitId}`, data);
 export const fetchVacantUnits      = ()                  => api.get('/properties/units/vacant');
 export const initiateSplatScan     = (data)              => api.post('/scans/initiate', data);
-export const getScanStatus         = (propertyId)        => api.get(`/scans/property/${propertyId}`);
 export const getPropertyScans      = (propertyId)        => api.get(`/scans/property/${propertyId}`);
 export const deleteScan            = (propertyId, scanId)=> api.delete(`/scans/property/${propertyId}/${scanId}`);
 export const getShareLink          = (propertyId, scanId)=> api.get(`/scans/share/${propertyId}/${scanId}`);
@@ -77,8 +76,14 @@ export const fetchMyProfile  = () => api.get('/tenants/my/profile');
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 export const initiatePayment = (data)         => api.post('/payments/initiate-stk', data);
+export const initiateSTKPush = (data)         => api.post('/payments/initiate-stk', data);
 export const fetchPayments   = (params = {})  => api.get('/payments', { params });
 export const overridePayment = (id, data)     => api.post(`/payments/${id}/override`, data);
+export const initiateBankPayment = (data)     => api.post('/bank-payments/checkout', data);
+export const getBankPaymentStatus = (txnId)   => api.get(`/bank-payments/status/${txnId}`);
+export const queryMpesaTransactionStatus = (data) => api.post('/payments/mpesa/query-status', data);
+export const reverseMpesaTransaction = (data) => api.post('/payments/mpesa/reverse', data);
+export const fetchMpesaWorkingBalance = ()    => api.get('/payments/mpesa/balance');
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const fetchMe    = ()          => api.get('/users/me');
@@ -121,7 +126,7 @@ export const downloadKRAReport = async (month) => {
   } catch (err) {
     console.warn('Failed to resolve Clerk token for KRA report download:', err.message);
   }
-  const base   = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
+  const base   = API_BASE;
   const url    = `${base}/reports/kra?month=${month}`;
 
   const response = await fetch(url, {
@@ -164,7 +169,6 @@ export const updateUserProfilePicture = (profile_picture) => api.put('/users/me/
 // ── Units Lock & Geo-checkin (Phase 4) ────────────────────────────────────────
 export const deletePropertyUnit    = (id, unitId) => api.delete(`/properties/${id}/units/${unitId}`);
 export const lockPropertyUnit      = (id, unitId, action) => api.post(`/properties/${id}/units/${unitId}/lock`, { action });
-export const checkInAgent          = agentCheckIn;
 
 // ── Admin User Management (Phase 4) ──────────────────────────────────────────
 export const disableUser  = (id)       => api.patch(`/users/${id}/disable`);
@@ -195,7 +199,7 @@ export const downloadAuctionReport = async () => {
     const clerk = window.Clerk;
     if (clerk?.session) token = await clerk.session.getToken();
   } catch (_) { /* no session */ }
-  const base = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
+  const base = API_BASE;
   const response = await fetch(`${base}/inventory/auction-report`, {
     headers: { Authorization: token ? `Bearer ${token}` : '' }
   });
@@ -260,11 +264,77 @@ export const submitAgentReview        = (id, proposed_tier_id) => api.patch(`/pr
 export const autoInitiatePayment      = ()                => api.post('/payments/auto-initiate');
 export const voidPayment              = (id, reason)      => api.post(`/payments/${id}/void`, { reason });
 
+// ── Financial Settings & GL Endpoints ─────────────────────────────────────────
+export const fetchFinancialSettings   = ()                => api.get('/settings/financial');
+export const updateFinancialSettings  = (data)            => api.put('/settings/financial', data);
+export const fetchTrialBalance        = ()                => api.get('/settings/trial-balance');
+
+// ── Agent Salary & Commission Payroll Endpoints ────────────────────────────────
+export const fetchAgentPayrollList    = (month)           => api.get('/commission/agents', { params: { month } });
+export const fetchAgentSalary         = (agentId, month)  => api.get(`/commission/salary/${agentId}`, { params: { month } });
+export const processAgentPayroll      = (data)            => api.post('/commission/payroll/process', data);
+
+// ── Bulk Disbursement & Auto-Reconciliation Endpoints (Phase 3) ───────────────
+export const fetchDisbursementPriority= ()                => api.get('/disbursement/priority');
+export const updateDisbursementPriority= (priority)       => api.put('/disbursement/priority', { disbursement_priority: priority });
+export const executeBulkDisbursement  = ()                => api.post('/disbursement/execute');
+export const fetchUnmatchedPayments   = ()                => api.get('/payments/unmatched');
+export const assignUnmatchedPayment   = (id, tenant_id)   => api.post(`/payments/unmatched/${id}/assign`, { tenant_id });
+
+// ── Multi-Role Paperwork & PDF Engine (Phase 4) ───────────────────────────────
+export const generateLegalPDF         = (doc_type, payload) => api.post('/paperwork/generate-pdf', { doc_type, payload }, { responseType: 'blob' });
+export const downloadLegalPDF         = (docType, params) => api.get(`/paperwork/download/${docType}`, { params, responseType: 'blob' });
+export const requestLeaseSigningOTP   = (tenant_id)       => api.post('/paperwork/sign/request-otp', { tenant_id });
+export const verifyAndSignLease       = (data)            => api.post('/paperwork/sign/verify-and-sign', data);
+export const fetchLeaseSignatureStatus= (tenantId)        => api.get(`/paperwork/sign/status/${tenantId}`);
+
+// ── KRA eTIMS Tax Compliance Engine (Phase 5) ─────────────────────────────────
+export const fetchETIMSSummary        = (month)           => api.get('/tax/etims/summary', { params: { month } });
+export const downloadETIMSCSV         = (month)           => api.get('/tax/etims/export-csv', { params: { month }, responseType: 'blob' });
+export const downloadITMRI01CSV       = (month)           => api.get('/tax/etims/mri-return', { params: { month }, responseType: 'blob' });
+
+// ── Tenant Vacation & Move-Out Damage Survey Engine (Phase 6) ──────────────────
+export const fileVacationNotice       = (data)            => api.post('/vacation/notice', data);
+export const createMoveOutInspection  = (data)            => api.post('/vacation/inspection', data);
+export const processDepositRefund     = (id)              => api.post(`/vacation/inspection/${id}/refund`);
+
+// ── Multi-Currency Forex & Audit Trail (Phase 7) ───────────────────────────────
+export const fetchCBKExchangeRate    = ()                => api.get('/exchange/cbk-rate');
+export const fetchAuditLogs           = ()                => api.get('/audit/logs');
+
+// ── Utility Metering, Token Vending & Water Management (Phase 6) ─────────────
+export const fetchUtilityProviders    = ()                => api.get('/utilities/providers');
+export const registerUtilityMeter     = (data)            => api.post('/utilities/meters', data);
+export const logUtilityReading        = (data)            => api.post('/utilities/readings', data);
+export const recordMeterReading       = (data)            => api.post('/utilities/readings', data);
+export const fetchCombinedInvoice     = (tenantId)        => api.get(`/utilities/invoice/${tenantId}`);
+export const purchasePrepaidToken     = (data)            => api.post('/utilities/prepaid/purchase-token', data);
+export const queryPostpaidBill        = (accountNumber, provider) => api.get(`/utilities/postpaid/bill/${accountNumber}`, { params: { provider } });
+export const payPostpaidBill          = (data)            => api.post('/utilities/postpaid/pay', data);
+export const validateWaterAccount     = (data)            => api.post('/utilities/water/validate', data);
+export const queryWaterBill           = (accountNumber, provider_id) => api.get(`/utilities/water/bill/${accountNumber}`, { params: { provider_id } });
+export const payWaterBill             = (data)            => api.post('/utilities/water/pay', data);
+export const fetchWaterAnalytics      = (propertyId, months = 6) => api.get(`/utilities/water/analytics/${propertyId}`, { params: { months } });
+export const bulkImportReadings       = (readings)        => api.post('/utilities/readings/bulk', { readings });
+export const calculateMewascoWaterBill= (data)            => api.post('/utilities/water/calculate-bill', data);
+export const fetchMewascoTariffs      = ()                => api.get('/settings/mewasco-tariffs');
+export const updateMewascoTariffs     = (tariffs)         => api.put('/settings/mewasco-tariffs', { tariffs });
+export const fetchTenantHealthScore   = (tenantId)        => api.get(`/scoring/tenant/${tenantId}`);
+export const registerVendor           = (data)            => api.post('/vendors', data);
+export const dispatchWorkOrder        = (data)            => api.post('/vendors/dispatch', data);
+export const approveVendorInvoice     = (data)            => api.post('/vendors/approve-invoice', data);
+
+// ── Public Property Listings & Inquiries Engine (Phase 5) ─────────────────────
+export const fetchPublicListings      = (params)          => api.get('/listings', { params });
+export const submitPropertyInquiry    = (propertyId, data)=> api.post(`/listings/${propertyId}/inquire`, data);
+export const updateUnitListingStatus  = (propertyId, unitId, status) => api.put(`/listings/${propertyId}/units/${unitId}/status`, { listing_status: status });
+export const fetchAgentInquiries      = ()                => api.get('/listings/inquiries/manage');
+
 export const geocodeAddress = async (street, area, city = 'Mombasa') => {
   const token = import.meta.env.VITE_MAPBOX_TOKEN;
   if (!token) {
-    console.error('geocodeAddress: VITE_MAPBOX_TOKEN is not set. Add it to your .env file.');
-    return { lng: 39.6682, lat: -4.0435 }; // Mombasa default
+    console.warn('geocodeAddress: VITE_MAPBOX_TOKEN is not configured. Falling back to default region coordinates.');
+    return { lng: 39.6682, lat: -4.0435, isFallback: true };
   }
   const query = `${street ? street + ', ' : ''}${area}, ${city}, Kenya`;
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&limit=1`;
@@ -273,12 +343,12 @@ export const geocodeAddress = async (street, area, city = 'Mombasa') => {
     const data = await res.json();
     if (data.features && data.features.length > 0) {
       const [lng, lat] = data.features[0].center;
-      return { lng, lat };
+      return { lng, lat, isFallback: false };
     }
   } catch (err) {
-    console.error('Geocoding failed:', err);
+    console.error('Geocoding request failed:', err);
   }
-  return { lng: 39.6682, lat: -4.0435 };
+  return { lng: 39.6682, lat: -4.0435, isFallback: true };
 };
 
 export default api;

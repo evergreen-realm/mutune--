@@ -10,6 +10,7 @@ const unitSchema = new mongoose.Schema({
   size_sqm: Number,
   rent_kes: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ['vacant', 'occupied', 'maintenance', 'notice_issued'], default: 'vacant' },
+  listing_status: { type: String, enum: ['listed', 'unlisted', 'reserved'], default: 'unlisted', index: true },
   current_tenant_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' },
   lock_status: { type: String, enum: ['unlocked', 'pending_viewing', 'viewed_unlocked', 'payment_confirmed', 'locked'], default: 'unlocked' },
   unit_geolocation: {
@@ -50,10 +51,22 @@ const scanSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 });
 
+const inquirySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  phone: { type: String, required: true },
+  email: String,
+  message: String,
+  unit_id: { type: mongoose.Schema.Types.ObjectId },
+  unit_number: String,
+  status: { type: String, enum: ['new', 'contacted', 'scheduled', 'converted', 'closed'], default: 'new' },
+  created_at: { type: Date, default: Date.now }
+}, { _id: true });
+
 const propertySchema = new mongoose.Schema({
   property_code: { type: String, unique: true, required: true },
   name: { type: String, required: true },
   type: { type: String, enum: ['apartment', 'single_family', 'commercial', 'mixed_use', 'bedsitter', 'studio', 'house', 'single'], required: true },
+  property_type: { type: String, enum: ['residential', 'commercial', 'mixed'], default: 'residential', index: true },
   address: {
     street: String,
     area: String,
@@ -74,6 +87,7 @@ const propertySchema = new mongoose.Schema({
   agent_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   inventory: [inventoryItemSchema],
   amenities: [String],
+  inquiries: [inquirySchema],
   status: { type: String, enum: ['pending_admin_approval', 'active', 'inactive'], default: 'active' },
   contract_pdf_url: String,
   tier_id: { type: mongoose.Schema.Types.ObjectId, ref: 'PropertyTier' },
@@ -107,6 +121,13 @@ propertySchema.index({ created_at: -1 });
 propertySchema.index({ updated_at: -1 });
 
 propertySchema.pre('validate', function(next) {
+  if (this.type === 'commercial') {
+    this.property_type = 'commercial';
+  } else if (this.type === 'mixed_use') {
+    this.property_type = 'mixed';
+  } else if (!this.property_type) {
+    this.property_type = 'residential';
+  }
   if (this.location && (!this.location.coordinates || this.location.coordinates.length === 0)) {
     this.location = undefined;
   }

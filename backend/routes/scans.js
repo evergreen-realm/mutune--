@@ -3,24 +3,64 @@ const router = express.Router();
 const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
 const Property = require('../models/Property');
+const logger = require('../utils/logger');
 
-// POST /api/v1/scans/initiate - Initiates a 3D scan for a property room
-router.post('/initiate', requireAuth, async (req, res) => {
+/**
+ * @openapi
+ * /scans/initiate:
+ *   post:
+ *     summary: Initiate a 3D spatial room capture scan
+ *     tags: [Scans]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - propertyId
+ *               - imageUrls
+ *               - roomName
+ *             properties:
+ *               propertyId:
+ *                 type: string
+ *               imageUrls:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               roomName:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Scan initiated and queued for processing
+ */
+router.post('/initiate', requireAuth, async (req, res, next) => {
   try {
     const { propertyId, imageUrls, roomName } = req.body;
 
     if (!propertyId || !imageUrls || imageUrls.length === 0 || !roomName) {
-      return res.status(400).json({ success: false, message: 'Property ID, image URLs, and room name are required.' });
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Property ID, image URLs, and room name are required.' }
+      });
     }
 
     const property = await Property.findById(propertyId);
     if (!property) {
-      return res.status(404).json({ success: false, message: 'Property not found.' });
+      return res.status(404).json({
+        success: false,
+        error: { code: 'PROPERTY_NOT_FOUND', message: 'Property not found.' }
+      });
     }
 
     const webhookUrl = process.env.MODAL_3D_SPLAT_WEBHOOK_URL;
     if (!webhookUrl) {
-      return res.status(500).json({ success: false, message: '3D scan webhook URL not configured.' });
+      return res.status(500).json({
+        success: false,
+        error: { code: 'CONFIG_ERROR', message: '3D scan webhook URL not configured.' }
+      });
     }
 
     // Add scan to array
@@ -52,36 +92,70 @@ router.post('/initiate', requireAuth, async (req, res) => {
       images: imageUrls,
       callback_url: callbackUrl,
       api_secret: process.env.MODAL_WEBHOOK_SECRET
-    }).catch(err => console.error('Error invoking Modal webhook:', err.message));
+    }).catch(err => logger.error('Error invoking Modal webhook', { error: err.message }));
 
     res.json({ success: true, message: '3D scan initiated successfully', scan: newScan });
   } catch (error) {
-    console.error('Error initiating scan:', error);
-    res.status(500).json({ success: false, message: 'Server error initiating scan.' });
+    next(error);
   }
 });
 
-// POST /api/v1/scans/callback - Webhook for Modal to report completion
-router.post('/callback', async (req, res) => {
+/**
+ * @openapi
+ * /scans/callback:
+ *   post:
+ *     summary: Webhook receiver for Modal 3D splat reconstruction completion
+ *     tags: [Scans]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - property_id
+ *               - status
+ *             properties:
+ *               property_id:
+ *                 type: string
+ *               scan_id:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [success, failed]
+ *               splat_url:
+ *                 type: string
+ *               api_secret:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Scan completion logged
+ */
+router.post('/callback', async (req, res, next) => {
   try {
     const { property_id, scan_id, status, splat_url, api_secret, error } = req.body;
 
     if (!process.env.MODAL_WEBHOOK_SECRET || api_secret !== process.env.MODAL_WEBHOOK_SECRET) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Unauthorized webhook request' }
+      });
     }
 
     const property = await Property.findById(property_id);
     if (!property) {
-      return res.status(404).json({ success: false, message: 'Property not found.' });
+      return res.status(404).json({
+        success: false,
+        error: { code: 'PROPERTY_NOT_FOUND', message: 'Property not found.' }
+      });
     }
 
     // Find the specific scan
     let targetScan = null;
     if (scan_id) {
-        targetScan = property.scans.id(scan_id);
+      targetScan = property.scans.id(scan_id);
     } else if (property.scans.length > 0) {
-        // Fallback for old requests without scan_id
-        targetScan = property.scans[property.scans.length - 1];
+      targetScan = property.scans[property.scans.length - 1];
     }
 
     if (status === 'success' && splat_url) {
@@ -89,29 +163,45 @@ router.post('/callback', async (req, res) => {
         targetScan.splat_status = 'completed';
         targetScan.splat_model_url = splat_url;
       }
-      // Update legacy fields
       property.splat_status = 'completed';
       property.splat_model_url = splat_url;
     } else {
       if (targetScan) targetScan.splat_status = 'failed';
       property.splat_status = 'failed';
-      console.error(`Splat generation failed for property ${property_id}:`, error);
+      logger.error('Splat generation failed for property', { property_id, error });
     }
 
     await property.save();
     res.json({ success: true });
   } catch (err) {
-    console.error('Webhook processing error:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    next(err);
   }
 });
 
-// GET /api/v1/scans/property/:propertyId - Get all scans for a property
-router.get('/property/:propertyId', async (req, res) => {
+/**
+ * @openapi
+ * /scans/property/{propertyId}:
+ *   get:
+ *     summary: Get all 3D scans and models for a property
+ *     tags: [Scans]
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of property 3D scans
+ */
+router.get('/property/:propertyId', async (req, res, next) => {
   try {
-    const property = await Property.findById(req.params.propertyId);
+    const property = await Property.findById(req.params.propertyId).lean();
     if (!property) {
-      return res.status(404).json({ success: false, message: 'Property not found.' });
+      return res.status(404).json({
+        success: false,
+        error: { code: 'PROPERTY_NOT_FOUND', message: 'Property not found.' }
+      });
     }
 
     res.json({
@@ -121,50 +211,98 @@ router.get('/property/:propertyId', async (req, res) => {
       splat_model_url: property.splat_model_url || null
     });
   } catch (error) {
-    console.error('Error getting scans:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    next(error);
   }
 });
 
-// DELETE /api/v1/scans/property/:propertyId/:scanId - Delete a scan
-router.delete('/property/:propertyId/:scanId', requireAuth, async (req, res) => {
-    try {
-        const property = await Property.findById(req.params.propertyId);
-        if (!property) {
-          return res.status(404).json({ success: false, message: 'Property not found.' });
-        }
+/**
+ * @openapi
+ * /scans/property/{propertyId}/{scanId}:
+ *   delete:
+ *     summary: Delete a 3D scan
+ *     tags: [Scans]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: scanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Scan deleted successfully
+ */
+router.delete('/property/:propertyId/:scanId', requireAuth, async (req, res, next) => {
+  try {
+    const property = await Property.findById(req.params.propertyId);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'PROPERTY_NOT_FOUND', message: 'Property not found.' }
+      });
+    }
+
+    property.scans.pull({ _id: req.params.scanId });
+    await property.save();
     
-        property.scans.pull({ _id: req.params.scanId });
-        await property.save();
-        
-        res.json({ success: true, message: 'Scan deleted' });
-      } catch (error) {
-        console.error('Error deleting scan:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
-      }
+    res.json({ success: true, message: 'Scan deleted' });
+  } catch (error) {
+    next(error);
+  }
 });
 
-// GET /api/v1/scans/share/:propertyId/:scanId - Get a shareable link
-router.get('/share/:propertyId/:scanId', async (req, res) => {
-    try {
-        const property = await Property.findById(req.params.propertyId);
-        if (!property) {
-          return res.status(404).json({ success: false, message: 'Property not found.' });
-        }
-    
-        const scan = property.scans.id(req.params.scanId);
-        if (!scan || scan.splat_status !== 'completed' || !scan.splat_model_url) {
-            return res.status(404).json({ success: false, message: 'Scan not found or not completed.' });
-        }
+/**
+ * @openapi
+ * /scans/share/{propertyId}/{scanId}:
+ *   get:
+ *     summary: Generate public shareable link for a 3D scan
+ *     tags: [Scans]
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: scanId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Public shareable link
+ */
+router.get('/share/:propertyId/:scanId', async (req, res, next) => {
+  try {
+    const property = await Property.findById(req.params.propertyId).lean();
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'PROPERTY_NOT_FOUND', message: 'Property not found.' }
+      });
+    }
 
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        const shareUrl = `${frontendUrl}/share/scan/${property._id}/${scan._id}`;
-        
-        res.json({ success: true, shareUrl });
-      } catch (error) {
-        console.error('Error generating share link:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
-      }
+    const scan = (property.scans || []).find(s => s._id.toString() === req.params.scanId);
+    if (!scan || scan.splat_status !== 'completed' || !scan.splat_model_url) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'SCAN_NOT_READY', message: 'Scan not found or not completed.' }
+      });
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const shareUrl = `${frontendUrl}/share/scan/${property._id}/${scan._id}`;
+    
+    res.json({ success: true, shareUrl });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

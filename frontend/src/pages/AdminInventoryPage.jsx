@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import {
   fetchAllInventory, fetchAuctionableItems, markItemAuctionable,
   recordAuctionSale, downloadAuctionReport, reclaimInventoryItem,
   addInventoryItem, deleteInventoryItem, fetchProperties
 } from '../lib/api';
+import { TableSkeleton } from '../components/SkeletonLoader';
 import {
   Package, Gavel, Download, Plus, X, AlertTriangle,
   DollarSign, Undo, Trash2, ChevronRight, Info, Search, TrendingUp
@@ -20,10 +22,7 @@ const E_RECL = { open:false, propId:null, itemId:null, receiptId:'' };
 const E_DEL  = { open:false, propId:null, itemId:null, itemName:'' };
 
 export default function AdminInventoryPage() {
-  const [allInventory, setAll]     = useState([]);
-  const [auctionable,  setAuction] = useState([]);
-  const [properties,   setProps]   = useState([]);
-  const [loading,      setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [tab,          setTab]     = useState('auctionable');
   const [search,       setSearch]  = useState('');
   const [addModal,     setAdd]     = useState(E_ADD);
@@ -36,19 +35,30 @@ export default function AdminInventoryPage() {
   const [addErrs,      setAddErrs] = useState({});
   const [showInfo,     setShowInfo]= useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [all, auc, props] = await Promise.allSettled([
-        fetchAllInventory(), fetchAuctionableItems(), fetchProperties({ limit:300 })
-      ]);
-      if (all.status   === 'fulfilled') setAll(Array.isArray(all.value?.data)    ? all.value.data    : []);
-      if (auc.status   === 'fulfilled') setAuction(Array.isArray(auc.value?.data)? auc.value.data    : []);
-      if (props.status === 'fulfilled') setProps(Array.isArray(props.value?.data) ? props.value.data : []);
-    } finally { setLoading(false); }
-  }, []);
+  const { data: allInvData, isLoading: loadingAll } = useQuery({
+    queryKey: ['admin-inventory-all'],
+    queryFn: () => fetchAllInventory()
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const { data: aucData, isLoading: loadingAuc } = useQuery({
+    queryKey: ['admin-inventory-auctionable'],
+    queryFn: () => fetchAuctionableItems()
+  });
+
+  const { data: propsData, isLoading: loadingProps } = useQuery({
+    queryKey: ['properties-list-inventory'],
+    queryFn: () => fetchProperties({ limit: 300 })
+  });
+
+  const allInventory = Array.isArray(allInvData?.data) ? allInvData.data : [];
+  const auctionable  = Array.isArray(aucData?.data) ? aucData.data : [];
+  const properties   = Array.isArray(propsData?.data) ? propsData.data : [];
+  const loading = loadingAll || loadingAuc || loadingProps;
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-inventory-all'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-inventory-auctionable'] });
+  };
 
   const validateAdd = () => {
     const e = {};
@@ -70,7 +80,7 @@ export default function AdminInventoryPage() {
         estimated_value_kes: addModal.estimated_value_kes !== '' ? Number(addModal.estimated_value_kes) : 0
       });
       toast.success(`Added "${addModal.name}" to inventory`);
-      setAdd(E_ADD); setAddErrs({}); load();
+      setAdd(E_ADD); setAddErrs({}); refresh();
     } catch (err) { toast.error(err?.error?.message || 'Failed to add item'); }
     finally { setWorking(w => ({ ...w, add:false })); }
   };
@@ -82,7 +92,7 @@ export default function AdminInventoryPage() {
       await deleteInventoryItem(propId, itemId);
       setDel(E_DEL);
       toast.success(`"${itemName}" removed from inventory`);
-      load();
+      refresh();
     } catch (err) { toast.error(err?.error?.message || 'Failed to delete'); }
     finally { setWorking(w => ({ ...w, del:false })); }
   };
@@ -92,7 +102,7 @@ export default function AdminInventoryPage() {
     setWorking(w => ({ ...w, flag:true }));
     try {
       await markItemAuctionable(flagModal.propId, { item_id:flagModal.itemId, reason:flagModal.reason });
-      toast.success('Item flagged for auction'); setFlag(E_FLAG); load();
+      toast.success('Item flagged for auction'); setFlag(E_FLAG); refresh();
     } catch (err) { toast.error(err?.error?.message || 'Failed to flag item'); }
     finally { setWorking(w => ({ ...w, flag:false })); }
   };
@@ -104,7 +114,7 @@ export default function AdminInventoryPage() {
     setWorking(w => ({ ...w, sale:true }));
     try {
       await recordAuctionSale(saleModal.propId, { item_id:saleModal.itemId, buyer:saleModal.buyer, sale_amount:Number(saleModal.amount) });
-      toast.success('Auction sale recorded!'); setSale(E_SALE); load();
+      toast.success('Auction sale recorded!'); setSale(E_SALE); refresh();
     } catch (err) { toast.error(err?.error?.message || 'Failed to record sale'); }
     finally { setWorking(w => ({ ...w, sale:false })); }
   };
@@ -116,7 +126,7 @@ export default function AdminInventoryPage() {
     setWorking(w => ({ ...w, recl:true }));
     try {
       await reclaimInventoryItem(reclModal.propId, { item_id:reclModal.itemId, reclaim_receipt_id:rId });
-      toast.success('Item reclaimed successfully!'); setRecl(E_RECL); load();
+      toast.success('Item reclaimed successfully!'); setRecl(E_RECL); refresh();
     } catch (err) { toast.error(err?.error?.message || 'Failed to reclaim'); }
     finally { setWorking(w => ({ ...w, recl:false })); }
   };
@@ -186,14 +196,7 @@ export default function AdminInventoryPage() {
     ...extra
   });
 
-  if (loading) return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-background text-foreground">
-      <div className="text-center">
-        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(37,99,235,0.3)', borderTop: '3px solid #2563EB', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-        <p className="text-slate-500 dark:text-slate-400 text-xs">Loading inventory…</p>
-      </div>
-    </div>
-  );
+  if (loading) return <TableSkeleton rows={6} cols={5} />;
 
   return (
     <div className="relative text-slate-900 dark:text-slate-100">
@@ -400,7 +403,8 @@ export default function AdminInventoryPage() {
       {addModal.open && (
         <>
           <div onClick={() => { setAdd(E_ADD); setAddErrs({}); }} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-[201] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 pointer-events-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Add Inventory Item</h3>
               <button onClick={() => { setAdd(E_ADD); setAddErrs({}); }} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
@@ -463,6 +467,7 @@ export default function AdminInventoryPage() {
               </div>
             </div>
           </div>
+          </div>
         </>
       )}
 
@@ -470,7 +475,8 @@ export default function AdminInventoryPage() {
       {delModal.open && (
         <>
           <div onClick={() => setDel(E_DEL)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-red-200 dark:border-red-950/40 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+          <div className="fixed inset-0 z-[201] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-red-200 dark:border-red-950/40 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 pointer-events-auto">
             <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
               <Trash2 size={24} className="text-red-650" />
             </div>
@@ -490,6 +496,7 @@ export default function AdminInventoryPage() {
               </button>
             </div>
           </div>
+          </div>
         </>
       )}
 
@@ -497,7 +504,8 @@ export default function AdminInventoryPage() {
       {flagModal.open && (
         <>
           <div onClick={() => setFlag(E_FLAG)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+          <div className="fixed inset-0 z-[201] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 pointer-events-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Flag Item for Auction</h3>
               <button onClick={() => setFlag(E_FLAG)} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
@@ -520,6 +528,7 @@ export default function AdminInventoryPage() {
               </button>
             </div>
           </div>
+          </div>
         </>
       )}
 
@@ -527,7 +536,8 @@ export default function AdminInventoryPage() {
       {saleModal.open && (
         <>
           <div onClick={() => setSale(E_SALE)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-[201] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 pointer-events-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Record Auction Sale</h3>
               <button onClick={() => setSale(E_SALE)} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
@@ -558,6 +568,7 @@ export default function AdminInventoryPage() {
               </div>
             </div>
           </div>
+          </div>
         </>
       )}
 
@@ -565,7 +576,8 @@ export default function AdminInventoryPage() {
       {reclModal.open && (
         <>
           <div onClick={() => setRecl(E_RECL)} className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm" />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100">
+          <div className="fixed inset-0 z-[201] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 pointer-events-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold">Reclaim Flagged Item</h3>
               <button onClick={() => setRecl(E_RECL)} className="background-none border-none text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer p-1.5 transition">
@@ -590,6 +602,7 @@ export default function AdminInventoryPage() {
                 Cancel
               </button>
             </div>
+          </div>
           </div>
         </>
       )}

@@ -4,44 +4,80 @@ const { param } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const Notification = require('../models/Notification');
 const logger = require('../utils/logger');
+const { paginate } = require('../utils/paginate');
 
 /**
- * GET /api/v1/notifications
- * Returns notifications scoped to the requesting user's role and ID.
- * Admins see admin-role notifications, agents see agent-role, etc.
- * Returns max 50, newest first, unread count in response.
+ * @openapi
+ * /notifications:
+ *   get:
+ *     summary: Get notifications for the authenticated user
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *     responses:
+ *       200:
+ *         description: List of notifications with unread count
  */
 router.get('/', requireAuth, async (req, res, next) => {
   try {
+    const { page = 1, limit = 50 } = req.query;
     const userId = req.user._id;
     const role = req.user.role;
 
-    // Match notifications where either:
-    // - recipient_role matches user's role AND (recipient_ids is empty OR contains this user)
-    // - AND the user has NOT dismissed this notification
-    const notifications = await Notification.find({
+    const filter = {
       recipient_role: role,
       $or: [
         { recipient_ids: { $size: 0 } },
         { recipient_ids: userId }
       ],
       dismissed_by: { $ne: userId }
-    })
-      .sort({ created_at: -1 })
-      .limit(50)
-      .lean();
+    };
 
-    const unreadCount = notifications.filter(n => !n.read_by.some(id => id.toString() === userId.toString())).length;
+    const result = await paginate(Notification, filter, {
+      page,
+      limit,
+      sort: { created_at: -1 }
+    });
 
-    res.json({ success: true, data: notifications, unreadCount });
+    const unreadCount = await Notification.countDocuments({
+      ...filter,
+      read_by: { $ne: userId }
+    });
+
+    res.json({ success: true, ...result, unreadCount });
   } catch (error) {
     next(error);
   }
 });
 
 /**
- * PATCH /api/v1/notifications/:id/read
- * Mark a specific notification as read by the current user.
+ * @openapi
+ * /notifications/{id}/read:
+ *   patch:
+ *     summary: Mark a notification as read
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Notification marked as read
  */
 router.patch('/:id/read',
   requireAuth,
@@ -64,8 +100,16 @@ router.patch('/:id/read',
 );
 
 /**
- * PATCH /api/v1/notifications/read-all
- * Mark all of the current user's notifications as read.
+ * @openapi
+ * /notifications/read-all:
+ *   patch:
+ *     summary: Mark all notifications as read for current user
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All notifications marked as read
  */
 router.patch('/read-all', requireAuth, async (req, res, next) => {
   try {
@@ -89,8 +133,40 @@ router.patch('/read-all', requireAuth, async (req, res, next) => {
 });
 
 /**
- * POST /api/v1/notifications (internal / admin use)
- * Admin can broadcast a notification to a role.
+ * @openapi
+ * /notifications:
+ *   post:
+ *     summary: Broadcast or send notification (Admin only)
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - type
+ *               - recipient_role
+ *               - title
+ *               - message
+ *             properties:
+ *               type:
+ *                 type: string
+ *               recipient_role:
+ *                 type: string
+ *               recipient_ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               title:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Notification created
  */
 router.post('/', requireAuth, async (req, res, next) => {
   try {
@@ -114,10 +190,22 @@ router.post('/', requireAuth, async (req, res, next) => {
 });
 
 /**
- * DELETE /api/v1/notifications/:id
- * Permanently dismiss (delete) a specific notification for the current user.
- * The notification is removed from the DB only if it targets this user specifically,
- * otherwise it is soft-dismissed by adding the user to a dismissed_by array.
+ * @openapi
+ * /notifications/{id}:
+ *   delete:
+ *     summary: Dismiss or delete a notification
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Notification dismissed
  */
 router.delete('/:id',
   requireAuth,
@@ -128,7 +216,6 @@ router.delete('/:id',
       if (!notification) {
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Notification not found' } });
       }
-      // Add user to dismissed_by so it's filtered out on subsequent fetches
       await Notification.findByIdAndUpdate(
         req.params.id,
         {
@@ -147,8 +234,16 @@ router.delete('/:id',
 );
 
 /**
- * DELETE /api/v1/notifications
- * Clear (dismiss) ALL notifications for the current user.
+ * @openapi
+ * /notifications:
+ *   delete:
+ *     summary: Dismiss all notifications for the current user
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All notifications dismissed
  */
 router.delete('/', requireAuth, async (req, res, next) => {
   try {

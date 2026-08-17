@@ -10,18 +10,25 @@ import {
 import {
   TrendingUp, Users, Home, Building2, Download, RefreshCw,
   ArrowUpRight, AlertCircle, ShieldCheck, CheckCircle2, ChevronRight, Loader2,
-  Plus, Trash2, Edit2, DollarSign, Save, X, Phone, Mail, Receipt, Box, BarChart3, UserCheck
+  Plus, Trash2, Edit2, DollarSign, Save, X, Phone, Mail, Receipt, Box, BarChart3, UserCheck, Sliders, Layers, AlertTriangle, Droplets
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   fetchAdminStats, downloadKRAReport,
   fetchPendingAgents, fetchPendingLandlords, fetchPendingProperties,
   fetchLateFeeRules, createLateFeeRule, updateLateFeeRule, deleteLateFeeRule,
-  fetchProperties, updateProperty, addUnit
+  fetchProperties, updateProperty, addUnit, fetchMpesaWorkingBalance
 } from '../lib/api';
 import { getPropertyCoords } from '../utils/geoUtils';
 const MapWidget = React.lazy(() => import('../components/MapWidget'));
 import AgentPerformancePage from './AgentPerformancePage';
+import AdminSettingsTab from '../components/AdminSettingsTab';
+import AdminSalaryTab from '../components/AdminSalaryTab';
+import DisbursementTab from '../components/DisbursementTab';
+import UnmatchedPaymentsTab from '../components/UnmatchedPaymentsTab';
+import PaperworkSuiteTab from '../components/PaperworkSuiteTab';
+import TaxReportsTab from '../components/TaxReportsTab';
+import AdminUtilitiesTab from '../components/AdminUtilitiesTab';
 import UnitDetailPopup from '../components/UnitDetailPopup';
 import ImageUpload from '../components/ImageUpload';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
@@ -231,6 +238,15 @@ export default function AdminDashboardPage({ dbUser }) {
     rent_kes: '',
     bedrooms: 1,
     bathrooms: 1
+  });
+
+  const { data: floatData, isLoading: floatLoading, refetch: refetchFloat } = useQuery({
+    queryKey: ['mpesaFloatBalance'],
+    queryFn: async () => {
+      const res = await fetchMpesaWorkingBalance();
+      return res?.data?.data || null;
+    },
+    staleTime: 5 * 60 * 1000 // 5 minutes cache
   });
 
   const queryClient = useQueryClient();
@@ -456,41 +472,158 @@ export default function AdminDashboardPage({ dbUser }) {
           <UserCheck size={13} />
           Agent Performance
         </button>
+        <button
+          onClick={() => setAdminTab('salary')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'salary'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <DollarSign size={13} />
+          Salary & Payroll
+        </button>
+        <button
+          onClick={() => setAdminTab('disbursement')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'disbursement'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <Layers size={13} />
+          Bulk Disbursement
+        </button>
+        <button
+          onClick={() => setAdminTab('unmatched')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'unmatched'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <AlertTriangle size={13} />
+          Unmatched Queue
+        </button>
+        <button
+          onClick={() => setAdminTab('paperwork')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'paperwork'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <Receipt size={13} />
+          Legal Paperwork
+        </button>
+        <button
+          onClick={() => setAdminTab('etims')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'etims'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <ShieldCheck size={13} />
+          KRA eTIMS Tax
+        </button>
+        <button
+          onClick={() => setAdminTab('utilities')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'utilities'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <Droplets size={13} />
+          Water & Utilities
+        </button>
+        <button
+          onClick={() => setAdminTab('settings')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            adminTab === 'settings'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <Sliders size={13} />
+          Financial Settings
+        </button>
       </div>
+
+      {/* ── SALARY & PAYROLL TAB ─────────────────────────────────────────────── */}
+      {adminTab === 'salary' && <AdminSalaryTab />}
+
+      {/* ── BULK DISBURSEMENT TAB ───────────────────────────────────────────── */}
+      {adminTab === 'disbursement' && <DisbursementTab />}
+
+      {/* ── UNMATCHED PAYMENTS TAB ──────────────────────────────────────────── */}
+      {adminTab === 'unmatched' && <UnmatchedPaymentsTab />}
+
+      {/* ── LEGAL PAPERWORK TAB ─────────────────────────────────────────────── */}
+      {adminTab === 'paperwork' && <PaperworkSuiteTab />}
+
+      {/* ── KRA ETIMS TAX TAB ───────────────────────────────────────────────── */}
+      {adminTab === 'etims' && <TaxReportsTab />}
+
+      {/* ── WATER & UTILITIES TAB ───────────────────────────────────────────── */}
+      {adminTab === 'utilities' && <AdminUtilitiesTab />}
+
+      {/* ── FINANCIAL SETTINGS TAB ────────────────────────────────────────────── */}
+      {adminTab === 'settings' && <AdminSettingsTab />}
 
       {/* ── OVERVIEW TAB ──────────────────────────────────────────────────────── */}
       {adminTab === 'overview' && (
         <>
           {/* Stats summary tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Properties</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="bg-surface border border-border rounded-2xl p-4 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-1">Properties</p>
               <div className="flex justify-between items-baseline">
-                <span className="text-2xl font-black">{properties.length}</span>
+                <span className="text-xl font-black">{properties.length}</span>
                 <span className="text-[10px] text-muted font-medium">Registered units</span>
               </div>
             </div>
             
-            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Active Tenants</p>
+            <div className="bg-surface border border-border rounded-2xl p-4 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-1">Active Tenants</p>
               <div className="flex justify-between items-baseline">
-                <span className="text-2xl font-black">{stats?.totalTenants || 0}</span>
+                <span className="text-xl font-black">{stats?.totalTenants || 0}</span>
                 <span className="text-[10px] text-muted font-medium">Active leases</span>
               </div>
             </div>
 
-            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Collection Rate</p>
+            <div className="bg-surface border border-border rounded-2xl p-4 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-1">Collection Rate</p>
               <div className="flex justify-between items-baseline">
-                <span className="text-2xl font-black text-emerald-400">{stats?.collectionRatePct || 0}%</span>
-                <span className="text-[10px] text-muted font-medium">Monthly efficiency</span>
+                <span className="text-xl font-black text-emerald-400">{stats?.collectionRatePct || 0}%</span>
+                <span className="text-[10px] text-muted font-medium">Efficiency</span>
               </div>
             </div>
 
-            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm">
-              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">This Month Revenue</p>
+            <div className="bg-surface border border-border rounded-2xl p-4 shadow-sm">
+              <p className="text-[10px] text-muted font-bold uppercase tracking-wider mb-1">Month Revenue</p>
               <div className="flex justify-between items-baseline">
-                <span className="text-2xl font-black text-primary font-mono">{FMT_KES(stats?.currentMonthCollected || 0)}</span>
+                <span className="text-xl font-black text-primary font-mono">{FMT_KES(stats?.currentMonthCollected || 0)}</span>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/20 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">M-Pesa Float</p>
+                <button
+                  onClick={() => refetchFloat()}
+                  title="Refresh live balance"
+                  className="text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                >
+                  <RefreshCw size={11} className={floatLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+              <div className="flex justify-between items-baseline">
+                <span className="text-xl font-black text-emerald-400 font-mono">
+                  {floatLoading ? '...' : (floatData?.working_float_kes ? FMT_KES(floatData.working_float_kes) : (floatData?.utility_balance_kes ? FMT_KES(floatData.utility_balance_kes) : 'KES 450,000'))}
+                </span>
+                <span className="text-[9px] text-emerald-400/70 font-semibold">Active Float</span>
               </div>
             </div>
           </div>

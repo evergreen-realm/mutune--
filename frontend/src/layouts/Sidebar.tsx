@@ -235,19 +235,21 @@ export default function Sidebar({
   isRoleVerified,
   onLogout,
 }: SidebarProps) {
-  const isAdmin  = role === 'admin' || role === 'super_admin';
-  const isTenant = role === 'tenant';
-  const isAgent  = role === 'agent';
+  const isAdmin     = role === 'admin' || role === 'super_admin';
+  const isTenant    = role === 'tenant';
+  const isAgent     = role === 'agent';
+  const isCaretaker = role === 'caretaker';
 
   const navItems: NavItem[] = [
     { path: '/',                label: 'Dashboard',            icon: <LayoutDashboard size={18} />, show: true },
+    { path: '/caretaker',       label: 'Caretaker Portal',     icon: <Building2 size={18} />,       show: isCaretaker },
     { path: '/admin/users',     label: 'Verification Queue',   icon: <ShieldCheck size={18} />,     show: isAdmin },
     { path: '/admin/inventory', label: 'Auctions & Inventory', icon: <Building2 size={18} />,       show: isAdmin },
-    { path: '/properties',      label: 'Properties',           icon: <Building2 size={18} />,       show: !isTenant },
+    { path: '/properties',      label: 'Properties',           icon: <Building2 size={18} />,       show: !isTenant && !isCaretaker },
     { path: '/properties/add',  label: 'Add Property',         icon: <PlusCircle size={18} />,      show: isAdmin || isAgent || role === 'landlord' },
-    { path: '/tenants',         label: 'Tenants',              icon: <Users2 size={18} />,          show: !isTenant },
-    { path: '/payments',        label: 'Rent Payments',        icon: <WalletCards size={18} />,     show: !isTenant },
-    { path: '/maintenance',     label: 'Maintenance',          icon: <Wrench size={18} />,          show: true },
+    { path: '/tenants',         label: 'Tenants',              icon: <Users2 size={18} />,          show: !isTenant && !isCaretaker },
+    { path: '/payments',        label: 'Rent Payments',        icon: <WalletCards size={18} />,     show: !isTenant && !isCaretaker },
+    { path: '/maintenance',     label: 'Maintenance',          icon: <Wrench size={18} />,          show: !isCaretaker },
     { path: '/tasks',           label: 'Task Board',           icon: <ListTodo size={18} />,        show: isAdmin || isAgent },
     { path: '/notices',         label: 'Notices',              icon: <FileText size={18} />,        show: isAdmin || isAgent || isTenant },
   ].filter((item) => item.show);

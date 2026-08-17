@@ -15,7 +15,7 @@
 #   $env:CLERK_PUBLISHABLE_KEY = "pk_..."
 #   $env:GROQ_API_KEY          = "gsk_..."
 #   $env:RESEND_API_KEY        = "re_..."
-#   $env:AFRICAS_TALKING_API_KEY   = "atsk_..."
+#   $env:AT_API_KEY                = "atsk_..."
 #   $env:MPESA_CONSUMER_KEY    = "..."
 #   $env:MPESA_CONSUMER_SECRET = "..."
 #   $env:MPESA_PASSKEY         = "..."
@@ -40,7 +40,7 @@ $required = @(
   "MONGODB_URI", "JWT_SECRET", "ENCRYPTION_KEY",
   "CLERK_SECRET_KEY", "CLERK_PUBLISHABLE_KEY",
   "GROQ_API_KEY", "KIMI_API_KEY", "RESEND_API_KEY",
-  "AFRICAS_TALKING_API_KEY",
+  "AT_API_KEY",
   "MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET", "MPESA_PASSKEY",
   "CLOUDFLARE_R2_ACCESS_KEY_ID", "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
   "CLOUDFLARE_R2_PIPELINE_ACCESS_KEY_ID", "CLOUDFLARE_R2_PIPELINE_SECRET_ACCESS_KEY",
@@ -71,9 +71,9 @@ $envVars = @(
   @{key="KIMI_API_URL";                 value="https://api.moonshot.ai/v1/chat/completions"},
   @{key="RESEND_API_KEY";               value=$env:RESEND_API_KEY},
   @{key="RESEND_FROM_EMAIL";            value=if($env:RESEND_FROM_EMAIL){"$env:RESEND_FROM_EMAIL"}else{"onboarding@resend.dev"}},
-  @{key="AFRICAS_TALKING_API_KEY";      value=$env:AFRICAS_TALKING_API_KEY},
-  @{key="AFRICAS_TALKING_USERNAME";     value=if($env:AFRICAS_TALKING_USERNAME){"$env:AFRICAS_TALKING_USERNAME"}else{"sandbox"}},
-  @{key="AFRICAS_TALKING_SMS_FROM";     value="MutuneRent"},
+  @{key="AT_API_KEY";                   value=$env:AT_API_KEY},
+  @{key="AT_USERNAME";                  value=if($env:AT_USERNAME){"$env:AT_USERNAME"}else{"sandbox"}},
+  @{key="AT_FROM";                      value="MutuneRent"},
   @{key="MPESA_CONSUMER_KEY";           value=$env:MPESA_CONSUMER_KEY},
   @{key="MPESA_CONSUMER_SECRET";        value=$env:MPESA_CONSUMER_SECRET},
   @{key="MPESA_PASSKEY";                value=$env:MPESA_PASSKEY},

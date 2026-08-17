@@ -8,7 +8,8 @@ import {
   fetchProperties,
   updateNotice,
   deleteNotice,
-  fetchTenants
+  fetchTenants,
+  API_BASE
 } from '../lib/api';
 import {
   FileText,
@@ -285,7 +286,7 @@ export default function NoticesPage({ user }) {
 
   const handleDownload = async (noticeId, title = 'Notice') => {
     try {
-      const base = import.meta.env.VITE_API_URL || 'https://mutunerent-api.onrender.com/api/v1';
+      const base = API_BASE;
       let token = null;
       try {
         const clerk = window.Clerk;

@@ -7,7 +7,8 @@ const permissions = {
   agent: ['view:assigned', 'lock:house', 'verify:payment', 'issue:notice', 'view:inventory', 'edit:inventory', 'create:maintenance', 'view:maintenance', 'ai:chat', 'checkin:property', 'view:payments', 'pay:rent'],
   landlord: ['view:own_properties', 'view:payments', 'view:reports', 'edit:property', 'view:assigned'],
   accountant: ['view:payments', 'view:reports', 'export:kra', 'verify:payment'],
-  tenant: ['view:own_unit', 'pay:rent', 'view:notices', 'create:maintenance', 'view:maintenance', 'view:payments', 'ai:chat']
+  tenant: ['view:own_unit', 'pay:rent', 'view:notices', 'create:maintenance', 'view:maintenance', 'view:payments', 'ai:chat'],
+  caretaker: ['view:assigned', 'create:maintenance', 'view:maintenance', 'record:utility', 'view:units', 'confirm:handover']
 };
 
 const requirePermission = (permission) => (req, res, next) => {
@@ -28,6 +29,14 @@ const requireRole = (roles) => (req, res, next) => {
 const enforcePropertyScope = async (req, res, next) => {
   if (['super_admin', 'admin'].includes(req.user.role)) return next();
   const propertyId = req.params.propertyId || req.params.id || req.body.property_id;
+  if (req.user.role === 'caretaker' && propertyId) {
+    const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
+    if (!assigned.includes(propertyId.toString())) {
+      logger.warn('Caretaker scope denied', { userId: req.user._id, propertyId });
+      return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not in caretaker assignments' } });
+    }
+    return next();
+  }
   if (req.user.role === 'agent' && propertyId) {
     if (req.user.agent_allow_all_areas) return next();
 

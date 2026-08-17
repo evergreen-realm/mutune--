@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-react';
 import { toast } from 'react-toastify';
 import { useThemeStore } from '../store/themeStore';
 import {
   fetchAgentPerformance, fetchAllTasks, fetchMyTasks, fetchUsers, createTask, deleteTask, updateTaskStatus,
   fetchProperties, fetchPropertyTiers, submitAgentReview, uploadDoc, updateUserProfilePicture, fetchTenants, initiatePayment,
-  fetchPayments
+  fetchPayments, updateUnitListingStatus, fetchAgentInquiries
 } from '../lib/api';
 import {
   Trophy, TrendingUp, CheckCircle2, AlertTriangle, Clock,
   Target, Wallet, Wrench, Plus, Trash2, X, Users2, BarChart3, Medal,
-  ClipboardList, Check, Eye, Camera, Loader2, Sparkles, Send, ShieldCheck
+  ClipboardList, Check, Eye, Camera, Loader2, Sparkles, Send, ShieldCheck, UserPlus,
+  Globe, Building2, Tag, PhoneCall
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { gsap } from 'gsap';
 import VoxelBackground3D from '../components/VoxelBackground3D';
 import VoxelLogo3D from '../components/VoxelLogo3D';
+import CreateLandlordModal from '../components/CreateLandlordModal';
+import MoveOutInspectionModal from '../components/MoveOutInspectionModal';
 
 const FMT_KES = n => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 const FMT_DATE = (d) => {
@@ -209,38 +213,140 @@ export default function AgentPerformancePage({ dbUser }) {
   const [selectedProposedTiers, setSelectedProposedTiers] = useState({});
   const [reviewingId, setReviewingId] = useState(null);
   const [viewPropertyModal, setViewPropertyModal] = useState(null);
+  const [showLandlordModal, setShowLandlordModal] = useState(false);
+  const [agentInquiries, setAgentInquiries] = useState([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const from = new Date(Date.now() - Number(period) * 86400000).toISOString().split('T')[0];
-    try {
-      const [perf, t, users, props, tiers, allPropsRes, tenantsRes, paymentsRes] = await Promise.allSettled([
-        fetchAgentPerformance({ from }),
-        dbUser?.role === 'agent' ? fetchMyTasks() : fetchAllTasks({ limit: 200 }),
-        fetchUsers({ role: 'agent', is_active: true }),
-        fetchProperties({ review_status: 'pending_agent' }),
-        fetchPropertyTiers(),
-        fetchProperties(),
-        fetchTenants(),
-        fetchPayments()
-      ]);
-      
-      if (perf.status === 'fulfilled') setAgents(Array.isArray(perf.value?.data) ? perf.value.data : []);
-      if (t.status === 'fulfilled') setTasks(Array.isArray(t.value?.data) ? t.value.data : []);
-      if (users.status === 'fulfilled') setAgentList(Array.isArray(users.value?.data) ? users.value.data : []);
-      if (props.status === 'fulfilled') setReviewProperties(Array.isArray(props.value?.data) ? props.value.data : []);
-      if (tiers.status === 'fulfilled') setActiveTiers(Array.isArray(tiers.value?.data) ? tiers.value.data : []);
-      if (allPropsRes.status === 'fulfilled') setAllProperties(Array.isArray(allPropsRes.value?.data) ? allPropsRes.value.data : []);
-      if (tenantsRes.status === 'fulfilled') setAllTenants(Array.isArray(tenantsRes.value?.data) ? tenantsRes.value.data : []);
-      if (paymentsRes.status === 'fulfilled') setPayments(Array.isArray(paymentsRes.value?.data) ? paymentsRes.value.data : []);
-    } finally {
-      setLoading(false);
+  const queryClient = useQueryClient();
+
+  const fromDate = useMemo(() => {
+    return new Date(Date.now() - Number(period) * 86400000).toISOString().split('T')[0];
+  }, [period]);
+
+  const { data: perfData } = useQuery({
+    queryKey: ['agentPerformance', fromDate],
+    queryFn: async () => {
+      const res = await fetchAgentPerformance({ from: fromDate });
+      return Array.isArray(res?.data) ? res.data : [];
     }
-  }, [period, dbUser]);
+  });
+
+  const { data: tasksData } = useQuery({
+    queryKey: ['agentTasks', dbUser?.role],
+    queryFn: async () => {
+      const res = dbUser?.role === 'agent' ? await fetchMyTasks() : await fetchAllTasks({ limit: 200 });
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: usersData } = useQuery({
+    queryKey: ['activeAgents'],
+    queryFn: async () => {
+      const res = await fetchUsers({ role: 'agent', is_active: true });
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: reviewPropsData } = useQuery({
+    queryKey: ['reviewProperties'],
+    queryFn: async () => {
+      const res = await fetchProperties({ review_status: 'pending_agent' });
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: tiersData } = useQuery({
+    queryKey: ['propertyTiers'],
+    queryFn: async () => {
+      const res = await fetchPropertyTiers();
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: allPropsData } = useQuery({
+    queryKey: ['allProperties'],
+    queryFn: async () => {
+      const res = await fetchProperties();
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: tenantsData } = useQuery({
+    queryKey: ['allTenants'],
+    queryFn: async () => {
+      const res = await fetchTenants();
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: paymentsData } = useQuery({
+    queryKey: ['allPayments'],
+    queryFn: async () => {
+      const res = await fetchPayments();
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: inqData } = useQuery({
+    queryKey: ['agentInquiries'],
+    queryFn: async () => {
+      const res = await fetchAgentInquiries();
+      return Array.isArray(res?.data?.data) ? res.data.data : [];
+    }
+  });
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (perfData) setAgents(perfData);
+  }, [perfData]);
+
+  useEffect(() => {
+    if (tasksData) setTasks(tasksData);
+  }, [tasksData]);
+
+  useEffect(() => {
+    if (usersData) setAgentList(usersData);
+  }, [usersData]);
+
+  useEffect(() => {
+    if (reviewPropsData) setReviewProperties(reviewPropsData);
+  }, [reviewPropsData]);
+
+  useEffect(() => {
+    if (tiersData) setActiveTiers(tiersData);
+  }, [tiersData]);
+
+  useEffect(() => {
+    if (allPropsData) setAllProperties(allPropsData);
+  }, [allPropsData]);
+
+  useEffect(() => {
+    if (tenantsData) setAllTenants(tenantsData);
+  }, [tenantsData]);
+
+  useEffect(() => {
+    if (paymentsData) setPayments(paymentsData);
+  }, [paymentsData]);
+
+  useEffect(() => {
+    if (inqData) setAgentInquiries(inqData);
+  }, [inqData]);
+
+  const load = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['agentPerformance'] });
+    queryClient.invalidateQueries({ queryKey: ['agentTasks'] });
+    queryClient.invalidateQueries({ queryKey: ['activeAgents'] });
+    queryClient.invalidateQueries({ queryKey: ['reviewProperties'] });
+    queryClient.invalidateQueries({ queryKey: ['propertyTiers'] });
+    queryClient.invalidateQueries({ queryKey: ['allProperties'] });
+    queryClient.invalidateQueries({ queryKey: ['allTenants'] });
+    queryClient.invalidateQueries({ queryKey: ['allPayments'] });
+    queryClient.invalidateQueries({ queryKey: ['agentInquiries'] });
+    setLoading(false);
+  }, [queryClient]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Handle unit selection & automatically discover associated occupant tenant
   useEffect(() => {
@@ -367,6 +473,12 @@ export default function AgentPerformancePage({ dbUser }) {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-950/60 to-transparent" />
               
               <div className="absolute top-4 right-4 z-10 flex gap-2">
+                <button
+                  onClick={() => setShowLandlordModal(true)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
+                >
+                  <UserPlus size={14} /> Register Landlord
+                </button>
                 <select
                   value={period}
                   onChange={(e) => setPeriod(e.target.value)}
@@ -532,11 +644,12 @@ export default function AgentPerformancePage({ dbUser }) {
         </div>
 
         {/* Tab Selection */}
-        <div className="flex gap-2.5 mb-6 border-b border-slate-800/40 pb-4">
+        <div className="flex gap-2.5 mb-6 border-b border-slate-800/40 pb-4 flex-wrap">
           {[
             { key: 'leaderboard', label: '🏆 Leaderboard' },
             { key: 'tasks', label: `📋 Tasks (${tasks.length})` },
-            { key: 'reviews', label: `🔍 Review Queue (${reviewProperties.length})` }
+            { key: 'reviews', label: `🔍 Review Queue (${reviewProperties.length})` },
+            { key: 'listings', label: `🌐 Listings Manager (${agentInquiries.length})` }
           ].map(t => (
             <button
               key={t.key}
@@ -752,6 +865,117 @@ export default function AgentPerformancePage({ dbUser }) {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* TAB 4: LISTINGS & INQUIRIES MANAGER (Phase 5) */}
+            {tab === 'listings' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Section 1: Vacant Units & Listing Controls */}
+                <div className="cinematic-card bg-slate-900/60 dark:bg-slate-950/65 backdrop-blur-md border border-slate-800/40 rounded-3xl p-6 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800/40 pb-3">
+                    <div>
+                      <h3 className="text-white text-xs font-black uppercase tracking-wider flex items-center gap-2">
+                        <Globe size={15} className="text-emerald-400" /> Managed Property Listings & Vacancy Controls
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Toggle unit visibility on the public /listings portal.</p>
+                    </div>
+                  </div>
+
+                  {assignedProperties.length === 0 ? (
+                    <div className="text-center py-10 text-slate-500 text-xs">No properties assigned to your agent account.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {assignedProperties.map((prop) => (
+                        <div key={prop._id} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Building2 size={16} className="text-blue-400" />
+                              <span className="font-bold text-xs text-white">{prop.name}</span>
+                              <span className="text-[10px] text-slate-400">({prop.address?.area || 'Mombasa'})</span>
+                            </div>
+                            <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                              {(prop.units || []).filter(u => u.status === 'vacant').length} Vacant
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-800/40">
+                            {(prop.units || []).map((unit) => (
+                              <div key={unit._id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+                                <div>
+                                  <span className="font-bold text-white block">Unit {unit.unit_number}</span>
+                                  <span className="text-[10px] text-slate-400">KES {Number(unit.rent_kes || 0).toLocaleString('en-KE')} • {unit.status}</span>
+                                </div>
+                                <select
+                                  value={unit.listing_status || (unit.status === 'vacant' ? 'listed' : 'unlisted')}
+                                  onChange={async (e) => {
+                                    const newStatus = e.target.value;
+                                    try {
+                                      await updateUnitListingStatus(prop._id, unit._id, newStatus);
+                                      toast.success(`Unit ${unit.unit_number} listing set to ${newStatus}`);
+                                      load();
+                                    } catch (err) {
+                                      toast.error('Failed to update listing status');
+                                    }
+                                  }}
+                                  className="bg-slate-950 border border-slate-700 text-xs rounded-lg px-2 py-1 text-slate-200 outline-none font-bold"
+                                >
+                                  <option value="listed">🌐 Listed</option>
+                                  <option value="unlisted">🔒 Unlisted</option>
+                                  <option value="reserved">⏳ Reserved</option>
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 2: Prospective Tenant Inquiries */}
+                <div className="cinematic-card bg-slate-900/60 dark:bg-slate-950/65 backdrop-blur-md border border-slate-800/40 rounded-3xl p-6 shadow-2xl space-y-4">
+                  <h3 className="text-white text-xs font-black uppercase tracking-wider border-b border-slate-800/40 pb-3 flex items-center gap-2">
+                    <Tag size={15} className="text-indigo-400" /> Incoming Prospective Tenant Leads ({agentInquiries.length})
+                  </h3>
+
+                  {agentInquiries.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500 text-xs">No new inquiries received from the public website yet.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {agentInquiries.map((inq, i) => (
+                        <div key={i} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white">{inq.name}</span>
+                              <span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">{inq.unit_number || 'General'}</span>
+                              <span className="text-[10px] text-slate-400">{inq.property_name}</span>
+                            </div>
+                            <p className="text-slate-300 text-[11px] leading-relaxed italic">"{inq.message || 'Interested in viewing'}"</p>
+                            <p className="text-[10px] text-slate-500">Phone: {inq.phone} {inq.email ? `• ${inq.email}` : ''} • Received {new Date(inq.created_at).toLocaleDateString('en-KE')}</p>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <a
+                              href={`tel:${inq.phone}`}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition flex items-center gap-1 shadow-md"
+                            >
+                              <PhoneCall size={11} /> Call Lead
+                            </a>
+                            <a
+                              href={`https://wa.me/${String(inq.phone).replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-[10px] font-bold transition flex items-center gap-1 shadow-md"
+                            >
+                              WhatsApp
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -978,6 +1202,12 @@ export default function AgentPerformancePage({ dbUser }) {
           </div>
         </div>
       )}
+
+      <CreateLandlordModal
+        isOpen={showLandlordModal}
+        onClose={() => setShowLandlordModal(false)}
+        onSuccess={() => load()}
+      />
     </div>
   );
 }

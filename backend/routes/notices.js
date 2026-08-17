@@ -10,8 +10,20 @@ const pdfService = require('../services/pdf');
 const smsService = require('../services/sms');
 const { Resend } = require('resend');
 const logger = require('../utils/logger');
+const { paginate } = require('../utils/paginate');
 
-// ── POST /api/v1/notices/generate — Create notice + generate PDF + deliver ────
+/**
+ * @openapi
+ * /notices/generate:
+ *   post:
+ *     summary: Create notice, generate PDF, and deliver via SMS/Email/Portal
+ *     tags: [Notices]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Notice generated and dispatched
+ */
 router.post(
   '/generate',
   requireAuth,
@@ -242,9 +254,32 @@ router.get('/:id/download', requireAuth, async (req, res, next) => {
   }
 });
 
-// ── GET /api/v1/notices — List notices (scoped by role) ───────────────────────
+/**
+ * @openapi
+ * /notices:
+ *   get:
+ *     summary: List notices scoped by user role
+ *     tags: [Notices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List of notices
+ */
 router.get('/', requireAuth, async (req, res, next) => {
   try {
+    const { page = 1, limit = 20 } = req.query;
     const query = {};
 
     if (req.user.role === 'tenant') {
@@ -257,13 +292,17 @@ router.get('/', requireAuth, async (req, res, next) => {
       query.property_id = { $in: ownedProps.map(p => p._id) };
     }
 
-    const notices = await Notice.find(query)
-      .populate('tenant_id', 'full_name phone')
-      .populate('property_id', 'name property_code')
-      .sort({ created_at: -1 })
-      .lean();
+    const result = await paginate(Notice, query, {
+      page,
+      limit,
+      sort: { created_at: -1 },
+      populate: [
+        { path: 'tenant_id', select: 'full_name phone' },
+        { path: 'property_id', select: 'name property_code' }
+      ]
+    });
 
-    res.json({ success: true, data: notices });
+    res.json({ success: true, ...result });
   } catch (error) {
     next(error);
   }

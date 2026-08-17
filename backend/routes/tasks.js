@@ -6,6 +6,7 @@ const { requireRole } = require('../middleware/rbac');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const logger = require('../utils/logger');
+const { paginate } = require('../utils/paginate');
 
 const validate = (req, res) => {
   const errors = validationResult(req);
@@ -17,9 +18,16 @@ const validate = (req, res) => {
 };
 
 /**
- * GET /api/v1/tasks/agent/my
- * Fetch all tasks assigned to the currently logged-in agent.
- * Returns today's tasks first, then upcoming, then overdue.
+ * @openapi
+ * /tasks/agent/my:
+ *   get:
+ *     summary: Fetch all tasks assigned to currently logged-in agent
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of agent tasks with summary counts
  */
 router.get('/agent/my', requireAuth, requireRole(['agent']), async (req, res, next) => {
   try {
@@ -63,8 +71,35 @@ router.get('/agent/my', requireAuth, requireRole(['agent']), async (req, res, ne
 });
 
 /**
- * GET /api/v1/tasks
- * Admin: view all tasks with optional filters (agent_id, status, date range).
+ * @openapi
+ * /tasks:
+ *   get:
+ *     summary: View all tasks with optional filters and pagination
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *       - in: query
+ *         name: agent_id
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Paginated list of tasks
  */
 router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
   try {
@@ -78,29 +113,41 @@ router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, 
       if (to) filter.due_date.$lte = new Date(to);
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
-    const [tasks, total] = await Promise.all([
-      Task.find(filter)
-        .populate('assigned_to', 'full_name email phone')
-        .populate('assigned_by', 'full_name email')
-        .populate('related_property_id', 'name property_code')
-        .populate('related_tenant_id', 'full_name tenant_code')
-        .sort({ due_date: 1 })
-        .skip(skip)
-        .limit(Number(limit))
-        .lean(),
-      Task.countDocuments(filter)
-    ]);
+    const result = await paginate(Task, filter, {
+      page,
+      limit,
+      sort: { due_date: 1 },
+      populate: [
+        { path: 'assigned_to', select: 'full_name email phone' },
+        { path: 'assigned_by', select: 'full_name email' },
+        { path: 'related_property_id', select: 'name property_code' },
+        { path: 'related_tenant_id', select: 'full_name tenant_code' }
+      ]
+    });
 
-    res.json({ success: true, data: tasks, total, page: Number(page), limit: Number(limit) });
+    res.json({ success: true, ...result, total: result.pagination.total });
   } catch (error) {
     next(error);
   }
 });
 
 /**
- * POST /api/v1/tasks
- * Admin assigns a task to an agent.
+ * @openapi
+ * /tasks:
+ *   post:
+ *     summary: Admin assigns a task to an agent
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Task'
+ *     responses:
+ *       201:
+ *         description: Task assigned successfully
  */
 router.post('/',
   requireAuth,
@@ -151,8 +198,22 @@ router.post('/',
 );
 
 /**
- * PATCH /api/v1/tasks/:id/status
- * Agent updates task status (in_progress or completed). Admin can update any status.
+ * @openapi
+ * /tasks/{id}/status:
+ *   patch:
+ *     summary: Update task status
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task status updated
  */
 router.patch('/:id/status',
   requireAuth,
@@ -187,8 +248,22 @@ router.patch('/:id/status',
 );
 
 /**
- * DELETE /api/v1/tasks/:id
- * Admin deletes a task.
+ * @openapi
+ * /tasks/{id}:
+ *   delete:
+ *     summary: Delete a task
+ *     tags: [Tasks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task deleted
  */
 router.delete('/:id',
   requireAuth,

@@ -17,8 +17,46 @@ const validate = (req, res) => {
   return true;
 };
 
-// ─── GET /properties ────────────────────────────────────────────────────────
-// Admin/super_admin: all properties.  Agent: only assigned.  Landlord: only own.
+/**
+ * @openapi
+ * /properties:
+ *   get:
+ *     summary: Retrieve properties list
+ *     description: Retrieve properties filtered by role scoping (Admins see all, Agents see assigned, Landlords see owned, Caretakers see assigned).
+ *     tags:
+ *       - Properties
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: area
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of properties
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Property'
+ */
 router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { page = 1, limit = 20, area, type, status, review_status } = req.query;
@@ -45,6 +83,10 @@ router.get('/', requireAuth, async (req, res, next) => {
           filter._id = null;
         }
       }
+      if (review_status) filter.review_status = review_status;
+    } else if (req.user.role === 'caretaker') {
+      const assigned = req.user.assigned_properties || req.user.assigned_property_ids || [];
+      filter._id = { $in: assigned };
       if (review_status) filter.review_status = review_status;
     } else if (req.user.role === 'landlord') {
       filter.landlord_id = req.user._id;
@@ -941,22 +983,22 @@ router.post('/blender-webhook', async (req, res) => {
     const { property_id, status, model_url, api_secret, error } = req.body;
 
     // Verify webhook secret
-    const expectedSecret = process.env.WEBHOOK_SECRET_KEY;
+    const expectedSecret = process.env.WEBHOOK_SECRET_KEY || process.env.MODAL_WEBHOOK_SECRET;
     if (!expectedSecret) {
-      logger.error('WEBHOOK_SECRET_KEY not configured — cannot verify blender webhook');
-      return res.status(500).json({ success: false, message: 'Webhook secret not configured' });
+      logger.error('Webhook secret not configured — cannot verify blender webhook');
+      return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Webhook secret not configured' } });
     }
     if (api_secret !== expectedSecret) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized webhook request' } });
     }
 
     if (!property_id) {
-      return res.status(400).json({ success: false, message: 'Missing property_id' });
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Missing property_id' } });
     }
 
     const property = await Property.findById(property_id);
     if (!property) {
-      return res.status(404).json({ success: false, message: 'Property not found' });
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
     }
 
     if (status === 'success' && model_url) {
@@ -970,7 +1012,7 @@ router.post('/blender-webhook', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error('Blender webhook error:', err);
-    res.status(500).json({ success: false, message: 'Internal error' });
+    res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
   }
 });
 

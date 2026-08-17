@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { 
   fetchProperty, addUnit, deletePropertyUnit, 
-  lockPropertyUnit, checkInAgent, generate3DModel,
+  lockPropertyUnit, agentCheckIn, generate3DModel,
   getPropertyScans, deleteScan
 } from '../lib/api';
 import { TableSkeleton } from '../components/SkeletonLoader';
@@ -164,7 +164,7 @@ export default function PropertyDetailPage({ dbUser }) {
       async (pos) => {
         try {
           const { latitude, longitude, accuracy } = pos.coords;
-          const res = await checkInAgent({
+          const res = await agentCheckIn({
             property_id: id,
             location: {
               coordinates: [longitude, latitude],

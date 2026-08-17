@@ -7,7 +7,33 @@ const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
 
-// ── POST /api/v1/ai/chat ──────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /ai/chat:
+ *   post:
+ *     summary: Interact with AI Assistant (tenant, agent, landlord, admin)
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - message
+ *             properties:
+ *               message:
+ *                 type: string
+ *               session_id:
+ *                 type: string
+ *               context:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: AI conversational response and tool invocation details
+ */
 router.post(
   '/chat',
   requireAuth,
@@ -87,7 +113,24 @@ router.post(
   }
 );
 
-// ── GET /api/v1/ai/history/:session_id ───────────────────────────────────────
+/**
+ * @openapi
+ * /ai/history/{session_id}:
+ *   get:
+ *     summary: Retrieve message history for an AI chat session
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: session_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Array of historical messages in session
+ */
 router.get('/history/:session_id', requireAuth, async (req, res, next) => {
   try {
     // Security: session_id must contain the requesting user's ID
@@ -101,7 +144,24 @@ router.get('/history/:session_id', requireAuth, async (req, res, next) => {
   }
 });
 
-// ── DELETE /api/v1/ai/history/:session_id ────────────────────────────────────
+/**
+ * @openapi
+ * /ai/history/{session_id}:
+ *   delete:
+ *     summary: Clear and reset AI session history
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: session_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: AI history cleared
+ */
 router.delete('/history/:session_id', requireAuth, async (req, res, next) => {
   try {
     if (!req.params.session_id.includes(req.user._id.toString())) {

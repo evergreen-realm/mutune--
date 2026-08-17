@@ -501,6 +501,14 @@ export default function LandingPage() {
               onMouseLeave={e => { e.target.style.color = 'rgba(255,255,255,0.65)'; }}
             >{n.l}</button>
           ))}
+          <button onClick={() => navigate('/listings')} style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.8125rem', fontWeight: 700,
+            color: '#10b981', padding: '0.5rem 0.75rem', borderRadius: '0.5rem',
+            background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', cursor: 'pointer', transition: 'all 200ms ease',
+          }}
+            onMouseEnter={e => { e.target.style.background = 'rgba(16,185,129,0.2)'; }}
+            onMouseLeave={e => { e.target.style.background = 'rgba(16,185,129,0.1)'; }}
+          >Browse Vacancies</button>
         </div>
 
         <div className="lp-nav-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

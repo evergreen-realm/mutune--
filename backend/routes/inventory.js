@@ -16,9 +16,16 @@ const validate = (req, res) => {
 };
 
 /**
- * GET /api/v1/inventory/auctionable
- * Returns all inventory items across all properties flagged as auctionable with status pending.
- * Admin/accountant only.
+ * @openapi
+ * /inventory/auctionable:
+ *   get:
+ *     summary: List all auctionable items across properties
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of auctionable inventory items
  */
 router.get('/auctionable', requireAuth, requireRole(['admin', 'super_admin', 'accountant']), async (req, res, next) => {
   try {
@@ -26,7 +33,6 @@ router.get('/auctionable', requireAuth, requireRole(['admin', 'super_admin', 'ac
       { 'inventory': { $elemMatch: { auctionable_marked_at: { $exists: true }, auction_status: 'pending' } } }
     ).lean();
 
-    // Flatten into a list of inventory items with parent property context
     const items = [];
     for (const prop of properties) {
       for (const item of prop.inventory || []) {
@@ -56,9 +62,36 @@ router.get('/auctionable', requireAuth, requireRole(['admin', 'super_admin', 'ac
 });
 
 /**
- * POST /api/v1/inventory/:propertyId/mark-auctionable
- * Flag a specific inventory item within a property as auctionable.
- * Body: { item_id, reason }
+ * @openapi
+ * /inventory/{propertyId}/mark-auctionable:
+ *   post:
+ *     summary: Flag a property inventory item as auctionable
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - item_id
+ *               - reason
+ *             properties:
+ *               item_id:
+ *                 type: string
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Item marked auctionable
  */
 router.post('/:propertyId/mark-auctionable',
   requireAuth,
@@ -97,9 +130,39 @@ router.post('/:propertyId/mark-auctionable',
 );
 
 /**
- * POST /api/v1/inventory/:propertyId/auction-sold
- * Record the auction sale of an inventory item.
- * Body: { item_id, buyer, sale_amount }
+ * @openapi
+ * /inventory/{propertyId}/auction-sold:
+ *   post:
+ *     summary: Record auction sale of an item
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - item_id
+ *               - buyer
+ *               - sale_amount
+ *             properties:
+ *               item_id:
+ *                 type: string
+ *               buyer:
+ *                 type: string
+ *               sale_amount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Auction sale recorded
  */
 router.post('/:propertyId/auction-sold',
   requireAuth,
@@ -148,9 +211,16 @@ router.post('/:propertyId/auction-sold',
 );
 
 /**
- * GET /api/v1/inventory/auction-report
- * Returns a CSV-formatted list of all sold auction items (KRA-compliant).
- * Admin/accountant only.
+ * @openapi
+ * /inventory/auction-report:
+ *   get:
+ *     summary: Export auction sales report CSV
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV download of auction sales
  */
 router.get('/auction-report', requireAuth, requireRole(['admin', 'super_admin', 'accountant']), async (req, res, next) => {
   try {
@@ -189,8 +259,16 @@ router.get('/auction-report', requireAuth, requireRole(['admin', 'super_admin', 
 });
 
 /**
- * GET /api/v1/inventory/all
- * Returns full inventory for all properties (admin view).
+ * @openapi
+ * /inventory/all:
+ *   get:
+ *     summary: Get all inventory items across all properties
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of property inventories
  */
 router.get('/all', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
   try {
@@ -213,8 +291,22 @@ router.get('/all', requireAuth, requireRole(['admin', 'super_admin']), async (re
 });
 
 /**
- * POST /api/v1/inventory/:propertyId/reclaim
- * Reclaim a flagged inventory item linking a payment receipt.
+ * @openapi
+ * /inventory/{propertyId}/reclaim:
+ *   post:
+ *     summary: Reclaim a flagged inventory item linking a payment receipt
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Item reclaimed successfully
  */
 router.post('/:propertyId/reclaim',
   requireAuth,
@@ -282,10 +374,22 @@ router.post('/:propertyId/reclaim',
 );
 
 /**
- * POST /api/v1/inventory/:propertyId/add-item
- * Add a new inventory item to a specific property.
- * Body: { name, description, condition, estimated_value_kes }
- * Admin/agent/landlord.
+ * @openapi
+ * /inventory/{propertyId}/add-item:
+ *   post:
+ *     summary: Add an inventory item to a property
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: Inventory item added
  */
 router.post('/:propertyId/add-item',
   requireAuth,
@@ -339,9 +443,27 @@ router.post('/:propertyId/add-item',
 );
 
 /**
- * DELETE /api/v1/inventory/:propertyId/items/:itemId
- * Remove (soft-delete) an inventory item from a property.
- * Admin only.
+ * @openapi
+ * /inventory/{propertyId}/items/{itemId}:
+ *   delete:
+ *     summary: Remove an inventory item from a property
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: propertyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Inventory item deleted
  */
 router.delete('/:propertyId/items/:itemId',
   requireAuth,

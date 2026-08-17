@@ -39,14 +39,14 @@ jobs:
         run: npm run lint
 
       - name: Run tests with coverage
-        run: npm test -- --forceExit --coverage
+        run: npm test -- --forceExit --coverage --coverageThreshold='{"global":{"lines":60,"branches":25,"functions":35,"statements":60}}'
         env:
           NODE_ENV: test
           # Secrets injected from GitHub → Settings → Secrets
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           MPESA_CONSUMER_KEY: ${{ secrets.MPESA_CONSUMER_KEY }}
           MPESA_CONSUMER_SECRET: ${{ secrets.MPESA_CONSUMER_SECRET }}
-          AFRICAS_TALKING_API_KEY: ${{ secrets.AFRICAS_TALKING_API_KEY }}
+          AT_API_KEY: ${{ secrets.AT_API_KEY }}
 
       - name: Upload coverage report
         if: always()
@@ -92,6 +92,46 @@ jobs:
           name: frontend-dist
           path: frontend/dist/
           retention-days: 3
+
+  # ── Playwright E2E (frontend) ─────────────────────────────────────────────────
+  playwright-e2e:
+    name: Playwright E2E
+    needs: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          VITE_API_URL: http://localhost:3000/api/v1
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
 
   # ── Security audit ────────────────────────────────────────────────────────────
   audit:

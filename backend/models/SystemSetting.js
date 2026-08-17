@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 
 const systemSettingSchema = new mongoose.Schema({
-  key: { type: String, required: true, unique: true }, // e.g. 'customer_care'
-  value: { type: String, required: true },
+  key: { type: String, required: true, unique: true },
+  value: { type: mongoose.Schema.Types.Mixed, required: true },
   description: String,
+  updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updated_at: { type: Date, default: Date.now }
 });
 

@@ -71,7 +71,7 @@ export default function Modal({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <>
           {/* Overlay */}
           <motion.div
             key="modal-overlay"
@@ -80,36 +80,40 @@ export default function Modal({
             animate="visible"
             exit="hidden"
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={onClose}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
             aria-hidden="true"
           />
 
-          {/* Panel */}
-          <motion.div
-            key="modal-panel"
-            ref={panelRef}
-            variants={panelVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            role="dialog"
-            aria-modal="true"
-            tabIndex={-1}
-            className={[
-              'relative w-full bg-white rounded-2xl shadow-2xl shadow-gray-900/10',
-              'border border-gray-100',
-              'max-h-[85vh] overflow-hidden flex flex-col',
-              'focus:outline-none',
-              sizeClasses[size],
-              className,
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {children}
-          </motion.div>
-        </div>
+          <div className="fixed inset-0 z-[101] overflow-y-auto p-4 sm:p-6" onClick={onClose}>
+            <div className="min-h-full flex items-center justify-center">
+              {/* Panel */}
+              <motion.div
+                key="modal-panel"
+                ref={panelRef}
+                variants={panelVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                role="dialog"
+                aria-modal="true"
+                tabIndex={-1}
+                onClick={(e) => e.stopPropagation()}
+                className={[
+                  'relative w-full bg-white rounded-2xl shadow-2xl shadow-gray-900/10',
+                  'border border-gray-100',
+                  'flex flex-col',
+                  'focus:outline-none',
+                  sizeClasses[size],
+                  className,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {children}
+              </motion.div>
+            </div>
+          </div>
+        </>
       )}
     </AnimatePresence>
   );
@@ -149,7 +153,7 @@ ModalHeader.displayName = 'Modal.Header';
 
 function ModalBody({ className = '', children }) {
   return (
-    <div className={`px-6 py-4 overflow-y-auto flex-1 scrollbar-thin ${className}`}>
+    <div className={`px-6 py-4 flex-1 ${className}`}>
       {children}
     </div>
   );

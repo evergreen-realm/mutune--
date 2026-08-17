@@ -4,6 +4,7 @@ const { body, param, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/rbac');
 const logger = require('../utils/logger');
+const { paginate } = require('../utils/paginate');
 
 const MaintenanceTicket = require('../models/MaintenanceTicket');
 const Tenant = require('../models/Tenant');
@@ -20,7 +21,24 @@ const validate = (req, res) => {
   return true;
 };
 
-// ─── POST /maintenance ────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /maintenance:
+ *   post:
+ *     summary: Create a maintenance request ticket
+ *     tags: [Maintenance]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/MaintenanceTicket'
+ *     responses:
+ *       201:
+ *         description: Ticket created successfully
+ */
 router.post('/',
   requireAuth,
   requirePermission('create:maintenance'),
@@ -39,6 +57,13 @@ router.post('/',
       if (!validate(req, res)) return;
 
       const { property_id, unit_id, category, priority = 'medium', description, photos = [] } = req.body;
+
+      if (req.user.role === 'caretaker') {
+        const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
+        if (!assigned.includes(property_id.toString())) {
+          return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Cannot create ticket for unassigned property' } });
+        }
+      }
 
       const count = await MaintenanceTicket.countDocuments();
       const ticketCode = `MT-${Date.now().toString(36).toUpperCase()}-${String(count + 1).padStart(3, '0')}`;
@@ -71,7 +96,18 @@ router.post('/',
   }
 );
 
-// ─── GET /maintenance/my-tickets ─────────────────────────────────────────────
+/**
+ * @openapi
+ * /maintenance/my-tickets:
+ *   get:
+ *     summary: Fetch maintenance tickets for logged-in tenant
+ *     tags: [Maintenance]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of tenant maintenance tickets
+ */
 router.get('/my-tickets',
   requireAuth,
   requirePermission('view:maintenance'),
@@ -89,24 +125,54 @@ router.get('/my-tickets',
   }
 );
 
-// ─── GET /maintenance — admin/agent view ─────────────────────────────────────
+/**
+ * @openapi
+ * /maintenance:
+ *   get:
+ *     summary: List maintenance tickets with role-based filtering and pagination
+ *     tags: [Maintenance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: priority
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Paginated list of maintenance tickets
+ */
 router.get('/',
   requireAuth,
   requirePermission('view:maintenance'),
   async (req, res, next) => {
     try {
       const { page = 1, limit = 20, status, priority, property_id } = req.query;
-      const skip = (Number(page) - 1) * Number(limit);
       const filter = {};
 
-      // Agents only see tickets for their assigned properties
-      if (req.user.role === 'agent') {
+      if (req.user.role === 'caretaker') {
+        const assigned = req.user.assigned_properties || req.user.assigned_property_ids || [];
+        filter.property_id = { $in: assigned };
+      } else if (req.user.role === 'agent') {
         filter.property_id = { $in: req.user.assigned_property_ids || [] };
       } else if (req.user.role === 'tenant') {
         const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
         filter.tenant_id = tenant ? tenant._id : new (require('mongoose')).Types.ObjectId();
       } else if (req.user.role === 'landlord') {
-        const Property = require('../models/Property');
         const ownedProps = await Property.find({ landlord_id: req.user._id }).select('_id').lean();
         filter.property_id = { $in: ownedProps.map(p => p._id) };
       }
@@ -114,13 +180,19 @@ router.get('/',
       if (status) filter.status = status;
       if (priority) filter.priority = priority;
       if (property_id) {
-        if (req.user.role === 'agent') {
+        if (req.user.role === 'caretaker') {
+          const isAssigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).some(id => id.toString() === property_id);
+          if (!isAssigned) {
+            return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not in caretaker assignments' } });
+          }
+          filter.property_id = property_id;
+        } else if (req.user.role === 'agent') {
           const isAssigned = (req.user.assigned_property_ids || []).some(id => id.toString() === property_id);
           if (!isAssigned) {
             return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not assigned' } });
           }
+          filter.property_id = property_id;
         } else if (req.user.role === 'landlord') {
-          const Property = require('../models/Property');
           const isOwned = await Property.exists({ _id: property_id, landlord_id: req.user._id });
           if (!isOwned) {
             return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not owned' } });
@@ -129,29 +201,41 @@ router.get('/',
         filter.property_id = property_id;
       }
 
-      const [tickets, total] = await Promise.all([
-        MaintenanceTicket.find(filter)
-          .populate('tenant_id', 'full_name phone')
-          .populate('property_id', 'name property_code')
-          .sort({ priority: 1, created_at: -1 }) // emergency first
-          .skip(skip)
-          .limit(Number(limit))
-          .lean(),
-        MaintenanceTicket.countDocuments(filter)
-      ]);
-
-      res.json({
-        success: true,
-        data: tickets,
-        pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) }
+      const result = await paginate(MaintenanceTicket, filter, {
+        page,
+        limit,
+        sort: { priority: 1, created_at: -1 },
+        populate: [
+          { path: 'tenant_id', select: 'full_name phone' },
+          { path: 'property_id', select: 'name property_code' }
+        ]
       });
+
+      res.json({ success: true, ...result });
     } catch (error) {
       next(error);
     }
   }
 );
 
-// ─── PATCH /maintenance/:id ───────────────────────────────────────────────────
+/**
+ * @openapi
+ * /maintenance/{id}:
+ *   patch:
+ *     summary: Update maintenance ticket status or details
+ *     tags: [Maintenance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ticket updated successfully
+ */
 router.patch('/:id',
   requireAuth,
   requirePermission('view:maintenance'),
@@ -202,7 +286,24 @@ router.patch('/:id',
   }
 );
 
-// ─── DELETE /maintenance/:id — only open tickets by original tenant ───────────
+/**
+ * @openapi
+ * /maintenance/{id}:
+ *   delete:
+ *     summary: Cancel or delete maintenance ticket
+ *     tags: [Maintenance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ticket deleted
+ */
 router.delete('/:id',
   requireAuth,
   [param('id').isMongoId()],

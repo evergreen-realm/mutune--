@@ -65,12 +65,26 @@ function validateMagicBytes(buffer, mimeType) {
 }
 
 /**
- * POST /api/v1/upload/doc
- * Upload a verification document (PDF / image) to Cloudflare R2.
- * Returns the public URL of the uploaded file.
- *
- * Body: multipart/form-data — field name: "file"
- * Auth: any authenticated user
+ * @openapi
+ * /upload/doc:
+ *   post:
+ *     summary: Upload a verification document or image to Cloudflare R2
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Document uploaded successfully
  */
 router.post(
   '/doc',
@@ -136,9 +150,26 @@ router.post(
 );
 
 /**
- * POST /api/v1/upload/enhance
- * Upload a property/unit image, programmatically enhance it via sharp.js (level/sharpen/denoise),
- * upload it to R2 as optimized WebP, and return the enhanced URL.
+ * @openapi
+ * /upload/enhance:
+ *   post:
+ *     summary: Upload and programmatically enhance image with Sharp
+ *     tags: [Upload]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Enhanced image uploaded to R2
  */
 router.post(
   '/enhance',

@@ -59,7 +59,6 @@ const tenantSchema = new mongoose.Schema({
 tenantSchema.index({ phone_bindex: 1 }, { sparse: true });
 tenantSchema.index({ email: 1 }, { sparse: true });
 tenantSchema.index({ id_number_bindex: 1 }, { sparse: true });
-tenantSchema.index({ user_id: 1 }, { sparse: true });
 tenantSchema.index({ current_unit_id: 1 });
 tenantSchema.index({ current_property_id: 1 });
 tenantSchema.index({ tenancy_status: 1 });

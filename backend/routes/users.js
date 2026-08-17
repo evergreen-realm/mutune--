@@ -12,6 +12,18 @@ const { getAdminPassword, escapeRegExp } = require('../utils/security');
 // Debug endpoints removed for production security (R5 A05)
 
 const usersController = require('../controllers/usersController');
+const rateLimit = require('express-rate-limit');
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => res.status(429).json({
+    success: false,
+    error: { code: 'AUTH_RATE_LIMIT', message: 'Too many authentication attempts. Try again later.' }
+  })
+});
 
 const validate = (req, res) => {
   const errors = validationResult(req);
@@ -22,7 +34,18 @@ const validate = (req, res) => {
   return true;
 };
 
-// ─── GET /users/me ────────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /users/me:
+ *   get:
+ *     summary: Retrieve currently authenticated user profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user profile
+ */
 router.get('/me', requireAuth, usersController.getUserMe);
 
 // ─── PUT /users/me/profile-picture ───────────────────────────────────────────
@@ -39,8 +62,36 @@ router.put('/me/profile-picture',
 // prompt existing tenants to use their tenant code instead of re-registering).
 router.get('/check-tenant-email/:email', requireAuth, usersController.checkTenantEmail);
 
-// ─── PATCH /users/me/role ─────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /users/me/role:
+ *   patch:
+ *     summary: Update user role during onboarding
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [agent, admin, landlord, tenant]
+ *               phone:
+ *                 type: string
+ *               earb_license:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Role and onboarding profile updated
+ */
 router.patch('/me/role',
+  authLimiter,
   requireAuth,
   [
     body('role').isIn(['agent', 'admin', 'landlord', 'tenant']).withMessage('Invalid role'),
@@ -468,6 +519,7 @@ router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (
 // ─── POST /users/sync-clerk ───────────────────────────────────────────────────
 // Called after Clerk webhook to upsert user record
 router.post('/sync-clerk',
+  authLimiter,
   verifyClerkToken,
   [
     body('email').optional().isEmail().normalizeEmail().withMessage('Must be a valid email address'),
@@ -585,12 +637,12 @@ router.post('/webhook', async (req, res, next) => {
     const secret = process.env.CLERK_WEBHOOK_SECRET;
     if (secret && req.headers['x-webhook-secret'] !== secret) {
       logger.warn('Clerk webhook unauthorized check failed');
-      return res.status(401).json({ success: false, message: 'Unauthorized webhook request' });
+      return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized webhook request' } });
     }
 
     const { data, type } = req.body;
     if (!data || !type) {
-      return res.status(400).json({ success: false, message: 'Invalid webhook payload' });
+      return res.status(400).json({ success: false, error: { code: 'INVALID_PAYLOAD', message: 'Invalid webhook payload' } });
     }
 
     const clerk_id = data.id;

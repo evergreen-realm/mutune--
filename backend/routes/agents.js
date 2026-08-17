@@ -24,9 +24,40 @@ function getDistanceMetres(lat1, lng1, lat2, lng2) {
 }
 
 /**
- * POST /api/v1/agents/checkin
- * Geo-verify an agent is physically at a property (within 200m).
- * Records the agent's last known location on their User document.
+ * @openapi
+ * /agents/checkin:
+ *   post:
+ *     summary: Geo-verify agent is physically at a property (within 200m geofence)
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - property_id
+ *               - location
+ *               - photo_url
+ *             properties:
+ *               property_id:
+ *                 type: string
+ *               location:
+ *                 type: object
+ *                 properties:
+ *                   coordinates:
+ *                     type: array
+ *                     items:
+ *                       type: number
+ *                   accuracy:
+ *                     type: number
+ *               photo_url:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Check-in verified
  */
 router.post('/checkin',
   requireAuth,
@@ -124,8 +155,16 @@ router.post('/checkin',
 );
 
 /**
- * GET /api/v1/agents/location
- * Returns the authenticated agent's last recorded location.
+ * @openapi
+ * /agents/location:
+ *   get:
+ *     summary: Get authenticated agent's last recorded location
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Agent last known GPS coordinates
  */
 router.get('/location', requireAuth, async (req, res, next) => {
   try {
@@ -143,8 +182,16 @@ router.get('/location', requireAuth, async (req, res, next) => {
 });
 
 /**
- * GET /api/v1/agents/all-locations
- * Returns last known locations for all active agents (admin only).
+ * @openapi
+ * /agents/all-locations:
+ *   get:
+ *     summary: Get all active agents' real-time locations (Admin only)
+ *     tags: [Agents]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Array of agents with current locations
  */
 router.get('/all-locations', requireAuth, async (req, res, next) => {
   try {

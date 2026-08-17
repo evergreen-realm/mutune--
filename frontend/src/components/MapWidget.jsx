@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Search, MapPin, Box, X, Maximize2, Minimize2, Globe } from 'lucide-react';
+import { Search, MapPin, Box, X, Maximize2, Minimize2, Globe, AlertTriangle } from 'lucide-react';
 import { fetchUnitGeoJSON } from '../lib/api';
 import { Suspense, lazy } from 'react';
 import * as THREE from 'three';
@@ -29,6 +29,9 @@ function checkDeviceCapabilities() {
 }
 
 // Set Mapbox Access Token — requires VITE_MAPBOX_TOKEN env var
+// IMPORTANT: This token MUST be domain-restricted in Mapbox Dashboard → Account → Tokens
+// Allowed URLs: https://mutune-alpha.vercel.app, https://*.mutunerent*.vercel.app
+// See SETUP_INSTRUCTIONS.md § 1 for details
 const rawToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 if (!rawToken || !rawToken.startsWith('pk.')) {
   console.error(
@@ -1643,6 +1646,13 @@ export default function MapWidget({
                   {(selectedProperty?.splat_model_url || selectedProperty?.splatUrl || selectedProperty?.assets?.some(a => a.type === 'splat')) ? 'View 3D Scan' : 'View 3D Model'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {(!rawToken || !rawToken.startsWith('pk.')) && (
+            <div className="absolute top-14 left-4 right-4 z-[900] bg-amber-500/20 border border-amber-500/40 text-amber-300 px-3 py-2 rounded-xl text-xs flex items-center gap-2 backdrop-blur-md">
+              <AlertTriangle size={14} className="flex-shrink-0 text-amber-400" />
+              <span>Mapbox access token not configured. Spatial coordinates defaulting to regional fallback mode.</span>
             </div>
           )}
 

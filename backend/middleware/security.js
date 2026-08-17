@@ -1,7 +1,12 @@
 const ipRangeCheck = require('ip-range-check');
 const logger = require('../utils/logger');
 
-const SAFARICOM_IPS = ['196.201.214.0/24', '196.201.215.0/24'];
+const SAFARICOM_IPS = [
+  '196.201.214.0/24',
+  '196.201.215.0/24',
+  '196.201.212.0/22',
+  '41.215.160.0/20'
+];
 
 const requireSafaricomIP = (req, res, next) => {
   if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {

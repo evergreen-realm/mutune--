@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { fetchProperties, fetchTenants, fetchPayments, updateTenant } from '../lib/api';
@@ -59,24 +60,47 @@ export default function LandlordDashboardPage() {
   const { user: clerkUser } = useUser();
   const { theme } = useThemeStore();
   const isLight = theme === 'light';
+  const queryClient = useQueryClient();
 
-  const [properties, setProperties] = useState([]);
-  const [tenants, setTenants]       = useState([]);
-  const [payments, setPayments]     = useState([]);
-  const [loading, setLoading]       = useState(true);
   const [activePropIndex, setActivePropIndex] = useState(0);
   const [approvingLeaseId, setApprovingLeaseId] = useState(null);
-
-  // Property Card Hover state
   const [hoveredPropertyId, setHoveredPropertyId] = useState(null);
 
-  // Recharts analytic data for financial insights dynamically aggregated from live payments
+  const { data: properties = [], isLoading: propsLoading } = useQuery({
+    queryKey: ['landlordProperties'],
+    queryFn: async () => {
+      const res = await fetchProperties();
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
+    queryKey: ['landlordTenants'],
+    queryFn: async () => {
+      const res = await fetchTenants();
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
+    queryKey: ['landlordPayments'],
+    queryFn: async () => {
+      const res = await fetchPayments({ limit: 100 });
+      return Array.isArray(res?.data) ? res.data : [];
+    }
+  });
+
+  const loading = propsLoading || tenantsLoading || paymentsLoading;
+  const load = () => {
+    queryClient.invalidateQueries({ queryKey: ['landlordProperties'] });
+    queryClient.invalidateQueries({ queryKey: ['landlordTenants'] });
+    queryClient.invalidateQueries({ queryKey: ['landlordPayments'] });
+  };
+
   const financialData = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const result = [];
     const now = new Date();
-    
-    // Generate the last 6 months buckets
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       result.push({
@@ -86,8 +110,6 @@ export default function LandlordDashboardPage() {
         revenue: 0
       });
     }
-
-    // Accumulate confirmed payments for the landlord's properties
     const propIds = properties.map(p => p._id);
     payments.forEach(p => {
       if (p.status !== 'confirmed') return;
@@ -98,27 +120,8 @@ export default function LandlordDashboardPage() {
         match.revenue += Number(p.amount_kes || 0);
       }
     });
-
     return result.map(({ name, revenue }) => ({ name, revenue }));
   }, [payments, properties]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [p, t, pay] = await Promise.allSettled([
-        fetchProperties(),
-        fetchTenants(),
-        fetchPayments({ limit: 100 })
-      ]);
-      if (p.status === 'fulfilled') setProperties(Array.isArray(p.value?.data) ? p.value.data : []);
-      if (t.status === 'fulfilled') setTenants(Array.isArray(t.value?.data) ? t.value.data : []);
-      if (pay.status === 'fulfilled') setPayments(Array.isArray(pay.value?.data) ? pay.value.data : []);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   // GSAP entrance animation triggers on mount
   useEffect(() => {

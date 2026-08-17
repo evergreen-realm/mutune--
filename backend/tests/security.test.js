@@ -22,7 +22,7 @@ describe('Security & Data Privacy Unit Tests', () => {
 
   it('should verify Svix webhook signatures cleanly', () => {
     const { Webhook } = require('svix');
-    const secret = '***REDACTED***';
+    const secret = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2gAqNLm';
     const wh = new Webhook(secret);
     const payload = JSON.stringify({ type: 'user.created', data: { id: 'clerk_test' } });
     

@@ -111,10 +111,31 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VITE_API_URL: https://mutunerent-api.onrender.com/api/v1
-          VITE_CLERK_PUBLISHABLE_KEY: pk_test_Y29zbWljLWtvYWxhLTgwLmNsZXJrLmFjY291bnRzLmRldiQ
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
       # Deploy prebuilt output — no remote build, no dashboard env var override
       - name: Deploy prebuilt to Vercel
         run: vercel deploy --prebuilt --prod --yes --no-wait --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  # ── Post-deploy health verification ────────────────────────────────────────
+  verify-health:
+    name: Post-deploy health check
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Render cold start
+        run: sleep 30
+
+      - name: Verify backend health
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" https://mutunerent-api.onrender.com/api/v1/health)
+          if [ "$status" != "200" ]; then echo "Health check failed: $status"; exit 1; fi
+          echo "Backend health check passed (HTTP $status)"
+
+      - name: Verify Swagger docs
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" https://mutunerent-api.onrender.com/api/docs)
+          if [ "$status" != "200" ] && [ "$status" != "301" ]; then echo "Swagger docs failed: $status"; exit 1; fi
+          echo "Swagger docs accessible (HTTP $status)"

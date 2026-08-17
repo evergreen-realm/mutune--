@@ -42,12 +42,16 @@ services:
         sync: false
       - key: RESEND_FROM_EMAIL
         value: onboarding@resend.dev
-      - key: AFRICAS_TALKING_API_KEY
+      - key: AT_API_KEY
         sync: false
-      - key: AFRICAS_TALKING_USERNAME
+      - key: AT_USERNAME
         value: sandbox
-      - key: AFRICAS_TALKING_SMS_FROM
+      - key: AT_FROM
         value: MutuneRent
+      - key: AT_USSD_SHORTCODE
+        sync: false
+      - key: PLUS_CODE_REGION
+        value: KE
       - key: MPESA_CONSUMER_KEY
         sync: false
       - key: MPESA_CONSUMER_SECRET
@@ -89,6 +93,44 @@ services:
       - key: MODAL_3D_SPLAT_WEBHOOK_URL
         sync: false
       - key: MODAL_WEBHOOK_SECRET
+        sync: false
+      - key: KYANDA_API_KEY
+        sync: false
+      - key: KYANDA_API_URL
+        value: https://api.kyanda.africa/v1
+      - key: KYANDA_MERCHANT_ID
+        sync: false
+      - key: KRA_ETIMS_PIN
+        sync: false
+      - key: KRA_ETIMS_DEVICE_SERIAL
+        sync: false
+      - key: KRA_ETIMS_CLIENT_SECRET
+        sync: false
+      - key: KRA_ETIMS_BASE_URL
+        value: https://etims.kra.go.ke/etims-api/v1
+      - key: KRA_ETIMS_ENV
+        value: production
+      - key: DARAJA_CONSUMER_KEY
+        sync: false
+      - key: DARAJA_CONSUMER_SECRET
+        sync: false
+      - key: DARAJA_B2C_SHORTCODE
+        value: "600986"
+      - key: DARAJA_B2C_INITIATOR
+        value: testapi
+      - key: DARAJA_B2C_PASSWORD
+        sync: false
+      - key: DARAJA_ENV
+        value: sandbox
+      - key: INTASEND_PUBLISHABLE_KEY
+        sync: false
+      - key: INTASEND_SECRET_KEY
+        sync: false
+      - key: INTASEND_ENVIRONMENT
+        value: sandbox
+      - key: MPESA_INITIATOR_NAME
+        value: testapi
+      - key: MPESA_INITIATOR_PASSWORD
         sync: false
 
     healthCheckPath: /api/v1/health

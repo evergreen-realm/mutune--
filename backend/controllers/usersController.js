@@ -19,6 +19,15 @@ exports.getUserMe = catchAsync(async (req, res, next) => {
     .populate('assigned_property_ids', 'name property_code address')
     .lean();
 
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || 'meshachmaluki3@gmail.com').toLowerCase().trim();
+
+  // Super Admin email binding check
+  if (user && user.email && user.email.toLowerCase().trim() === superAdminEmail && user.role !== 'super_admin') {
+    logger.info('Promoting designated user to super_admin', { email: superAdminEmail, userId: user._id });
+    await User.findByIdAndUpdate(user._id, { $set: { role: 'super_admin' } });
+    user.role = 'super_admin';
+  }
+
   if (user && user.clerk_id) {
     try {
       const { clerkClient } = require('@clerk/clerk-sdk-node');

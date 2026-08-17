@@ -8,10 +8,23 @@ const Expense = require('../models/Expense');
 const logger = require('../utils/logger');
 
 /**
- * GET /api/v1/reports/kra?month=YYYY-MM
- * Generates a KRA-formatted rent reconciliation CSV.
- * Applies 5% withholding tax for commercial properties.
- * Returns: Content-Type: text/csv with download header.
+ * @openapi
+ * /reports/kra:
+ *   get:
+ *     summary: Generate KRA-formatted rent reconciliation CSV
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: month
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "2026-08"
+ *     responses:
+ *       200:
+ *         description: CSV report download
  */
 router.get('/kra',
   requireAuth,
@@ -126,8 +139,70 @@ router.get('/kra',
 );
 
 /**
- * GET /api/v1/reports/summary?month=YYYY-MM
- * JSON summary of monthly stats (for dashboard cards).
+ * @openapi
+ * /reports/kra-mri:
+ *   get:
+ *     summary: Generate official KRA Monthly Rental Income (IT-MRI-01) return template CSV
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: month
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "2026-08"
+ *     responses:
+ *       200:
+ *         description: KRA IT-MRI-01 CSV return file download
+ */
+router.get('/kra-mri',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'accountant']),
+  [
+    query('month')
+      .matches(/^\d{4}-\d{2}$/)
+      .withMessage('Month must be YYYY-MM format (e.g. 2025-01)')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
+      }
+
+      const { month } = req.query;
+      const { generateITMRI01ReportCSV } = require('../services/etimsTax');
+      const csvContent = await generateITMRI01ReportCSV(month);
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="KRA_IT-MRI-01_Return_${month}.csv"`);
+      res.send('\uFEFF' + csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /reports/summary:
+ *   get:
+ *     summary: Summary of monthly collection and performance metrics
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: month
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "2026-08"
+ *     responses:
+ *       200:
+ *         description: Monthly financial performance statistics
  */
 router.get('/summary',
   requireAuth,
@@ -189,10 +264,23 @@ router.get('/summary',
 );
 
 /**
- * GET /api/v1/reports/income-statement?month=YYYY-MM
- * Returns a structured income statement for the given month.
- * Revenue is aggregated from confirmed payments.
- * Expenses are not yet tracked — returns empty array with a note.
+ * @openapi
+ * /reports/income-statement:
+ *   get:
+ *     summary: Generate structured monthly Income Statement
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: month
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "2026-08"
+ *     responses:
+ *       200:
+ *         description: Monthly Income Statement data
  */
 router.get('/income-statement',
   requireAuth,

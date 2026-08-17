@@ -35,6 +35,9 @@ const AdminUserManagementPage = React.lazy(() => import('./pages/AdminUserManage
 const AdminInventoryPage      = React.lazy(() => import('./pages/AdminInventoryPage'));
 const TasksPage               = React.lazy(() => import('./pages/TasksPage'));
 const LandingPage             = React.lazy(() => import('./pages/LandingPage'));
+const PropertyListingsPage    = React.lazy(() => import('./pages/PropertyListingsPage'));
+const CaretakerDashboardPage  = React.lazy(() => import('./pages/CaretakerDashboardPage'));
+const PrivacyPolicyPage       = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 
 import { useThemeStore } from './store/themeStore';
 import Lenis from 'lenis';
@@ -519,14 +522,21 @@ function AppShell() {
             </RoleRoute>
           } />
           <Route path="/tenant"         element={<TenantPortalPage />} />
+          <Route path="/caretaker"      element={
+            <RoleRoute userRole={derivedRole} allow={['caretaker', 'admin', 'super_admin']}>
+              <CaretakerDashboardPage dbUser={dbUser} />
+            </RoleRoute>
+          } />
           <Route path="/dashboard"      element={
-            derivedRole === 'tenant'   ? <TenantPortalPage /> :
-            derivedRole === 'landlord' ? <LandlordDashboardPage dbUser={dbUser} /> :
-            derivedRole === 'agent'    ? <AgentPerformancePage dbUser={dbUser} /> :
+            derivedRole === 'tenant'    ? <TenantPortalPage /> :
+            derivedRole === 'caretaker' ? <CaretakerDashboardPage dbUser={dbUser} /> :
+            derivedRole === 'landlord'  ? <LandlordDashboardPage dbUser={dbUser} /> :
+            derivedRole === 'agent'     ? <AgentPerformancePage dbUser={dbUser} /> :
             (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage dbUser={dbUser} /> :
             <DashboardPage />
           } />
           <Route path="/notices"        element={<NoticesPage user={user} />} />
+          <Route path="/listings"       element={<PropertyListingsPage />} />
           <Route path="*"              element={<Navigate to="/" replace />} />
         </Routes>
         </React.Suspense>
@@ -565,9 +575,11 @@ export default function App() {
             <ErrorBoundary>
               <Routes>
                 <Route path="/landing" element={<LandingPage />} />
+                <Route path="/listings" element={<PropertyListingsPage />} />
                 <Route path="/login/*" element={<LoginPage />} />
                 <Route path="/sign-up/*" element={<SignUpPage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/*" element={
                   <>
                     <SignedIn>

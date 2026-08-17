@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -11,17 +12,24 @@ import {
   fetchMyProfile, fetchMyPayments, fetchMyNotices,
   createMaintenanceTicket, updateMaintenanceTicket, fetchMyTickets,
   fetchNotifications, markNotifRead, markAllNotifsRead,
-  fetchCustomerCareNumber, autoInitiatePayment, updateUserRole
+  fetchCustomerCareNumber, autoInitiatePayment, initiateBankPayment, updateUserRole,
+  requestLeaseSigningOTP, verifyAndSignLease, fetchLeaseSignatureStatus, generateLegalPDF,
+  purchasePrepaidToken
 } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
 import SplatViewerModal from '../components/SplatViewerModal';
 import BuildingPreview3D from '../components/BuildingPreview3D';
+import TenantRentSection from '../components/TenantRentSection';
+import TenantUtilitySection from '../components/TenantUtilitySection';
+import TenantLeaseSection from '../components/TenantLeaseSection';
+import TenantMaintenanceSection from '../components/TenantMaintenanceSection';
 import {
   Home, Wallet, Wrench, FileText, Bell, ChevronRight,
   CheckCircle2, AlertTriangle, Clock, TrendingUp, Star,
   Phone, Mail, MapPin, Calendar, CreditCard, Activity,
   ArrowUpRight, Plus, X, ZoomIn, Receipt, Edit2, Ban, Loader2, LogOut,
-  Users
+  Users, Building, Landmark, ShieldCheck, Key, FileCheck, Download,
+  Zap, Copy
 } from 'lucide-react';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -76,14 +84,15 @@ const ticketStatusColor = (s) => ({
   closed:      'bg-muted/10 text-muted border border-border'
 }[s] || 'bg-muted/10 text-muted border border-border');
 
-function RentCountdownTimer() {
+function RentCountdownTimer({ dueDay = 5 }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    const target = new Date();
-    target.setDate(1);
-    target.setMonth(target.getMonth() + 1);
-    target.setHours(0, 0, 0, 0);
+    const now = new Date();
+    let target = new Date(now.getFullYear(), now.getMonth(), dueDay);
+    if (target < now) {
+      target = new Date(now.getFullYear(), now.getMonth() + 1, dueDay);
+    }
 
     const update = () => {
       const difference = target.getTime() - Date.now();
@@ -191,34 +200,8 @@ export default function TenantPortalPage() {
   const [notifs,     setNotifs]     = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [activeTab,  setActiveTab]  = useState('overview');
-  const [timeLeft,   setTimeLeft]   = useState('00:00:00');
   const [splatViewerOpen, setSplatViewerOpen] = useState(false);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const rentDueDay = profile?.rent_due_day || 5;
-      const now = new Date();
-      let dueDate = new Date(now.getFullYear(), now.getMonth(), rentDueDay);
-      if (dueDate < now) {
-        dueDate = new Date(now.getFullYear(), now.getMonth() + 1, rentDueDay);
-      }
-      const diff = dueDate.getTime() - now.getTime();
-      if (diff <= 0) {
-        setTimeLeft('00:00:00');
-        return;
-      }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeLeft(
-        `${days.toString().padStart(2, '0')}d : ${hours.toString().padStart(2, '0')}h : ${minutes
-          .toString()
-          .padStart(2, '0')}m : ${seconds.toString().padStart(2, '0')}s`
-      );
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [profile]);
   const [notifOpen,  setNotifOpen]  = useState(false);
   const [ticketForm, setTicketForm] = useState({ open: false, editId: null, title: '', description: '', priority: 'medium', category: 'other', photos: [] });
   const [propertyCardTab, setPropertyCardTab] = useState('lease'); // 'lease' | 'property' | '3d'
@@ -231,6 +214,55 @@ export default function TenantPortalPage() {
   const [customerCare, setCustomerCare] = useState('254700000000');
   const [paying, setPaying] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+
+  // Digital Lease E-Signing State (Phase 4)
+  const [leaseSignature, setLeaseSignature] = useState(null);
+  const [signingOtp, setSigningOtp] = useState('');
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [signingLoading, setSigningLoading] = useState(false);
+
+  // KPLC Prepaid Token Vending State (Phase 6)
+  const [tokenMeter, setTokenMeter] = useState('');
+  const [tokenAmount, setTokenAmount] = useState(500);
+  const [tokenPaymentMethod, setTokenPaymentMethod] = useState('mpesa'); // 'mpesa' | 'bank'
+  const [vendedTokenResult, setVendedTokenResult] = useState(null);
+  const [buyingToken, setBuyingToken] = useState(false);
+
+  const handlePurchaseToken = async (e) => {
+    e.preventDefault();
+    if (!tokenMeter) {
+      toast.error('Please enter your KPLC Prepaid Meter number');
+      return;
+    }
+    if (!tokenAmount || tokenAmount < 50) {
+      toast.error('Minimum token purchase is KES 50');
+      return;
+    }
+
+    setBuyingToken(true);
+    const toastId = toast.loading(`Vending KPLC token for meter ${tokenMeter}...`);
+    try {
+      const res = await purchasePrepaidToken({
+        meter_number: tokenMeter.trim(),
+        amount_kes: Number(tokenAmount),
+        payment_method: tokenPaymentMethod,
+        tenant_id: profile?._id,
+        unit_id: profile?.current_unit_id,
+        property_id: profile?.current_property_id?._id
+      });
+
+      if (res?.data?.success) {
+        toast.update(toastId, { render: 'KPLC token vended successfully! ✓', type: 'success', isLoading: false, autoClose: 5000 });
+        setVendedTokenResult(res.data.data);
+      } else {
+        toast.update(toastId, { render: res?.data?.error?.message || 'Token vending failed', type: 'error', isLoading: false, autoClose: 5000 });
+      }
+    } catch (err) {
+      toast.update(toastId, { render: err?.response?.data?.error?.message || err?.message || 'Error vending token', type: 'error', isLoading: false, autoClose: 5000 });
+    } finally {
+      setBuyingToken(false);
+    }
+  };
 
   const handlePayRent = async () => {
     setPaying(true);
@@ -251,6 +283,107 @@ export default function TenantPortalPage() {
     }
   };
 
+  const handlePayBank = async () => {
+    if (!profile?._id) {
+      toast.error('Tenant profile not loaded');
+      return;
+    }
+    setPaying(true);
+    const toastId = toast.loading('Opening Multi-Bank & Card payment gateway...');
+    try {
+      const amountToPay = unitRent || rent || 10000;
+      const res = await initiateBankPayment({
+        tenant_id: profile._id,
+        amount_kes: amountToPay,
+        payment_type: 'rent'
+      });
+      if (res?.data?.data?.checkout_url) {
+        toast.update(toastId, { render: 'Redirecting to secure bank gateway...', type: 'success', isLoading: false, autoClose: 2000 });
+        window.location.href = res.data.data.checkout_url;
+      } else {
+        toast.update(toastId, { render: 'Bank checkout session created successfully', type: 'success', isLoading: false, autoClose: 4000 });
+      }
+    } catch (err) {
+      toast.update(toastId, { render: err?.response?.data?.error || err?.message || 'Bank payment gateway error', type: 'error', isLoading: false, autoClose: 5000 });
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleRequestSigningOTP = async () => {
+    if (!profile?._id) return;
+    setSigningLoading(true);
+    try {
+      const res = await requestLeaseSigningOTP(profile._id);
+      if (res?.data?.success) {
+        setOtpRequested(true);
+        toast.success(res.data.message || 'Signing OTP sent to your phone');
+      } else {
+        toast.error(res?.data?.error?.message || 'Failed to send signing OTP');
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || 'Error requesting signing OTP');
+    } finally {
+      setSigningLoading(false);
+    }
+  };
+
+  const handleVerifyAndSign = async (e) => {
+    e.preventDefault();
+    if (!signingOtp || signingOtp.length !== 6) {
+      toast.error('Please enter the 6-digit OTP received via SMS');
+      return;
+    }
+    setSigningLoading(true);
+    try {
+      const res = await verifyAndSignLease({
+        tenant_id: profile._id,
+        otp_code: signingOtp.trim()
+      });
+      if (res?.data?.success) {
+        toast.success('Lease agreement digitally signed & verified ✓');
+        setLeaseSignature(res.data.data);
+        setOtpRequested(false);
+        setSigningOtp('');
+      } else {
+        toast.error(res?.data?.error?.message || 'Signing verification failed');
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error?.message || 'Error verifying signing code');
+    } finally {
+      setSigningLoading(false);
+    }
+  };
+
+  const handleDownloadSignedLease = async () => {
+    try {
+      const response = await generateLegalPDF('lease_agreement', {
+        tenant_name: tenantName,
+        tenant_code: profile?.tenant_code,
+        tenant_phone: profile?.phone,
+        property_name: propertyName,
+        unit_number: unitNumber,
+        rent_amount_kes: unitRent,
+        deposit_amount_kes: profile?.deposit_kes || unitRent,
+        lease_duration_months: 12,
+        is_digitally_signed: true,
+        signature_hash: leaseSignature?.verification_hash || 'SHA256-MUTUNE-SECURE-LEAD-9988',
+        signed_at: leaseSignature?.signed_at || new Date().toISOString()
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Signed_Lease_${profile?.tenant_code || 'Tenancy'}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Downloaded signed lease agreement ✓');
+    } catch (err) {
+      toast.error('Failed to download signed lease');
+    }
+  };
+
   const load = useCallback(async () => {
     try {
       const [p, pay, n, t, notif, cc] = await Promise.allSettled([
@@ -262,7 +395,18 @@ export default function TenantPortalPage() {
         fetchCustomerCareNumber()
       ]);
       if (p.status === 'fulfilled') {
-        setProfile(p.value?.data || null);
+        const prof = p.value?.data || null;
+        setProfile(prof);
+        if (prof?._id) {
+          try {
+            const sigRes = await fetchLeaseSignatureStatus(prof._id);
+            if (sigRes?.data?.data?.signing_status) {
+              setLeaseSignature(sigRes.data.data);
+            }
+          } catch (sigErr) {
+            // quiet signature lookup
+          }
+        }
       } else {
         const errCode = p.reason?.error?.code;
         if (errCode && errCode !== 'NO_TENANT_PROFILE') {
@@ -581,8 +725,9 @@ export default function TenantPortalPage() {
   const tabs = [
     { key: 'overview',  label: 'Overview',   icon: <Home size={14} /> },
     { key: 'payments',  label: 'Payments',   icon: <CreditCard size={14} /> },
+    { key: 'lease',     label: 'Lease & E-Sign', icon: <FileCheck size={14} /> },
     { key: 'tickets',   label: 'Maintenance',icon: <Wrench size={14} /> },
-    { key: 'notices',   label: 'Notices',    icon: <FileText size={14} /> }
+    { key: 'notices',   label: 'Notices',    icon: <Bell size={14} /> }
   ];
 
   return (
@@ -647,9 +792,6 @@ export default function TenantPortalPage() {
                 })()}
               </span>
             </span>
-            <div className="text-lg font-black text-amber-500 font-mono tracking-widest mt-0.5">
-              {timeLeft}
-            </div>
           </div>
         </div>
 
@@ -714,7 +856,7 @@ export default function TenantPortalPage() {
 
         {/* Countdown timer card render */}
         <div className="mb-6">
-          <RentCountdownTimer />
+          <RentCountdownTimer dueDay={profile?.rent_due_day || 5} />
         </div>
 
         {/* HERO PROPERTY LEASE CARD - ZILLOW STYLE */}
@@ -1059,13 +1201,22 @@ export default function TenantPortalPage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={handlePayRent}
-                      disabled={paying}
-                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-primary hover:from-blue-500 hover:to-primary/90 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
-                    >
-                      <CreditCard size={14} /> {paying ? 'Connecting...' : 'M-Pesa pay'}
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        onClick={handlePayRent}
+                        disabled={paying}
+                        className="py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                      >
+                        <CreditCard size={14} /> {paying ? 'Connecting...' : 'M-Pesa STK'}
+                      </button>
+                      <button
+                        onClick={handlePayBank}
+                        disabled={paying}
+                        className="py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                      >
+                        <Landmark size={14} /> {paying ? 'Connecting...' : 'Bank / Card Pay'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Payment History Card */}
@@ -1221,182 +1372,43 @@ export default function TenantPortalPage() {
               </div>
             )}
 
-            {/* PAYMENTS TAB */}
+            {/* PAYMENTS & UTILITY TAB */}
             {activeTab === 'payments' && (
-              <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border pb-4 gap-4">
-                  <div>
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Statement of Accounts</h2>
-                    <p className="text-xs text-muted mt-1">Check verified transactions and receipts.</p>
-                  </div>
-                  <button
-                    onClick={handlePayRent}
-                    disabled={paying}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition tracking-wider shadow-lg shadow-emerald-950/40 uppercase active:scale-95 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Wallet size={14} /> {paying ? 'Connecting…' : 'Quick Rent Payment'}
-                  </button>
-                </div>
-
-                {payments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CreditCard size={40} className="text-slate-700 mx-auto mb-3" />
-                    <p className="text-xs text-muted">No payment statement found for this account.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {payments.map(p => {
-                      const receipt = p.mpesa_receipt || p.mpesa_code || null;
-                      const ref = p.transaction_id || null;
-                      const isMpesa = p.channel === 'mpesa_stk' || p.channel === 'mpesa_c2b';
-                      return (
-                        <div 
-                          key={p._id} 
-                          className="bg-background/40 border border-border p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-border transition duration-300"
-                        >
-                          <div className="flex items-start gap-3.5">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                              p.status === 'confirmed' ? 'bg-emerald-500/10 text-emerald-400' : p.status === 'failed' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'
-                            }`}>
-                              {p.status === 'confirmed' ? (
-                                <CheckCircle2 size={18} />
-                              ) : p.status === 'failed' ? (
-                                <X size={18} />
-                              ) : (
-                                <Clock size={18} />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-xs font-black text-foreground">{FMT_KES(p.amount_kes)}</p>
-                              {receipt && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Receipt size={10} className="text-emerald-400" />
-                                  <span className="text-xs text-emerald-400 font-mono font-bold tracking-wider">{receipt}</span>
-                                </div>
-                              )}
-                              <p className="text-xs text-muted mt-1">
-                                {isMpesa ? 'M-Pesa Auto' : (p.channel || 'Internal Collection')} · {FMT_DATE(p.created_at)}
-                                {!receipt && ref && ` · Ref: ${ref.slice(0, 14)}`}
-                              </p>
-                              <p className="text-xs text-muted font-bold uppercase tracking-wider mt-0.5">{p.payment_type || 'rent'}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-auto">
-                            <span className={`text-xs font-extrabold uppercase px-3 py-1 border rounded-full ${statusColor(p.status)}`}>
-                              {p.status}
-                            </span>
-                            {p.status === 'confirmed' && (
-                              <button
-                                onClick={() => {
-                                  const content = [
-                                    'MutuneRent Pro — Payment Receipt',
-                                    '========================================',
-                                    `Date:           ${FMT_DATE(p.created_at)}`,
-                                    `Amount:         ${FMT_KES(p.amount_kes)}`,
-                                    `M-Pesa Receipt: ${receipt || 'N/A'}`,
-                                    `Ref:            ${ref || 'N/A'}`,
-                                    `Type:           ${p.payment_type || 'Rent'}`,
-                                    `Channel:        ${p.channel || 'N/A'}`,
-                                    `Status:         CONFIRMED ✓`,
-                                    `Unit:           ${propertyName} — Unit ${unitNumber}`,
-                                    `Tenant:         ${tenantName}`,
-                                    '',
-                                    'This is an official payment receipt from Mutune Estate Agency.',
-                                    'For queries: mutunerentz@gmail.com'
-                                  ].join('\n');
-                                  const blob = new Blob([content], { type: 'text/plain' });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `MutuneRent_Receipt_${receipt || p._id?.slice(-6) || 'pay'}.txt`;
-                                  document.body.appendChild(a); a.click(); a.remove();
-                                  URL.revokeObjectURL(url);
-                                  toast.success('Receipt downloaded!');
-                                }}
-                                className="bg-surface hover:bg-background border border-border hover:border-slate-750 text-muted hover:text-foreground rounded-lg px-2.5 py-1 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                              >
-                                Download
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              <div className="space-y-6">
+                <TenantUtilitySection profile={profile} />
+                <TenantRentSection
+                  payments={payments}
+                  paying={paying}
+                  onPayRent={handlePayRent}
+                  profile={profile}
+                />
               </div>
             )}
 
             {/* MAINTENANCE TAB */}
             {activeTab === 'tickets' && (
-              <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
-                <div className="flex items-center justify-between border-b border-border pb-4">
-                  <div>
-                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Maintenance Reports</h2>
-                    <p className="text-xs text-muted mt-1">Report plumbing, electrical or structural issues.</p>
-                  </div>
-                  <button 
-                    onClick={() => setTicketForm(f => ({ ...f, open: true }))} 
-                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-                  >
-                    <Plus size={14} /> New Ticket
-                  </button>
-                </div>
+              <TenantMaintenanceSection
+                tickets={tickets}
+                setTicketForm={setTicketForm}
+                setCancelConfirmId={setCancelConfirmId}
+                ticketStatusColor={ticketStatusColor}
+                formatDate={FMT_DATE}
+              />
+            )}
 
-                {tickets.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Wrench size={40} className="text-slate-700 mx-auto mb-3" />
-                    <p className="text-xs text-muted">No active maintenance logs.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {tickets.map(t => (
-                      <div 
-                        key={t._id} 
-                        className="bg-background/40 border border-border p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:border-border transition duration-300"
-                      >
-                        <div className="space-y-2 flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-xs font-bold text-foreground truncate">{t.title}</h4>
-                            <span className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-full ${ticketStatusColor(t.status)}`}>
-                              {t.status?.replace(/_/g, ' ')}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted leading-relaxed break-words">{t.description}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
-                            <span>Priority:</span>
-                            <span className={`font-bold capitalize ${
-                              t.priority === 'urgent' ? 'text-red-400' : t.priority === 'high' ? 'text-amber-400' : 'text-muted'
-                            }`}>
-                              {t.priority}
-                            </span>
-                            <span>·</span>
-                            <span>Reported: {FMT_DATE(t.created_at)}</span>
-                          </div>
-                        </div>
-
-                        {(t.status === 'open' || t.status === 'in_progress') && (
-                          <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
-                            <button
-                              onClick={() => setTicketForm({ open: true, editId: t._id, title: t.title, description: t.description, priority: t.priority || 'medium' })}
-                              className="px-2.5 py-1 bg-surface hover:bg-background border border-border text-muted text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
-                            >
-                              <Edit2 size={10} /> Edit
-                            </button>
-                            <button
-                              onClick={() => setCancelConfirmId(t._id)}
-                              className="px-2.5 py-1 bg-red-500/10 hover:bg-red-950/40 border border-red-500/20 text-red-400 text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
-                            >
-                              <Ban size={10} /> Cancel
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            {/* LEASE AGREEMENT & DIGITAL E-SIGNING TAB */}
+            {activeTab === 'lease' && (
+              <TenantLeaseSection
+                profile={profile}
+                leaseSignature={leaseSignature}
+                setLeaseSignature={setLeaseSignature}
+                signingOtp={signingOtp}
+                setSigningOtp={setSigningOtp}
+                otpRequested={otpRequested}
+                setOtpRequested={setOtpRequested}
+                signingLoading={signingLoading}
+                setSigningLoading={setSigningLoading}
+              />
             )}
 
             {/* NOTICES TAB */}
@@ -1518,12 +1530,13 @@ export default function TenantPortalPage() {
               onClick={() => setCancelConfirmId(null)} 
               className="fixed inset-0 bg-background/80 z-[300] backdrop-blur-sm" 
             />
-             <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
-              animate={{ opacity: 1, scale: 1, y: "-50%", x: "-50%" }}
-              exit={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm z-[301] bg-surface border border-border rounded-3xl p-6 shadow-2xl text-center space-y-4 relative"
-            >
+             <div className="fixed inset-0 z-[301] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+               <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative w-full max-w-sm bg-surface border border-border rounded-3xl p-6 shadow-2xl text-center space-y-4 pointer-events-auto"
+              >
               <button 
                 onClick={() => setCancelConfirmId(null)}
                 className="absolute top-4 right-4 p-1.5 bg-background hover:bg-background border border-border rounded-lg text-muted hover:text-foreground transition cursor-pointer"
@@ -1554,6 +1567,7 @@ export default function TenantPortalPage() {
                 </button>
               </div>
             </motion.div>
+           </div>
           </>
         )}
       </AnimatePresence>
@@ -1569,12 +1583,13 @@ export default function TenantPortalPage() {
               onClick={() => setTicketForm(f => ({ ...f, open: false }))} 
               className="fixed inset-0 bg-background/80 z-[200] backdrop-blur-sm" 
             />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
-              animate={{ opacity: 1, scale: 1, y: "-50%", x: "-50%" }}
-              exit={{ opacity: 0, scale: 0.95, y: "-40%", x: "-50%" }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md z-[201] bg-surface border border-border rounded-[32px] p-6 sm:p-8 shadow-2xl space-y-6"
-            >
+            <div className="fixed inset-0 z-[201] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative w-full max-w-md bg-surface border border-border rounded-[32px] p-6 sm:p-8 shadow-2xl space-y-6 pointer-events-auto"
+              >
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h3 className="text-md font-black text-foreground">
                   {ticketForm.editId ? 'Edit Maintenance Request' : 'New Maintenance Request'}
@@ -1664,6 +1679,7 @@ export default function TenantPortalPage() {
                 </button>
               </div>
             </motion.div>
+           </div>
           </>
         )}
       </AnimatePresence>

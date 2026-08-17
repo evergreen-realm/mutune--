@@ -8,13 +8,22 @@ interface ThemeState {
   setTheme: (theme: Theme) => void;
 }
 
-const initialTheme = (localStorage.getItem('mutunerent-theme') as Theme) || 'light';
-if (initialTheme === 'dark') {
-  document.documentElement.classList.add('dark');
-  document.documentElement.classList.remove('light');
-} else {
-  document.documentElement.classList.add('light');
-  document.documentElement.classList.remove('dark');
+const getInitialTheme = (): Theme => {
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    return (localStorage.getItem('mutunerent-theme') as Theme) || 'light';
+  }
+  return 'light';
+};
+
+const initialTheme = getInitialTheme();
+if (typeof document !== 'undefined') {
+  if (initialTheme === 'dark') {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+  } else {
+    document.documentElement.classList.add('light');
+    document.documentElement.classList.remove('dark');
+  }
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({

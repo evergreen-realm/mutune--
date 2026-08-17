@@ -3,12 +3,14 @@ const logger = require('../utils/logger');
 
 class SMSService {
   constructor() {
+    if (!process.env.AT_API_KEY) throw new Error('AT_API_KEY environment variable is required');
+    if (!process.env.AT_USERNAME) throw new Error('AT_USERNAME environment variable is required');
     this.client = AfricasTalking({
-      apiKey: process.env.AFRICAS_TALKING_API_KEY || process.env.AT_API_KEY,
-      username: process.env.AFRICAS_TALKING_USERNAME || process.env.AT_USERNAME || 'sandbox'
+      apiKey: process.env.AT_API_KEY,
+      username: process.env.AT_USERNAME
     });
     this.sms = this.client.SMS;
-    this.from = process.env.AFRICAS_TALKING_SMS_FROM || process.env.AT_FROM || 'MutuneRent';
+    this.from = process.env.AT_FROM || 'MutuneRent';
   }
 
   async send(phone, message) {

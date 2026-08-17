@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   user_code:   { type: String, unique: true, required: true },
-  role:        { type: String, enum: ['super_admin', 'admin', 'agent', 'landlord', 'accountant', 'tenant'], required: false, index: true },
+  role:        { type: String, enum: ['super_admin', 'admin', 'agent', 'landlord', 'accountant', 'tenant', 'caretaker'], required: false, index: true },
   full_name:   { type: String, required: true },
   email:       { type: String, unique: true, required: true },
   phone:       String,
@@ -16,9 +16,13 @@ const userSchema = new mongoose.Schema({
   landlord_id:   { type: String, unique: true, sparse: true },
   landlord_approval_status: { type: String, enum: ['pending', 'approved', 'rejected', 'n_a'], default: 'n_a', index: true },
   landlord_verification_doc_url: String,
+  bank_name:            String,
+  bank_account_number:  String,
+  bank_code:            String,
   admin_hardcoded_hash: String,
   assigned_areas:       [String],
   assigned_property_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Property' }],
+  assigned_properties:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'Property' }],
   ai_memory_id: { type: String, unique: true, sparse: true },
   current_property_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' },
   current_unit_id:     { type: mongoose.Schema.Types.ObjectId },

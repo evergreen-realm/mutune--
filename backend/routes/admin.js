@@ -30,9 +30,16 @@ const verifyPasswordLimiter = rateLimit({
 });
 
 /**
- * GET /api/v1/admin/stats
- * Aggregated KPIs for admin dashboard: summary counts, 6-month revenue,
- * unit occupancy trend, and top-performing agents.
+ * @openapi
+ * /admin/stats:
+ *   get:
+ *     summary: Aggregated system KPIs, revenue, and occupancy analytics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Admin metrics and charts data
  */
 router.get('/stats',
   requireAuth,
@@ -798,32 +805,22 @@ router.patch('/landlords/:id/reject',
  */
 router.post('/landlords',
   requireAuth,
-  requireRole(['admin', 'super_admin']),
+  requireRole(['admin', 'super_admin', 'agent']),
   [
     body('full_name').trim().notEmpty().withMessage('Full name is required'),
-    body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
     body('phone').trim().notEmpty().withMessage('Phone is required'),
-    body('landlord_verification_doc_url').optional().trim().notEmpty().withMessage('Landlord verification document link cannot be empty'),
+    body('email').optional().isEmail().normalizeEmail().withMessage('Valid email required'),
+    body('landlord_verification_doc_url').optional(),
     body('assigned_property_ids').optional().isArray().withMessage('Assigned property IDs must be an array')
   ],
   async (req, res, next) => {
     if (!validate(req, res)) return;
     try {
-      const { full_name, email, phone, landlord_verification_doc_url, assigned_property_ids = [] } = req.body;
-
-      if (!landlord_verification_doc_url) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'MISSING_DOCUMENT',
-            message: 'Property ownership verification document is required for landlord registration.'
-          }
-        });
-      }
-      
-      const existing = await User.findOne({ email });
+      const { full_name, email, phone, landlord_verification_doc_url = 'n_a', assigned_property_ids = [] } = req.body;
+      const targetEmail = email || `${phone.replace(/\+/g, '')}@mutune.landlord`;
+      const existing = await User.findOne({ $or: [{ email: targetEmail }, { phone }] });
       if (existing) {
-        return res.status(409).json({ success: false, error: { message: 'User with this email already exists' } });
+        return res.status(409).json({ success: false, error: { message: 'User with this email or phone number already exists' } });
       }
 
       const count = await User.countDocuments({ role: 'landlord', landlord_approval_status: 'approved' });
@@ -836,7 +833,7 @@ router.post('/landlords',
         user_code: userCode,
         role: 'landlord',
         full_name,
-        email,
+        email: targetEmail,
         phone,
         landlord_id: landlordIdCode,
         landlord_approval_status: 'approved',

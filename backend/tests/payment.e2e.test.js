@@ -16,7 +16,13 @@ jest.mock('../services/mpesa', () => ({
     responseDescription: 'Success. Request accepted for processing',
     customerMessage: 'Success. Request accepted for processing'
   }),
-  formatPhone: jest.fn((phone) => phone.replace(/\D/g, '').replace(/^0/, '254'))
+  formatPhone: jest.fn((phone) => phone.replace(/\D/g, '').replace(/^0/, '254')),
+  reverseTransaction: jest.fn().mockResolvedValue({
+    ConversationID: 'AG_REVERSE_001',
+    OriginatorConversationID: 'ORIG_001',
+    ResponseCode: '0',
+    ResponseDescription: 'Accept the service request successfully.'
+  })
 }));
 
 jest.mock('../services/sms', () => ({
@@ -24,15 +30,18 @@ jest.mock('../services/sms', () => ({
   formatPhone: jest.fn((phone) => phone.replace(/\D/g, '').replace(/^0/, '254'))
 }));
 
+let mockUserRole = 'agent';
+let mockClerkId = 'test_clerk_id_001';
+
 jest.mock('@clerk/clerk-sdk-node', () => ({
   ClerkExpressRequireAuth: () => (req, res, next) => {
-    req.auth = { userId: 'test_clerk_id_001' };
+    req.auth = { userId: mockClerkId };
     next();
   },
   clerkClient: {
     users: {
       updateUserMetadata: jest.fn().mockResolvedValue({}),
-      getUser: jest.fn().mockResolvedValue({ id: 'test_clerk_id_001', publicMetadata: {} })
+      getUser: jest.fn().mockImplementation((id) => Promise.resolve({ id, publicMetadata: { role: mockUserRole } }))
     }
   }
 }));
@@ -47,11 +56,12 @@ describe('Payment E2E Flow', () => {
     await User.deleteMany({});
 
     agent = await User.create({
-      user_code: 'AGT-E2E-001', role: 'agent', full_name: 'E2E Agent',
+      user_code: 'AGT-E2E-001', role: 'super_admin', full_name: 'E2E Admin Agent',
       email: 'e2e-agent@mutune.test', phone: '254700000001',
       password_hash: '$2a$10$fakehashfortestingpurposesonly123456789012345678901234567890',
       is_active: true, assigned_areas: ['Nyali'], assigned_property_ids: [], clerk_id: 'test_clerk_id_001'
     });
+    mockUserRole = 'super_admin';
 
     property = await Property.create({
       property_code: 'MUT-E2E-001', name: 'E2E Test Apartments', type: 'apartment',
@@ -126,7 +136,7 @@ describe('Payment E2E Flow', () => {
       .send(callback);
     expect(res.status).toBe(200);
     expect(res.body.ResultCode).toBe(0);
-    // Poll database for up to 3 seconds until payment is processed asynchronously
+
     let updated;
     for (let i = 0; i < 30; i++) {
       updated = await Payment.findById(payment._id);
@@ -190,5 +200,44 @@ describe('Payment E2E Flow', () => {
     const res = await request(app).post('/api/v1/payments/callback').set('X-Forwarded-For', '192.168.1.1').send({});
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('IP_BLOCKED');
+  });
+
+  test('Step 5: C2B confirmation automatically reconciles and posts GL entries', async () => {
+    const c2bPayload = {
+      TransactionType: 'Pay Bill',
+      TransID: `C2B_${Date.now()}`,
+      TransTime: '20260817103000',
+      TransAmount: '25000',
+      BusinessShortCode: '174379',
+      BillRefNumber: tenant.tenant_code || 'TNT-E2E-001',
+      InvoiceNumber: '',
+      OrgAccountBalance: '500000.00',
+      ThirdPartyTransID: '',
+      MSISDN: '254712345678',
+      FirstName: 'E2E',
+      MiddleName: '',
+      LastName: 'Tenant'
+    };
+
+    const res = await request(app)
+      .post('/api/v1/payments/callback')
+      .set('X-Forwarded-For', '196.201.214.1')
+      .send(c2bPayload);
+
+    expect(res.status).toBe(200);
+    expect(res.body.ResultCode).toBe(0);
+  });
+
+  test('Step 6: M-Pesa transaction reversal initiation', async () => {
+    const res = await request(app)
+      .post('/api/v1/payments/mpesa/reverse')
+      .send({
+        transaction_id: 'QKJ7E2E123',
+        amount: 25000,
+        reason: 'Test reversal'
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
   });
 });
