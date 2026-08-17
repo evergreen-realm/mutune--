@@ -38,6 +38,7 @@ const LandingPage             = React.lazy(() => import('./pages/LandingPage'));
 const PropertyListingsPage    = React.lazy(() => import('./pages/PropertyListingsPage'));
 const CaretakerDashboardPage  = React.lazy(() => import('./pages/CaretakerDashboardPage'));
 const PrivacyPolicyPage       = React.lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsOfServicePage      = React.lazy(() => import('./pages/TermsOfServicePage'));
 
 import { useThemeStore } from './store/themeStore';
 import Lenis from 'lenis';
@@ -580,6 +581,7 @@ export default function App() {
                 <Route path="/sign-up/*" element={<SignUpPage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsOfServicePage />} />
                 <Route path="/*" element={
                   <>
                     <SignedIn>
