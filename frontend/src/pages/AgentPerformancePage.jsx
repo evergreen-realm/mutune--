@@ -12,7 +12,7 @@ import {
   Trophy, TrendingUp, CheckCircle2, AlertTriangle, Clock,
   Target, Wallet, Wrench, Plus, Trash2, X, Users2, BarChart3, Medal,
   ClipboardList, Check, Eye, Camera, Loader2, Sparkles, Send, ShieldCheck, UserPlus,
-  Globe, Building2, Tag, PhoneCall
+  Globe, Building2, Tag, PhoneCall, DollarSign, Receipt, Droplets, FileSpreadsheet
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { gsap } from 'gsap';
@@ -20,6 +20,8 @@ import VoxelBackground3D from '../components/VoxelBackground3D';
 import VoxelLogo3D from '../components/VoxelLogo3D';
 import CreateLandlordModal from '../components/CreateLandlordModal';
 import MoveOutInspectionModal from '../components/MoveOutInspectionModal';
+import PaperworkSuiteTab from '../components/PaperworkSuiteTab';
+import AdminUtilitiesTab from '../components/AdminUtilitiesTab';
 
 const FMT_KES = n => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 const FMT_DATE = (d) => {
@@ -644,17 +646,20 @@ export default function AgentPerformancePage({ dbUser }) {
         </div>
 
         {/* Tab Selection */}
-        <div className="flex gap-2.5 mb-6 border-b border-slate-800/40 pb-4 flex-wrap">
+        <div className="flex gap-2.5 mb-6 border-b border-slate-800/40 pb-4 overflow-x-auto max-w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-800">
           {[
             { key: 'leaderboard', label: '🏆 Leaderboard' },
             { key: 'tasks', label: `📋 Tasks (${tasks.length})` },
             { key: 'reviews', label: `🔍 Review Queue (${reviewProperties.length})` },
-            { key: 'listings', label: `🌐 Listings Manager (${agentInquiries.length})` }
+            { key: 'listings', label: `🌐 Listings Manager (${agentInquiries.length})` },
+            { key: 'salary', label: '💰 My Salary' },
+            { key: 'paperwork', label: '📄 Paperwork' },
+            { key: 'utilities', label: '💧 Utilities' },
           ].map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4.5 py-2.5 rounded-xl text-xs font-bold transition tracking-wider uppercase cursor-pointer ${
+              className={`px-4.5 py-2.5 rounded-xl text-xs font-bold transition tracking-wider uppercase cursor-pointer flex-shrink-0 whitespace-nowrap ${
                 tab === t.key
                   ? 'bg-blue-650/20 text-blue-400 border border-blue-500/35'
                   : 'bg-transparent border border-transparent text-slate-400 hover:text-white'
@@ -976,6 +981,106 @@ export default function AgentPerformancePage({ dbUser }) {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* ── SALARY & COMMISSION TAB ─────────────────────────────── */}
+            {tab === 'salary' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Salary Overview Card */}
+                <div className="cinematic-card bg-slate-900/60 dark:bg-slate-950/65 backdrop-blur-md border border-slate-800/40 rounded-3xl p-6 shadow-2xl space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/40 pb-4">
+                    <div>
+                      <span className="text-[9px] text-emerald-400 font-black uppercase tracking-widest block mb-1">
+                        Compensation & Earnings
+                      </span>
+                      <h3 className="text-white text-base font-black flex items-center gap-2">
+                        <DollarSign size={18} className="text-emerald-400" />
+                        My Monthly Commission & Payroll
+                      </h3>
+                    </div>
+                    <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-xl w-fit">
+                      Collection Tier: 8% Standard
+                    </span>
+                  </div>
+
+                  {/* 3 Metrics Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">
+                        Accrued Commission
+                      </span>
+                      <p className="text-2xl font-black text-emerald-400 font-mono">
+                        KES {(commissionEarned * 1000).toLocaleString('en-KE')}
+                      </p>
+                      <span className="text-[10px] text-slate-500 mt-1 block">Current billing period</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">
+                        Managed Properties
+                      </span>
+                      <p className="text-2xl font-black text-white font-mono">
+                        {myProperties.length}
+                      </p>
+                      <span className="text-[10px] text-slate-500 mt-1 block">Active portfolio</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">
+                        Payout Status
+                      </span>
+                      <p className="text-lg font-black text-blue-400 flex items-center gap-1.5 mt-1">
+                        <CheckCircle2 size={16} className="text-emerald-400" /> Auto-Disbursed
+                      </p>
+                      <span className="text-[10px] text-slate-500 mt-1 block">M-Pesa B2C on 28th</span>
+                    </div>
+                  </div>
+
+                  {/* Commission Breakdown Structure */}
+                  <div className="space-y-3 pt-2">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      Commission Breakdown Schedule
+                    </h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between items-center p-3 rounded-xl bg-slate-950/40 border border-slate-800/40">
+                        <div>
+                          <p className="font-bold text-white">Letting Fee (New Tenant Move-Ins)</p>
+                          <p className="text-[10px] text-slate-400">10% of 1st month rent per confirmed lease</p>
+                        </div>
+                        <span className="font-mono font-bold text-emerald-400">KES {(commissionEarned * 600).toLocaleString('en-KE')}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-xl bg-slate-950/40 border border-slate-800/40">
+                        <div>
+                          <p className="font-bold text-white">Monthly Rent Collection Management</p>
+                          <p className="text-[10px] text-slate-400">5% of confirmed on-time rent collections</p>
+                        </div>
+                        <span className="font-mono font-bold text-emerald-400">KES {(commissionEarned * 300).toLocaleString('en-KE')}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 rounded-xl bg-slate-950/40 border border-slate-800/40">
+                        <div>
+                          <p className="font-bold text-white">Lease Renewals & Tenant Retention</p>
+                          <p className="text-[10px] text-slate-400">Fixed KES 2,500 bonus per annual renewal</p>
+                        </div>
+                        <span className="font-mono font-bold text-emerald-400">KES {(commissionEarned * 100).toLocaleString('en-KE')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── LEGAL PAPERWORK TAB ──────────────────────────────────── */}
+            {tab === 'paperwork' && (
+              <div className="animate-fade-in">
+                <PaperworkSuiteTab />
+              </div>
+            )}
+
+            {/* ── WATER & UTILITIES TAB ───────────────────────────────── */}
+            {tab === 'utilities' && (
+              <div className="animate-fade-in">
+                <AdminUtilitiesTab />
               </div>
             )}
           </div>

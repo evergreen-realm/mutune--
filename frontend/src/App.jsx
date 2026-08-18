@@ -39,6 +39,7 @@ const PropertyListingsPage    = React.lazy(() => import('./pages/PropertyListing
 const CaretakerDashboardPage  = React.lazy(() => import('./pages/CaretakerDashboardPage'));
 const PrivacyPolicyPage       = React.lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsOfServicePage      = React.lazy(() => import('./pages/TermsOfServicePage'));
+const AccountantDashboardPage = React.lazy(() => import('./pages/AccountantDashboardPage'));
 
 import { useThemeStore } from './store/themeStore';
 import Lenis from 'lenis';
@@ -232,8 +233,9 @@ function AppShell() {
     if (location.pathname === '/onboarding') {
       const homeRoute =
         ['admin','super_admin'].includes(derivedRole) ? '/admin' :
-        derivedRole === 'tenant'   ? '/tenant' :
-        derivedRole === 'landlord' ? '/dashboard' :
+        derivedRole === 'tenant'     ? '/tenant' :
+        derivedRole === 'landlord'   ? '/dashboard' :
+        derivedRole === 'accountant' ? '/accountant' :
         '/dashboard';
       return <Navigate to={homeRoute} replace />;
     }
@@ -497,6 +499,7 @@ function AppShell() {
             derivedRole === 'tenant' ? <TenantPortalPage /> :
             derivedRole === 'landlord' ? <LandlordDashboardPage dbUser={dbUser} /> :
             derivedRole === 'agent' ? <AgentPerformancePage dbUser={dbUser} /> :
+            derivedRole === 'accountant' ? <AccountantDashboardPage dbUser={dbUser} /> :
             (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage dbUser={dbUser} /> :
             <DashboardPage />
           } />
@@ -533,8 +536,14 @@ function AppShell() {
             derivedRole === 'caretaker' ? <CaretakerDashboardPage dbUser={dbUser} /> :
             derivedRole === 'landlord'  ? <LandlordDashboardPage dbUser={dbUser} /> :
             derivedRole === 'agent'     ? <AgentPerformancePage dbUser={dbUser} /> :
+            derivedRole === 'accountant' ? <AccountantDashboardPage dbUser={dbUser} /> :
             (derivedRole === 'admin' || derivedRole === 'super_admin') ? <AdminDashboardPage dbUser={dbUser} /> :
             <DashboardPage />
+          } />
+          <Route path="/accountant" element={
+            <RoleRoute userRole={derivedRole} allow={['accountant', 'admin', 'super_admin']}>
+              <AccountantDashboardPage dbUser={dbUser} />
+            </RoleRoute>
           } />
           <Route path="/notices"        element={<NoticesPage user={user} />} />
           <Route path="/listings"       element={<PropertyListingsPage />} />

@@ -746,8 +746,8 @@ export default function LandingPage() {
                   position: 'absolute', inset: 0, zIndex: 0,
                 }}>
                   <img src={f.photo} alt={f.title} loading="lazy" decoding="async"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.3)' }} />
-                  <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, rgba(10,12,20,0.92) 0%, rgba(10,12,20,0.6) 100%)` }} />
+                    className="lp-panel-bg-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div className="lp-panel-bg-overlay" style={{ position: 'absolute', inset: 0 }} />
                 </div>
 
                 {/* Panel content */}
@@ -839,10 +839,10 @@ export default function LandingPage() {
               transition: 'opacity 600ms ease',
             }}>
               <img src={r.photo} alt={`${r.title} role`} loading="lazy" decoding="async"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.25)' }} />
+                className="lp-role-bg-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           ))}
-          <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(135deg, rgba(10,12,20,0.88) 0%, rgba(10,12,20,0.6) 100%)' }} />
+          <div className="lp-role-bg-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1 }} />
 
           {/* Content */}
           <div style={{
@@ -1064,17 +1064,29 @@ export default function LandingPage() {
           background-clip: text;
         }
 
+        /* Desktop: cinematic dark image treatment */
+        .lp-panel-bg-img { filter: brightness(0.35); }
+        .lp-panel-bg-overlay { background: linear-gradient(135deg, rgba(10,12,20,0.88) 0%, rgba(10,12,20,0.6) 100%); }
+        .lp-role-bg-img { filter: brightness(0.3); }
+        .lp-role-bg-overlay { background: linear-gradient(135deg, rgba(10,12,20,0.85) 0%, rgba(10,12,20,0.55) 100%); }
+
         @media (max-width: 767px) {
           .lp-nav-links, .lp-nav-actions { display: none !important; }
           .lp-hamburger { display: grid !important; }
           .lp-metrics-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .lp-panels-track { flex-direction: column !important; width: 100% !important; }
-          .lp-panel { width: 100% !important; height: auto !important; min-height: 100vh; padding: 6rem 1.5rem !important; }
-          .lp-panel-content { grid-template-columns: 1fr !important; gap: 2rem !important; padding: 0 !important; }
+          .lp-panel { width: 100% !important; height: auto !important; min-height: 100vh; padding: 6rem 1.5rem !important; opacity: 1 !important; }
+          .lp-panel-content { grid-template-columns: 1fr !important; gap: 2rem !important; padding: 0 !important; opacity: 1 !important; }
+          .lp-descent-content { opacity: 1 !important; }
           .lp-roles-grid { grid-template-columns: 1fr !important; gap: 2rem !important; }
           .lp-role-dots { display: none !important; }
           .lp-steps-grid { grid-template-columns: 1fr !important; }
           .lp-footer-grid { grid-template-columns: 1fr !important; }
+          /* Mobile: brighter images with same visual balance */
+          .lp-panel-bg-img { filter: brightness(0.55) !important; }
+          .lp-panel-bg-overlay { background: linear-gradient(to bottom, rgba(10,12,20,0.7) 0%, rgba(10,12,20,0.85) 100%) !important; }
+          .lp-role-bg-img { filter: brightness(0.5) !important; }
+          .lp-role-bg-overlay { background: linear-gradient(to bottom, rgba(10,12,20,0.65) 0%, rgba(10,12,20,0.8) 100%) !important; }
         }
 
         @media (min-width: 768px) and (max-width: 1023px) {

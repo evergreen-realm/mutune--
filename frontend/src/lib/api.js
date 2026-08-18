@@ -293,6 +293,12 @@ export const fetchETIMSSummary        = (month)           => api.get('/tax/etims
 export const downloadETIMSCSV         = (month)           => api.get('/tax/etims/export-csv', { params: { month }, responseType: 'blob' });
 export const downloadITMRI01CSV       = (month)           => api.get('/tax/etims/mri-return', { params: { month }, responseType: 'blob' });
 
+// ── Financial Reports (Phase G — Accountant Portal) ────────────────────────────
+export const fetchReportsSummary      = (month)           => api.get('/reports/summary', { params: { month } });
+export const fetchIncomeStatement     = (month)           => api.get('/reports/income-statement', { params: { month } });
+export const downloadKRACSV           = (month)           => api.get('/reports/kra', { params: { month }, responseType: 'blob' });
+export const fetchOverdueTenants      = ()                => api.get('/admin/overdue');
+
 // ── Tenant Vacation & Move-Out Damage Survey Engine (Phase 6) ──────────────────
 export const fileVacationNotice       = (data)            => api.post('/vacation/notice', data);
 export const createMoveOutInspection  = (data)            => api.post('/vacation/inspection', data);

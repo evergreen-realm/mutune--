@@ -29,7 +29,7 @@ import {
   Phone, Mail, MapPin, Calendar, CreditCard, Activity,
   ArrowUpRight, Plus, X, ZoomIn, Receipt, Edit2, Ban, Loader2, LogOut,
   Users, Building, Landmark, ShieldCheck, Key, FileCheck, Download,
-  Zap, Copy
+  Zap, Copy, Droplets
 } from 'lucide-react';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -725,6 +725,7 @@ export default function TenantPortalPage() {
   const tabs = [
     { key: 'overview',  label: 'Overview',   icon: <Home size={14} /> },
     { key: 'payments',  label: 'Payments',   icon: <CreditCard size={14} /> },
+    { key: 'utilities', label: 'Utilities',  icon: <Droplets size={14} /> },
     { key: 'lease',     label: 'Lease & E-Sign', icon: <FileCheck size={14} /> },
     { key: 'tickets',   label: 'Maintenance',icon: <Wrench size={14} /> },
     { key: 'notices',   label: 'Notices',    icon: <Bell size={14} /> }
@@ -1372,16 +1373,22 @@ export default function TenantPortalPage() {
               </div>
             )}
 
-            {/* PAYMENTS & UTILITY TAB */}
+            {/* PAYMENTS TAB */}
             {activeTab === 'payments' && (
               <div className="space-y-6">
-                <TenantUtilitySection profile={profile} />
                 <TenantRentSection
                   payments={payments}
                   paying={paying}
                   onPayRent={handlePayRent}
                   profile={profile}
                 />
+              </div>
+            )}
+
+            {/* UTILITIES TAB */}
+            {activeTab === 'utilities' && (
+              <div className="space-y-6">
+                <TenantUtilitySection profile={profile} />
               </div>
             )}
 

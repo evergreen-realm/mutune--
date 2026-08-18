@@ -438,10 +438,10 @@ export default function AdminDashboardPage({ dbUser }) {
       </div>
 
       {/* Admin Tab Navigation */}
-      <div className="flex gap-2 p-1 bg-surface border border-border rounded-xl self-start">
+      <div className="flex gap-2 p-1 bg-surface border border-border rounded-xl self-start overflow-x-auto max-w-full scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border">
         <button
           onClick={() => setAdminTab('overview')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'overview'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -452,7 +452,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => { setAdminTab('units'); setMapActiveTab('units'); }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'units'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -463,7 +463,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('agents')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'agents'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -474,7 +474,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('salary')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'salary'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -485,7 +485,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('disbursement')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'disbursement'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -496,7 +496,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('unmatched')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'unmatched'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -507,7 +507,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('paperwork')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'paperwork'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -518,7 +518,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('etims')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'etims'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -529,7 +529,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('utilities')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'utilities'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
@@ -540,7 +540,7 @@ export default function AdminDashboardPage({ dbUser }) {
         </button>
         <button
           onClick={() => setAdminTab('settings')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
             adminTab === 'settings'
               ? 'bg-primary text-white shadow-sm'
               : 'text-muted hover:text-foreground hover:bg-surface-bright'
