@@ -119,7 +119,6 @@ const propertySchema = new mongoose.Schema({
 
 propertySchema.index({ location: '2dsphere' });
 propertySchema.index({ 'units.unit_geolocation': '2dsphere' }); // Phase 4: per-unit spatial index
-propertySchema.index({ property_code: 1 });
 propertySchema.index({ landlord_id: 1 });
 propertySchema.index({ 'units.current_tenant_id': 1 });
 propertySchema.index({ status: 1 });

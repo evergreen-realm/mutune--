@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
+const JournalEntry = require('../models/JournalEntry');
 const { postJournalEntry } = require('../services/financials');
 const logger = require('../utils/logger');
 
@@ -21,6 +22,14 @@ async function processMonthlyRentAccrual(billingMonth) {
 
   for (const tenant of activeTenants) {
     if (!tenant.rent_amount_kes || tenant.rent_amount_kes <= 0) continue;
+
+    // Idempotency: verify rent has not already been accrued for this tenant in currentMonth
+    const alreadyAccrued = await JournalEntry.findOne({
+      reference_type: 'rent_accrual',
+      reference_id: tenant._id,
+      notes: { $regex: currentMonth }
+    }).lean();
+    if (alreadyAccrued) continue;
 
     const rentKes = tenant.rent_amount_kes;
 

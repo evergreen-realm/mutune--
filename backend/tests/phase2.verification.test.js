@@ -56,6 +56,23 @@ describe('Phase 2 Verification Suite', () => {
     expect(foundById).toBeTruthy();
     expect(foundById._id.toString()).toBe(tenant._id.toString());
 
+    // CRITICAL: Mismatched phone and id_number must NOT match (verifies AND logic is preserved, not corrupted to OR)
+    const mismatchedTenant = await Tenant.findOne({ phone: rawPhone, id_number: 'WRONG_ID_12345' });
+    expect(mismatchedTenant).toBeNull();
+
+    // CRITICAL: Existing $or must not be corrupted by phone filter rewrite
+    const orMismatch = await Tenant.findOne({
+      tenancy_status: 'active',
+      $or: [{ full_name: 'Unmatched Other Tenant' }],
+      phone: rawPhone
+    });
+    expect(orMismatch).toBeNull();
+
+    // Matching both phone AND correct id_number works
+    const matchedBoth = await Tenant.findOne({ phone: rawPhone, id_number: rawId });
+    expect(matchedBoth).toBeTruthy();
+    expect(matchedBoth._id.toString()).toBe(tenant._id.toString());
+
     // User id_number encryption & lean decryption
     const user = await User.create({
       user_code: 'USR-P2-001',
@@ -68,6 +85,12 @@ describe('Phase 2 Verification Suite', () => {
     const leanUser = await User.findById(user._id).lean();
     expect(leanUser.id_number).toBe('98765432');
     expect(leanUser.id_number.startsWith('enc:')).toBe(false);
+
+    // User query with both phone and id_number preserves AND logic
+    const foundUserBoth = await User.findOne({ phone: '254700112233', id_number: '98765432' });
+    expect(foundUserBoth).toBeTruthy();
+    const userMismatch = await User.findOne({ phone: '254700112233', id_number: 'WRONG_ID' });
+    expect(userMismatch).toBeNull();
   });
 
   test('2. Property assets array and MaintenanceTicket vendor fields', async () => {
@@ -192,6 +215,12 @@ describe('Phase 2 Verification Suite', () => {
 
     const updated = await Tenant.findById(tenant._id);
     expect(updated.arrears_kes).toBe(20000); // 2000 + 18000
+
+    // Calling again in the same month is idempotent
+    const res2 = await accrueRentCron.processMonthlyRentAccrual('2026-11');
+    expect(res2.success).toBe(true);
+    const updated2 = await Tenant.findById(tenant._id);
+    expect(updated2.arrears_kes).toBe(20000); // still 20000, not 38000
   });
 
   test('6. Tenant lease cleanup reads current_unit_id and vacates unit on Property', async () => {

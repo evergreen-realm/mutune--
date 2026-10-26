@@ -510,12 +510,21 @@ router.get('/',
       }
 
       if (search) {
+        const { generateBlindIndex, normalizePhone } = require('../utils/security');
+        const bindex = generateBlindIndex(search);
+        const norm = normalizePhone(search);
+        const normBindex = norm ? generateBlindIndex(norm) : null;
+        const tenantOr = [
+          { full_name: { $regex: search, $options: 'i' } },
+          { tenant_code: { $regex: search, $options: 'i' } },
+          { phone_bindex: bindex },
+          { id_number_bindex: bindex }
+        ];
+        if (normBindex && normBindex !== bindex) {
+          tenantOr.push({ phone_bindex: normBindex });
+        }
         const matchingTenants = await Tenant.find({
-          $or: [
-            { full_name: { $regex: search, $options: 'i' } },
-            { phone: { $regex: search, $options: 'i' } },
-            { tenant_code: { $regex: search, $options: 'i' } }
-          ]
+          $or: tenantOr
         }).select('_id').lean();
         const tenantIds = matchingTenants.map(t => t._id);
 

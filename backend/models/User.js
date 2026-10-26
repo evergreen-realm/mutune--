@@ -57,24 +57,80 @@ userSchema.index({ phone_bindex: 1 }, { sparse: true });
 
 function applyUserBlindIndexToFilter(filter) {
   if (!filter || typeof filter !== 'object') return;
+
+  const andClauses = [];
+
   if (filter.phone && typeof filter.phone === 'string' && !filter.phone.startsWith('enc:')) {
     const raw = filter.phone;
     const bindex = generateBlindIndex(raw);
     const norm = normalizePhone(raw);
     const normBindex = norm ? generateBlindIndex(norm) : null;
     delete filter.phone;
-    filter.$or = filter.$or || [];
-    filter.$or.push({ phone_bindex: bindex }, { phone: raw });
+    const phoneOr = [{ phone_bindex: bindex }, { phone: raw }];
     if (normBindex && normBindex !== bindex) {
-      filter.$or.push({ phone_bindex: normBindex }, { phone: norm });
+      phoneOr.push({ phone_bindex: normBindex }, { phone: norm });
     }
+    andClauses.push({ $or: phoneOr });
   }
+
   if (filter.id_number && typeof filter.id_number === 'string' && !filter.id_number.startsWith('enc:')) {
     const raw = filter.id_number;
     const bindex = generateBlindIndex(raw);
     delete filter.id_number;
-    filter.$or = filter.$or || [];
-    filter.$or.push({ id_number_bindex: bindex }, { id_number: raw });
+    andClauses.push({
+      $or: [{ id_number_bindex: bindex }, { id_number: raw }]
+    });
+  }
+
+  if (Array.isArray(filter.$or)) {
+    const updatedOr = [];
+    for (const item of filter.$or) {
+      if (item && typeof item === 'object') {
+        if (item.phone && typeof item.phone === 'string' && !item.phone.startsWith('enc:')) {
+          const raw = item.phone;
+          const bindex = generateBlindIndex(raw);
+          const norm = normalizePhone(raw);
+          const normBindex = norm ? generateBlindIndex(norm) : null;
+          const phoneOr = [{ phone_bindex: bindex }, { phone: raw }];
+          if (normBindex && normBindex !== bindex) {
+            phoneOr.push({ phone_bindex: normBindex }, { phone: norm });
+          }
+          const { phone: _, ...rest } = item;
+          if (Object.keys(rest).length === 0) {
+            updatedOr.push(...phoneOr);
+          } else {
+            updatedOr.push({ ...rest, $or: phoneOr });
+          }
+          continue;
+        }
+        if (item.id_number && typeof item.id_number === 'string' && !item.id_number.startsWith('enc:')) {
+          const raw = item.id_number;
+          const bindex = generateBlindIndex(raw);
+          const { id_number: _, ...rest } = item;
+          if (Object.keys(rest).length === 0) {
+            updatedOr.push({ id_number_bindex: bindex }, { id_number: raw });
+          } else {
+            updatedOr.push({ ...rest, $or: [{ id_number_bindex: bindex }, { id_number: raw }] });
+          }
+          continue;
+        }
+      }
+      updatedOr.push(item);
+    }
+    filter.$or = updatedOr;
+  }
+
+  if (andClauses.length > 0) {
+    if (andClauses.length === 1 && !filter.$or && !filter.$and) {
+      filter.$or = andClauses[0].$or;
+    } else {
+      filter.$and = filter.$and || [];
+      if (filter.$or) {
+        filter.$and.push({ $or: filter.$or });
+        delete filter.$or;
+      }
+      filter.$and.push(...andClauses);
+    }
   }
 }
 
@@ -106,11 +162,11 @@ userSchema.pre('validate', function (next) {
 const bcrypt = require('bcryptjs');
 
 userSchema.pre('save', async function (next) {
-  if (this.id_number && !this.id_number.startsWith('enc:')) {
+  if (this.id_number && (this.isModified('id_number') || !this._doc.id_number || !this._doc.id_number.startsWith('enc:'))) {
     this.id_number_bindex = generateBlindIndex(this.id_number);
     this.id_number = encryptPII(this.id_number);
   }
-  if (this.phone && !this.phone.startsWith('enc:')) {
+  if (this.phone && (this.isModified('phone') || !this.phone_bindex)) {
     const norm = normalizePhone(this.phone);
     this.phone_bindex = generateBlindIndex(norm || this.phone);
   }
