@@ -69,7 +69,7 @@ function OverviewTab() {
         fetchOverdueTenants().catch(() => ({ data: [] })),
       ]);
       setStats(statsRes?.data?.data || statsRes?.data || {});
-      setOverdue(Array.isArray(overdueRes?.data?.data) ? overdueRes.data.data : []);
+      setOverdue(Array.isArray(overdueRes?.data) ? overdueRes.data : (Array.isArray(overdueRes?.data?.data) ? overdueRes.data.data : []));
 
       // Build 6-month trend
       const months = [];
@@ -82,7 +82,7 @@ function OverviewTab() {
         months.map(async (m) => {
           try {
             const r = await fetchReportsSummary(m);
-            return { month: m.slice(5), revenue: r?.data?.data?.confirmedRevenue || 0 };
+            return { month: m.slice(5), revenue: r?.data?.confirmedRevenue ?? r?.data?.data?.confirmedRevenue ?? 0 };
           } catch { return { month: m.slice(5), revenue: 0 }; }
         })
       );
@@ -309,7 +309,7 @@ function FinancialReportsTab() {
     setLoading(true);
     try {
       const res = await fetchIncomeStatement(month);
-      setIncomeData(res?.data?.data || null);
+      setIncomeData(res?.data?.data || res?.data || null);
     } catch { toast.error('Failed to load income statement'); }
     finally { setLoading(false); }
   };

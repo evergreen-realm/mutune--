@@ -204,9 +204,19 @@ router.get('/property/:propertyId', async (req, res, next) => {
       });
     }
 
+    const normalizedScans = (property.scans || property.room_scans || []).map(s => ({
+      ...s,
+      status: s.status || s.splat_status,
+      splat_status: s.splat_status || s.status,
+      splat_url: s.splat_url || s.splat_model_url,
+      splat_model_url: s.splat_model_url || s.splat_url
+    }));
+
     res.json({
       success: true,
-      scans: property.scans || [],
+      data: normalizedScans,
+      scans: normalizedScans,
+      room_scans: normalizedScans,
       splat_status: property.splat_status || 'none',
       splat_model_url: property.splat_model_url || null
     });

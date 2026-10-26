@@ -109,7 +109,7 @@ export default function MaintenancePage({ dbUser }) {
       setShowAddModal(false);
     },
     onError: (err) => {
-      toast.error(err.response?.data?.error?.message || 'Failed to log ticket');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Failed to log ticket');
     }
   });
 
@@ -122,7 +122,7 @@ export default function MaintenancePage({ dbUser }) {
       setAgentNotes('');
     },
     onError: (err) => {
-      toast.error(err.response?.data?.error?.message || 'Failed to update ticket');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Failed to update ticket');
     }
   });
 
@@ -134,7 +134,7 @@ export default function MaintenancePage({ dbUser }) {
       setDeletingTicket(null);
     },
     onError: (err) => {
-      toast.error(err.response?.data?.error?.message || 'Failed to delete ticket');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Failed to delete ticket');
     }
   });
 
@@ -147,10 +147,12 @@ export default function MaintenancePage({ dbUser }) {
 
     let targetPropId = selectedPropertyId;
     let targetUnitId = selectedUnitId;
+    let targetUnitCode = '';
 
     if (isTenant) {
       targetPropId = myProfile?.current_property_id?._id || myProfile?.current_property_id;
       targetUnitId = myProfile?.current_unit_id?._id || myProfile?.current_unit_id;
+      targetUnitCode = myProfile?.unit_number || myProfile?.current_unit_id?.unit_number || targetUnitId;
       if (!targetPropId || !targetUnitId) {
         toast.error('Your tenancy profile lacks unit/property assignment. Contact administration.');
         return;
@@ -160,13 +162,18 @@ export default function MaintenancePage({ dbUser }) {
         toast.error('Property and Unit selection are required');
         return;
       }
+      const propObj = properties.find(p => p._id === targetPropId);
+      const unitObj = (propObj?.units || []).find(u => String(u._id) === String(targetUnitId));
+      targetUnitCode = unitObj?.unit_number || targetUnitId;
     }
 
     createTicketMutation.mutate({
       property_id: targetPropId,
       unit_id: targetUnitId,
+      unit_code: targetUnitCode,
       category,
       priority,
+      urgency: priority,
       description: description.trim()
     });
   };
@@ -184,6 +191,7 @@ export default function MaintenancePage({ dbUser }) {
         agent_notes: agentNotes.trim(),
         category: editCategory,
         priority: editPriority,
+        urgency: editPriority,
         description: editDescription.trim()
       }
     });

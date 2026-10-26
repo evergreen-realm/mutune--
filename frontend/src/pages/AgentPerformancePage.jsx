@@ -292,7 +292,7 @@ export default function AgentPerformancePage({ dbUser }) {
     queryKey: ['agentInquiries'],
     queryFn: async () => {
       const res = await fetchAgentInquiries();
-      return Array.isArray(res?.data?.data) ? res.data.data : [];
+      return Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : []);
     }
   });
 
@@ -353,7 +353,12 @@ export default function AgentPerformancePage({ dbUser }) {
   // Handle unit selection & automatically discover associated occupant tenant
   useEffect(() => {
     if (selectedUnitId) {
-      const match = allTenants.find(t => t.unit_id === selectedUnitId && t.tenancy_status === 'active');
+      const match = allTenants.find(t => (
+        t.current_unit_id === selectedUnitId ||
+        t.current_unit_id?._id === selectedUnitId ||
+        t.unit_id === selectedUnitId ||
+        t.unit_id?._id === selectedUnitId
+      ) && t.tenancy_status === 'active');
       setTargetTenant(match || null);
     } else {
       setTargetTenant(null);
@@ -377,7 +382,10 @@ export default function AgentPerformancePage({ dbUser }) {
       const res = await initiatePayment({
         tenant_id: targetTenant._id,
         unit_id: selectedUnitId,
+        phone: targetTenant.phone,
+        phone_number: targetTenant.phone,
         amount: Number(paymentAmount),
+        amount_kes: Number(paymentAmount),
         payment_type: 'rent'
       });
       if (res?.success) {
@@ -948,36 +956,41 @@ export default function AgentPerformancePage({ dbUser }) {
                     <div className="text-center py-8 text-slate-500 text-xs">No new inquiries received from the public website yet.</div>
                   ) : (
                     <div className="space-y-3">
-                      {agentInquiries.map((inq, i) => (
-                        <div key={i} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-white">{inq.name}</span>
-                              <span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">{inq.unit_number || 'General'}</span>
-                              <span className="text-[10px] text-slate-400">{inq.property_name}</span>
+                      {agentInquiries.map((inq, i) => {
+                        const leadName = inq.prospect_name || inq.name || 'Prospect';
+                        const leadPhone = inq.prospect_phone || inq.phone || '';
+                        const leadEmail = inq.prospect_email || inq.email || '';
+                        return (
+                          <div key={i} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white">{leadName}</span>
+                                <span className="text-[10px] text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">{inq.unit_number || 'General'}</span>
+                                <span className="text-[10px] text-slate-400">{inq.property_name}</span>
+                              </div>
+                              <p className="text-slate-300 text-[11px] leading-relaxed italic">"{inq.message || 'Interested in viewing'}"</p>
+                              <p className="text-[10px] text-slate-500">Phone: {leadPhone} {leadEmail ? `• ${leadEmail}` : ''} • Received {new Date(inq.created_at).toLocaleDateString('en-KE')}</p>
                             </div>
-                            <p className="text-slate-300 text-[11px] leading-relaxed italic">"{inq.message || 'Interested in viewing'}"</p>
-                            <p className="text-[10px] text-slate-500">Phone: {inq.phone} {inq.email ? `• ${inq.email}` : ''} • Received {new Date(inq.created_at).toLocaleDateString('en-KE')}</p>
-                          </div>
 
-                          <div className="flex items-center gap-2 self-end sm:self-auto">
-                            <a
-                              href={`tel:${inq.phone}`}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition flex items-center gap-1 shadow-md"
-                            >
-                              <PhoneCall size={11} /> Call Lead
-                            </a>
-                            <a
-                              href={`https://wa.me/${String(inq.phone).replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-[10px] font-bold transition flex items-center gap-1 shadow-md"
-                            >
-                              WhatsApp
-                            </a>
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              <a
+                                href={`tel:${leadPhone}`}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold transition flex items-center gap-1 shadow-md"
+                              >
+                                <PhoneCall size={11} /> Call Lead
+                              </a>
+                              <a
+                                href={`https://wa.me/${String(leadPhone).replace(/\D/g, '')}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-xl text-[10px] font-bold transition flex items-center gap-1 shadow-md"
+                              >
+                                WhatsApp
+                              </a>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1021,7 +1034,7 @@ export default function AgentPerformancePage({ dbUser }) {
                         Managed Properties
                       </span>
                       <p className="text-2xl font-black text-white font-mono">
-                        {myProperties.length}
+                        {assignedProperties.length}
                       </p>
                       <span className="text-[10px] text-slate-500 mt-1 block">Active portfolio</span>
                     </div>

@@ -52,7 +52,6 @@ export default function PropertyDetailPage({ dbUser }) {
   const role = dbUser?.role || clerkUser?.publicMetadata?.role || 'landlord';
   const isAdmin = ['admin', 'super_admin'].includes(role);
   const isAgent = role === 'agent';
-  const canManage = isAdmin || (isAgent && property?.agent_ids?.some(a => a.email === clerkUser?.primaryEmailAddress?.emailAddress));
 
   // Local state for unit creation form
   const [showAddUnit, setShowAddUnit] = useState(false);
@@ -76,6 +75,11 @@ export default function PropertyDetailPage({ dbUser }) {
   });
 
   const property = data?.data || null;
+  const canManage = isAdmin || (isAgent && property?.agent_ids?.some(a =>
+    a?.email === clerkUser?.primaryEmailAddress?.emailAddress ||
+    a?._id === dbUser?._id ||
+    a === dbUser?._id
+  ));
 
   // Fetch multiple room scans
   const { data: scansData } = useQuery({
@@ -84,7 +88,7 @@ export default function PropertyDetailPage({ dbUser }) {
     enabled: !!id
   });
 
-  const propertyScans = scansData?.data || [];
+  const propertyScans = scansData?.scans || scansData?.room_scans || scansData?.data || [];
 
   // Mutation to add unit
   const addUnitMutation = useMutation({
@@ -166,24 +170,29 @@ export default function PropertyDetailPage({ dbUser }) {
           const { latitude, longitude, accuracy } = pos.coords;
           const res = await agentCheckIn({
             property_id: id,
+            latitude,
+            longitude,
+            accuracy: accuracy || 10,
             location: {
               coordinates: [longitude, latitude],
-              accuracy
-            }
+              accuracy: accuracy || 10
+            },
+            photo_url: 'https://mutunerent.co.ke/assets/checkin-verified.png'
           });
           
-          if (res.success) {
+          if (res?.success) {
             setIsCheckedIn(true);
             // Expire in 30 minutes
             setCheckinExpiry(new Date(Date.now() + 30 * 60 * 1000));
+            const dist = res.distance_m ?? res.distance_meters ?? res?.data?.distance_m ?? 0;
             if (res.location_warning) {
               toast.warning(`Check-in successful with warning: ${res.location_warning} ⚠️`);
             } else {
-              toast.success(`Verified check-in! Location within ${res.distance_m}m of entrance ✓`);
+              toast.success(`Verified check-in! Location within ${dist}m of entrance ✓`);
             }
           }
         } catch (err) {
-          toast.error(err.response?.data?.error?.message || err.message || 'Check-in failed');
+          toast.error(err?.response?.data?.error?.message || err?.error?.message || err.message || 'Check-in failed');
         } finally {
           setCheckinLoading(false);
         }
@@ -563,10 +572,12 @@ export default function PropertyDetailPage({ dbUser }) {
               <div>
                 <p className="text-slate-400">GPS Coordinates</p>
                 <p className="font-mono text-slate-300">
-                  {property.location?.coordinates[1].toFixed(6)}, {property.location?.coordinates[0].toFixed(6)}
+                  {property.location?.coordinates?.length === 2
+                    ? `${Number(property.location.coordinates[1]).toFixed(6)}, ${Number(property.location.coordinates[0]).toFixed(6)}`
+                    : 'Not captured'}
                 </p>
                 {property.gps_accuracy_m && (
-                  <p className="text-slate-500 text-xs">Capture accuracy: {property.gps_accuracy_m.toFixed(1)}m</p>
+                  <p className="text-slate-500 text-xs">Capture accuracy: {Number(property.gps_accuracy_m).toFixed(1)}m</p>
                 )}
               </div>
 
@@ -608,13 +619,15 @@ export default function PropertyDetailPage({ dbUser }) {
                 // Add the multi-room scans
                 if (propertyScans.length > 0) {
                   propertyScans.forEach(scan => {
+                    const scanStatus = scan.splat_status || scan.status;
                     combinedAssets.push({
-                      id: scan._id,
-                      title: scan.room_name || 'Room Scan',
+                      id: scan._id || scan.id,
+                      title: scan.room_name || scan.title || 'Room Scan',
                       type: 'splat',
-                      splatUrl: scan.splat_url,
-                      status: scan.status === 'completed' ? 'ready' : (scan.status === 'failed' ? 'error' : 'processing'),
-                      createdAt: scan.createdAt
+                      splatUrl: scan.splat_model_url || scan.splat_url || scan.splatUrl,
+                      thumbnailUrl: scan.thumbnail_url || scan.thumbnailUrl,
+                      status: (scanStatus === 'completed' || scanStatus === 'ready') ? 'ready' : (scanStatus === 'failed' || scanStatus === 'error' ? 'error' : 'processing'),
+                      createdAt: scan.created_at || scan.createdAt || new Date().toISOString()
                     });
                   });
                 }

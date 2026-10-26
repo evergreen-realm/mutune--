@@ -2,18 +2,20 @@ const mongoose = require('mongoose');
 
 const maintenanceSchema = new mongoose.Schema({
   ticket_code:         { type: String, unique: true, required: true },
+  title:               { type: String, maxlength: 200 },
   property_id:         { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: false },
   unit_id:             { type: mongoose.Schema.Types.ObjectId, required: false },
+  unit_code:           { type: String, required: false },
   tenant_id:           { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: false },
   created_by:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   category: {
     type: String,
-    enum: ['plumbing', 'electrical', 'structural', 'security', 'appliance', 'pest_control', 'cleaning', 'other'],
+    enum: ['plumbing', 'electrical', 'structural', 'security', 'appliance', 'pest_control', 'cleaning', 'carpentry', 'general', 'painting', 'other'],
     required: true
   },
   priority: {
     type: String,
-    enum: ['low', 'medium', 'high', 'emergency'],
+    enum: ['low', 'medium', 'high', 'emergency', 'urgent'],
     default: 'medium'
   },
   description:          { type: String, required: true, maxlength: 2000 },

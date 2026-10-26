@@ -276,16 +276,17 @@ export const processAgentPayroll      = (data)            => api.post('/commissi
 
 // ── Bulk Disbursement & Auto-Reconciliation Endpoints (Phase 3) ───────────────
 export const fetchDisbursementPriority= ()                => api.get('/disbursement/priority');
-export const updateDisbursementPriority= (priority)       => api.put('/disbursement/priority', { disbursement_priority: priority });
-export const executeBulkDisbursement  = ()                => api.post('/disbursement/execute');
+export const updateDisbursementPriority= (priority)       => api.put('/disbursement/priority', Array.isArray(priority) ? { disbursement_priority: priority } : priority);
+export const executeBulkDisbursement  = (data)            => api.post('/disbursement/execute', data);
+export const executePriorityDisbursement = executeBulkDisbursement;
 export const fetchUnmatchedPayments   = ()                => api.get('/payments/unmatched');
 export const assignUnmatchedPayment   = (id, tenant_id)   => api.post(`/payments/unmatched/${id}/assign`, { tenant_id });
 
 // ── Multi-Role Paperwork & PDF Engine (Phase 4) ───────────────────────────────
-export const generateLegalPDF         = (doc_type, payload) => api.post('/paperwork/generate-pdf', { doc_type, payload }, { responseType: 'blob' });
+export const generateLegalPDF         = (doc_type, payload) => api.post('/paperwork/generate-pdf', typeof doc_type === 'object' && doc_type !== null ? doc_type : { doc_type, payload }, { responseType: 'blob' });
 export const downloadLegalPDF         = (docType, params) => api.get(`/paperwork/download/${docType}`, { params, responseType: 'blob' });
-export const requestLeaseSigningOTP   = (tenant_id)       => api.post('/paperwork/sign/request-otp', { tenant_id });
-export const verifyAndSignLease       = (data)            => api.post('/paperwork/sign/verify-and-sign', data);
+export const requestLeaseSigningOTP   = (tenant_id)       => api.post('/paperwork/sign/request-otp', typeof tenant_id === 'object' && tenant_id !== null ? tenant_id : { tenant_id });
+export const verifyAndSignLease       = (data, otp_code)  => api.post('/paperwork/sign/verify-and-sign', typeof data === 'object' && data !== null ? data : { tenant_id: data, otp_code });
 export const fetchLeaseSignatureStatus= (tenantId)        => api.get(`/paperwork/sign/status/${tenantId}`);
 
 // ── KRA eTIMS Tax Compliance Engine (Phase 5) ─────────────────────────────────
@@ -313,12 +314,30 @@ export const fetchUtilityProviders    = ()                => api.get('/utilities
 export const registerUtilityMeter     = (data)            => api.post('/utilities/meters', data);
 export const logUtilityReading        = (data)            => api.post('/utilities/readings', data);
 export const recordMeterReading       = (data)            => api.post('/utilities/readings', data);
-export const fetchCombinedInvoice     = (tenantId)        => api.get(`/utilities/invoice/${tenantId}`);
+export const recordUtilityReading     = (data)            => api.post('/utilities/readings', data);
+export const fetchCombinedInvoice     = (tenantId, billingMonth) => api.get(`/utilities/invoice/${tenantId}`, billingMonth ? { params: { billing_month: billingMonth } } : undefined);
+export const fetchCombinedUtilityInvoice = (tenantId, billingMonth) => api.get(`/utilities/invoice/${tenantId}`, billingMonth ? { params: { billing_month: billingMonth } } : undefined);
 export const purchasePrepaidToken     = (data)            => api.post('/utilities/prepaid/purchase-token', data);
-export const queryPostpaidBill        = (accountNumber, provider) => api.get(`/utilities/postpaid/bill/${accountNumber}`, { params: { provider } });
+export const queryPostpaidBill        = (accountOrObj, provider) => {
+  if (typeof accountOrObj === 'object' && accountOrObj !== null) {
+    return api.get(`/utilities/postpaid/bill/${accountOrObj.account_number}`, {
+      params: { provider: accountOrObj.provider || accountOrObj.provider_code || provider }
+    });
+  }
+  return api.get(`/utilities/postpaid/bill/${accountOrObj}`, { params: { provider } });
+};
+export const queryPostpaidElectricity = queryPostpaidBill;
 export const payPostpaidBill          = (data)            => api.post('/utilities/postpaid/pay', data);
+export const payPostpaidElectricity   = payPostpaidBill;
 export const validateWaterAccount     = (data)            => api.post('/utilities/water/validate', data);
-export const queryWaterBill           = (accountNumber, provider_id) => api.get(`/utilities/water/bill/${accountNumber}`, { params: { provider_id } });
+export const queryWaterBill           = (accountOrObj, provider_id) => {
+  if (typeof accountOrObj === 'object' && accountOrObj !== null) {
+    return api.get(`/utilities/water/bill/${accountOrObj.account_number}`, {
+      params: { provider_id: accountOrObj.provider_id || accountOrObj.provider_code || provider_id }
+    });
+  }
+  return api.get(`/utilities/water/bill/${accountOrObj}`, { params: { provider_id } });
+};
 export const payWaterBill             = (data)            => api.post('/utilities/water/pay', data);
 export const fetchWaterAnalytics      = (propertyId, months = 6) => api.get(`/utilities/water/analytics/${propertyId}`, { params: { months } });
 export const bulkImportReadings       = (readings)        => api.post('/utilities/readings/bulk', { readings });

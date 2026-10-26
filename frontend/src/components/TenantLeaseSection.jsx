@@ -21,12 +21,13 @@ export default function TenantLeaseSection({
         tenant_id: profile?._id,
         phone_number: profile?.phone
       });
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         setOtpRequested(true);
-        toast.success(`6-Digit OTP sent to ${res.data.phone_masked || profile?.phone} ✓`);
+        const masked = res?.phone_masked || res?.data?.phone_masked || profile?.phone;
+        toast.success(res?.message || `6-Digit OTP sent to ${masked} ✓`);
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || 'Failed to dispatch OTP');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Failed to dispatch OTP');
     } finally {
       setSigningLoading(false);
     }
@@ -46,12 +47,12 @@ export default function TenantLeaseSection({
         otp_code: signingOtp.trim(),
         agreed_terms: true
       });
-      if (res?.data?.success) {
-        setLeaseSignature(res.data.data);
+      if (res?.success || res?.data?.success) {
+        setLeaseSignature(res?.data?.data || res?.data || res);
         toast.success('Lease agreement digitally signed & verified! ✓');
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || 'Invalid or expired OTP');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Invalid or expired OTP');
     } finally {
       setSigningLoading(false);
     }
@@ -59,20 +60,24 @@ export default function TenantLeaseSection({
 
   const handleDownloadSignedLease = async () => {
     try {
-      const response = await generateLegalPDF('lease', {
+      const response = await generateLegalPDF('lease_agreement', {
         tenant_name: profile?.full_name,
         tenant_phone: profile?.phone,
-        tenant_national_id: profile?.national_id || 'ID-REDACTED',
+        tenant_national_id: profile?.national_id || profile?.id_number || 'ID-REDACTED',
         property_name: profile?.current_property_id?.name || 'Mutune Residential',
         unit_number: profile?.unit_number || 'Unit 1',
         rent_amount: profile?.rent_amount_kes || 25000,
-        deposit_amount: profile?.deposit_amount_kes || 25000,
+        rent_amount_kes: profile?.rent_amount_kes || 25000,
+        deposit_amount: profile?.deposit_kes ?? profile?.deposit_paid_kes ?? profile?.deposit_amount_kes ?? 25000,
+        deposit_amount_kes: profile?.deposit_kes ?? profile?.deposit_paid_kes ?? profile?.deposit_amount_kes ?? 25000,
         lease_duration_months: 12,
         is_digitally_signed: true,
         signature_hash: leaseSignature?.verification_hash || 'SHA256-MUTUNE-SECURE-LEAD-9988',
         signed_at: leaseSignature?.signed_at || new Date().toISOString()
       });
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blob = response instanceof Blob
+        ? response
+        : new Blob([response?.data ?? response], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -86,6 +91,11 @@ export default function TenantLeaseSection({
     }
   };
 
+  const isLeaseSigned =
+    leaseSignature?.status === 'signed' ||
+    leaseSignature?.signing_status === 'signed' ||
+    leaseSignature?.signed === true;
+
   return (
     <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border pb-4 gap-4">
@@ -95,7 +105,7 @@ export default function TenantLeaseSection({
           </h2>
           <p className="text-xs text-muted mt-1">2-Step OTP Verified Electronic Signature with Stamp Duty Compliance.</p>
         </div>
-        {leaseSignature?.status === 'signed' && (
+        {isLeaseSigned && (
           <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 self-start">
             <ShieldCheck size={14} /> Digitally Signed
           </span>
@@ -132,11 +142,11 @@ export default function TenantLeaseSection({
 
         {/* Right Column: 2-Step E-Signing Interface */}
         <div className="p-5 rounded-2xl bg-surface/50 border border-border flex flex-col justify-between">
-          {leaseSignature?.status === 'signed' ? (
+          {isLeaseSigned ? (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 space-y-2">
                 <p className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <FileCheck size={16} /> Signed on {new Date(leaseSignature.signed_at).toLocaleString()}
+                  <FileCheck size={16} /> Signed on {new Date(leaseSignature.signed_at || Date.now()).toLocaleString()}
                 </p>
                 <p className="text-[11px] text-muted font-mono break-all">
                   SHA-256 Hash: {leaseSignature.verification_hash || 'SHA256-MUTUNE-SECURE-LEAD-9988'}

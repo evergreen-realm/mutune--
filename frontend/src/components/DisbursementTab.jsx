@@ -17,8 +17,9 @@ export default function DisbursementTab() {
     setLoading(true);
     try {
       const res = await fetchDisbursementPriority();
-      if (res?.success && res?.data) {
-        setQueueData(res.data);
+      const payload = res?.data?.data || res?.data;
+      if (payload) {
+        setQueueData(payload);
       }
     } catch (err) {
       toast.error('Failed to load disbursement queue');
@@ -32,9 +33,10 @@ export default function DisbursementTab() {
     setExecutionResult(null);
     try {
       const res = await executeBulkDisbursement();
-      if (res?.success) {
+      const payload = res?.data?.data || res?.data;
+      if (res?.success || res?.data?.success) {
         toast.success('Priority bulk disbursement completed successfully!');
-        setExecutionResult(res.data);
+        setExecutionResult(payload);
         loadQueue();
       } else {
         toast.error(res?.error?.message || 'Bulk disbursement failed');
@@ -54,13 +56,23 @@ export default function DisbursementTab() {
     );
   }
 
-  const categoryLabels = {
-    landlords: '1. Landlords (Net Property Remittances)',
-    agents: '2. Field Agents (Monthly Salary & Commissions)',
-    suppliers: '3. Contractors & Maintenance Suppliers',
-    staff: '4. Administrative Staff Payroll',
-    tenants: '5. Tenant Deposit Refunds'
-  };
+  const queueItems = Array.isArray(queueData?.queue_summary)
+    ? queueData.queue_summary
+    : Array.isArray(queueData)
+    ? queueData
+    : [];
+
+  const stageItems = Array.isArray(executionResult?.stages)
+    ? executionResult.stages
+    : executionResult?.stages && typeof executionResult.stages === 'object'
+    ? Object.entries(executionResult.stages).map(([category, val]) => ({
+        category,
+        count: Array.isArray(val) ? val.length : (val?.count ?? 0),
+        total_kes: Array.isArray(val)
+          ? val.reduce((sum, x) => sum + Number(x?.amount_kes ?? x?.amount ?? x?.total_kes ?? 0), 0)
+          : (val?.total_kes ?? val?.amount_kes ?? 0)
+      }))
+    : [];
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-100">
@@ -98,19 +110,19 @@ export default function DisbursementTab() {
 
       {/* Priority Queue Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {queueData?.queue_summary?.map((item) => (
-          <div key={item.category} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl relative overflow-hidden">
+        {queueItems.map((item, idx) => (
+          <div key={item.category || idx} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl relative overflow-hidden">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-              Priority #{item.priority_rank}
+              Priority #{item.priority_rank ?? item.priority ?? idx + 1}
             </div>
             <div className="text-sm font-bold text-white capitalize mb-2">
               {item.category}
             </div>
             <div className="text-lg font-black font-mono text-emerald-400">
-              KES {(item.pending_amount_kes || 0).toLocaleString('en-KE')}
+              KES {(item.pending_amount_kes ?? item.amount_kes ?? 0).toLocaleString('en-KE')}
             </div>
             <div className="text-[10px] text-slate-500 mt-1">
-              {item.pending_count} pending payouts
+              {item.pending_count ?? item.count ?? 0} pending payouts
             </div>
           </div>
         ))}
@@ -125,7 +137,7 @@ export default function DisbursementTab() {
           </div>
 
           <div className="space-y-3 text-xs">
-            {executionResult.stages?.map((stage) => (
+            {stageItems.map((stage) => (
               <div key={stage.category} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-200 capitalize">{stage.category} Payouts:</span>

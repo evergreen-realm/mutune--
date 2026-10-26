@@ -81,19 +81,24 @@ export default function CaretakerDashboardPage() {
     }
     setSubmittingMaint(true);
     try {
+      const unitObj = (activeProperty?.units || []).find(u => String(u._id) === String(maintForm.unit_id));
+      const unitCode = unitObj?.unit_number || maintForm.unit_id;
       await createMaintenanceTicket({
         property_id: selectedPropertyId,
         unit_id: maintForm.unit_id,
+        unit_code: unitCode,
         category: maintForm.category,
         priority: maintForm.priority,
+        urgency: maintForm.priority,
         description: maintForm.description.trim(),
-        photos: maintForm.photos
+        photos: maintForm.photos,
+        photo_urls: maintForm.photos
       });
       toast.success('Maintenance ticket logged successfully ✓');
       setMaintForm({ unit_id: '', category: 'plumbing', priority: 'medium', description: '', photos: [] });
       refetchTickets();
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || err?.message || 'Failed to log ticket');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || err?.message || 'Failed to log ticket');
     } finally {
       setSubmittingMaint(false);
     }
@@ -119,7 +124,7 @@ export default function CaretakerDashboardPage() {
       toast.success('Meter reading recorded successfully ✓');
       setMeterForm({ unit_id: '', meter_type: 'water', previous_reading: '', current_reading: '' });
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || err?.message || 'Failed to record meter reading');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || err?.message || 'Failed to record meter reading');
     } finally {
       setSubmittingMeter(false);
     }

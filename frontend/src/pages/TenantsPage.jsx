@@ -23,6 +23,8 @@ const STATUS_CONFIG = {
   pending:    { label: 'Pending',      color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' }
 };
 
+const FMT_KES = (n) => (n !== undefined && n !== null ? `KES ${Number(n).toLocaleString()}` : '—');
+
 const FIELD = ({ label, id, children, required }) => (
   <div>
     <label htmlFor={id} className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
@@ -94,11 +96,18 @@ function AddTenantModal({ onClose, onCreated }) {
       phone: sanitizedPhone,
       rent_amount_kes: parseInt(form.rent_amount_kes, 10) 
     };
-    if (form.deposit_paid_kes) payload.deposit_paid_kes = parseInt(form.deposit_paid_kes, 10);
+    if (form.deposit_paid_kes) {
+      const depVal = parseInt(form.deposit_paid_kes, 10);
+      payload.deposit_paid_kes = depVal;
+      payload.deposit_kes = depVal;
+    }
     if (!form.user_id) delete payload.user_id;
     if (!form.email) delete payload.email;
     if (!form.notes) delete payload.notes;
-    if (!form.deposit_paid_kes) delete payload.deposit_paid_kes;
+    if (!form.deposit_paid_kes) {
+      delete payload.deposit_paid_kes;
+      delete payload.deposit_kes;
+    }
     mutation.mutate(payload);
   };
 
@@ -296,8 +305,8 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
   const updateMutation = useMutation({
     mutationFn: (d) => updateTenant(tenantId, d),
     onSuccess: () => {
-      qc.invalidateQueries(['tenant', tenantId]);
-      qc.invalidateQueries(['tenants']);
+      qc.invalidateQueries({ queryKey: ['tenant', tenantId] });
+      qc.invalidateQueries({ queryKey: ['tenants'] });
       toast.success('Tenant lease updated successfully');
       setEditing(false);
       onChanged();
@@ -308,8 +317,8 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
   const linkMutation = useMutation({
     mutationFn: (uid) => linkTenantUser(tenantId, uid),
     onSuccess: () => {
-      qc.invalidateQueries(['tenant', tenantId]);
-      qc.invalidateQueries(['tenants']);
+      qc.invalidateQueries({ queryKey: ['tenant', tenantId] });
+      qc.invalidateQueries({ queryKey: ['tenants'] });
       toast.success('User linked to tenant — role updated to tenant');
       setShowLinkUser(false);
       onChanged();
@@ -320,8 +329,8 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
   const terminateMutation = useMutation({
     mutationFn: (d) => terminateTenancy(tenantId, d),
     onSuccess: () => {
-      qc.invalidateQueries(['tenant', tenantId]);
-      qc.invalidateQueries(['tenants']);
+      qc.invalidateQueries({ queryKey: ['tenant', tenantId] });
+      qc.invalidateQueries({ queryKey: ['tenants'] });
       toast.success('Tenancy terminated successfully');
       setShowTermModal(false);
       onChanged();
@@ -496,7 +505,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                   <InfoBox icon={<Calendar size={12} className="text-slate-500" />} label="Lease Ends" value={leaseEnd ? leaseEnd.toLocaleDateString('en-KE') : '—'} />
                   <InfoBox label="Remaining Days" value={daysLeft !== null ? `${daysLeft > 0 ? daysLeft : 0} Days` : '—'} valueClass={daysLeft < 30 ? 'text-red-400 font-black' : daysLeft < 90 ? 'text-amber-400 font-black' : 'text-slate-205 font-bold'} />
                   <InfoBox label="Rent Amount" value={FMT_KES(tenant.rent_amount_kes)} />
-                  <InfoBox label="Security Deposit" value={tenant.deposit_paid_kes ? FMT_KES(tenant.deposit_paid_kes) : '—'} />
+                  <InfoBox label="Security Deposit" value={(tenant.deposit_kes ?? tenant.deposit_paid_kes) ? FMT_KES(tenant.deposit_kes ?? tenant.deposit_paid_kes) : '—'} />
                 </div>
               </Section>
 
@@ -710,7 +719,7 @@ export default function TenantsPage({ dbUser }) {
   const evictMutation = useMutation({
     mutationFn: ({ id, reason, vacate_date }) => terminateTenancy(id, { reason, vacate_date }),
     onSuccess: () => {
-      qc.invalidateQueries(['tenants']);
+      qc.invalidateQueries({ queryKey: ['tenants'] });
       toast.success('Tenancy terminated successfully');
       setEvictingTenant(null);
       setEvictReason('');
@@ -993,7 +1002,7 @@ export default function TenantsPage({ dbUser }) {
             tenantId={selectedTenantId}
             initialEditMode={initialEditMode}
             onClose={() => { setSelectedTenantId(null); setInitialEditMode(false); }}
-            onChanged={() => qc.invalidateQueries(['tenants'])}
+            onChanged={() => qc.invalidateQueries({ queryKey: ['tenants'] })}
           />
         )}
       </AnimatePresence>
@@ -1077,7 +1086,7 @@ export default function TenantsPage({ dbUser }) {
         {showAddModal && (
           <AddTenantModal
             onClose={() => setShowAddModal(false)}
-            onCreated={() => qc.invalidateQueries(['tenants'])}
+            onCreated={() => qc.invalidateQueries({ queryKey: ['tenants'] })}
           />
         )}
       </AnimatePresence>

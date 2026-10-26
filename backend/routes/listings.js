@@ -56,6 +56,7 @@ router.get('/', async (req, res, next) => {
       maxRent,
       bedrooms,
       property_type,
+      type,
       search
     } = req.query;
 
@@ -63,20 +64,32 @@ router.get('/', async (req, res, next) => {
       status: 'active'
     };
 
+    const effectiveType = property_type || type;
+    const andConditions = [];
+
     if (city) filter['address.city'] = new RegExp(city, 'i');
     if (county) filter['address.county'] = new RegExp(county, 'i');
-    if (property_type && property_type !== 'all') {
-      filter.$or = [
-        { type: property_type },
-        { property_type: property_type }
-      ];
+    if (effectiveType && effectiveType !== 'all') {
+      andConditions.push({
+        $or: [
+          { type: effectiveType },
+          { property_type: effectiveType }
+        ]
+      });
     }
     if (search) {
-      filter.$or = [
-        { name: new RegExp(search, 'i') },
-        { 'address.area': new RegExp(search, 'i') },
-        { 'address.street': new RegExp(search, 'i') }
-      ];
+      andConditions.push({
+        $or: [
+          { name: new RegExp(search, 'i') },
+          { 'address.area': new RegExp(search, 'i') },
+          { 'address.street': new RegExp(search, 'i') }
+        ]
+      });
+    }
+    if (andConditions.length === 1) {
+      filter.$or = andConditions[0].$or;
+    } else if (andConditions.length > 1) {
+      filter.$and = andConditions;
     }
 
     const properties = await Property.find(filter)
@@ -176,9 +189,7 @@ router.get('/', async (req, res, next) => {
  */
 router.post('/:propertyId/inquire',
   [
-    param('propertyId').isMongoId().withMessage('Valid propertyId required'),
-    body('name').notEmpty().withMessage('Name is required'),
-    body('phone').notEmpty().withMessage('Phone number is required')
+    param('propertyId').isMongoId().withMessage('Valid propertyId required')
   ],
   async (req, res, next) => {
     try {
@@ -188,7 +199,17 @@ router.post('/:propertyId/inquire',
       }
 
       const { propertyId } = req.params;
-      const { name, phone, email, message, unit_id, unit_number } = req.body;
+      const name = req.body.name || req.body.prospect_name;
+      const phone = req.body.phone || req.body.prospect_phone;
+      const email = req.body.email || req.body.prospect_email;
+      const { message, unit_id, unit_number } = req.body;
+
+      if (!name || !phone) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Name and phone number are required' }
+        });
+      }
 
       const property = await Property.findById(propertyId).populate('agent_ids', 'phone full_name');
       if (!property) {
@@ -197,8 +218,11 @@ router.post('/:propertyId/inquire',
 
       const newInquiry = {
         name,
+        prospect_name: name,
         phone,
+        prospect_phone: phone,
         email: email || '',
+        prospect_email: email || '',
         message: message || 'Interested in viewing this property',
         unit_id: unit_id || null,
         unit_number: unit_number || 'General Inquiry',
@@ -336,6 +360,10 @@ router.get('/inquiries/manage',
         (p.inquiries || []).forEach(inq => {
           allInquiries.push({
             ...inq,
+            name: inq.name || inq.prospect_name,
+            prospect_name: inq.prospect_name || inq.name,
+            phone: inq.phone || inq.prospect_phone,
+            prospect_phone: inq.prospect_phone || inq.phone,
             property_id: p._id,
             property_name: p.name,
             property_code: p.property_code,

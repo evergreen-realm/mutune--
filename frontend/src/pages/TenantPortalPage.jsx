@@ -251,14 +251,14 @@ export default function TenantPortalPage() {
         property_id: profile?.current_property_id?._id
       });
 
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         toast.update(toastId, { render: 'KPLC token vended successfully! ✓', type: 'success', isLoading: false, autoClose: 5000 });
-        setVendedTokenResult(res.data.data);
+        setVendedTokenResult(res?.data?.data || res?.data || res);
       } else {
-        toast.update(toastId, { render: res?.data?.error?.message || 'Token vending failed', type: 'error', isLoading: false, autoClose: 5000 });
+        toast.update(toastId, { render: res?.error?.message || res?.data?.error?.message || 'Token vending failed', type: 'error', isLoading: false, autoClose: 5000 });
       }
     } catch (err) {
-      toast.update(toastId, { render: err?.response?.data?.error?.message || err?.message || 'Error vending token', type: 'error', isLoading: false, autoClose: 5000 });
+      toast.update(toastId, { render: err?.error?.message || err?.response?.data?.error?.message || err?.message || 'Error vending token', type: 'error', isLoading: false, autoClose: 5000 });
     } finally {
       setBuyingToken(false);
     }
@@ -297,14 +297,15 @@ export default function TenantPortalPage() {
         amount_kes: amountToPay,
         payment_type: 'rent'
       });
-      if (res?.data?.data?.checkout_url) {
+      const checkoutUrl = res?.data?.checkout_url || res?.checkout_url || res?.data?.data?.checkout_url;
+      if (checkoutUrl) {
         toast.update(toastId, { render: 'Redirecting to secure bank gateway...', type: 'success', isLoading: false, autoClose: 2000 });
-        window.location.href = res.data.data.checkout_url;
+        window.location.href = checkoutUrl;
       } else {
         toast.update(toastId, { render: 'Bank checkout session created successfully', type: 'success', isLoading: false, autoClose: 4000 });
       }
     } catch (err) {
-      toast.update(toastId, { render: err?.response?.data?.error || err?.message || 'Bank payment gateway error', type: 'error', isLoading: false, autoClose: 5000 });
+      toast.update(toastId, { render: err?.error?.message || err?.response?.data?.error || err?.message || 'Bank payment gateway error', type: 'error', isLoading: false, autoClose: 5000 });
     } finally {
       setPaying(false);
     }
@@ -315,14 +316,14 @@ export default function TenantPortalPage() {
     setSigningLoading(true);
     try {
       const res = await requestLeaseSigningOTP(profile._id);
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         setOtpRequested(true);
-        toast.success(res.data.message || 'Signing OTP sent to your phone');
+        toast.success(res?.message || res?.data?.message || 'Signing OTP sent to your phone');
       } else {
-        toast.error(res?.data?.error?.message || 'Failed to send signing OTP');
+        toast.error(res?.error?.message || res?.data?.error?.message || 'Failed to send signing OTP');
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || 'Error requesting signing OTP');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Error requesting signing OTP');
     } finally {
       setSigningLoading(false);
     }
@@ -340,16 +341,16 @@ export default function TenantPortalPage() {
         tenant_id: profile._id,
         otp_code: signingOtp.trim()
       });
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         toast.success('Lease agreement digitally signed & verified ✓');
-        setLeaseSignature(res.data.data);
+        setLeaseSignature(res?.data?.data || res?.data || res);
         setOtpRequested(false);
         setSigningOtp('');
       } else {
-        toast.error(res?.data?.error?.message || 'Signing verification failed');
+        toast.error(res?.error?.message || res?.data?.error?.message || 'Signing verification failed');
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || 'Error verifying signing code');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Error verifying signing code');
     } finally {
       setSigningLoading(false);
     }
@@ -364,13 +365,15 @@ export default function TenantPortalPage() {
         property_name: propertyName,
         unit_number: unitNumber,
         rent_amount_kes: unitRent,
-        deposit_amount_kes: profile?.deposit_kes || unitRent,
+        deposit_amount_kes: profile?.deposit_kes ?? profile?.deposit_paid_kes ?? unitRent,
         lease_duration_months: 12,
         is_digitally_signed: true,
         signature_hash: leaseSignature?.verification_hash || 'SHA256-MUTUNE-SECURE-LEAD-9988',
         signed_at: leaseSignature?.signed_at || new Date().toISOString()
       });
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blob = response instanceof Blob
+        ? response
+        : new Blob([response?.data ?? response], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -400,8 +403,14 @@ export default function TenantPortalPage() {
         if (prof?._id) {
           try {
             const sigRes = await fetchLeaseSignatureStatus(prof._id);
-            if (sigRes?.data?.data?.signing_status) {
-              setLeaseSignature(sigRes.data.data);
+            const sigData = sigRes?.data?.data || sigRes?.data;
+            if (sigData && (sigData.signing_status === 'signed' || sigData.status === 'signed' || sigData.signed === true)) {
+              setLeaseSignature({
+                ...(sigData.signature || {}),
+                ...sigData,
+                status: 'signed',
+                signing_status: 'signed'
+              });
             }
           } catch (sigErr) {
             // quiet signature lookup
@@ -473,30 +482,37 @@ export default function TenantPortalPage() {
     }
     const propId = profile?.current_property_id?._id || profile?.current_property_id;
     const unitId = profile?.current_unit_id?._id || profile?.current_unit_id;
+    const unitCode = profile?.unit_number || profile?.current_unit_id?.unit_number || unitId;
     if (!propId || !unitId) {
       toast.error('No linked property/unit found. Link your tenancy first.');
       return;
     }
     setSubmitting(true);
+    const normalizedPriority = ticketForm.priority === 'urgent' ? 'emergency' : (ticketForm.priority || 'medium');
     try {
       if (ticketForm.editId) {
         await updateMaintenanceTicket(ticketForm.editId, {
           title: ticketForm.title.trim(),
           description: ticketForm.description.trim(),
-          priority: ticketForm.priority,
+          priority: normalizedPriority,
+          urgency: normalizedPriority,
           category: ticketForm.category || 'other',
-          photos: ticketForm.photos || []
+          photos: ticketForm.photos || [],
+          photo_urls: ticketForm.photos || []
         });
         toast.success('Request updated!');
       } else {
         await createMaintenanceTicket({
           title: ticketForm.title.trim(),
           description: ticketForm.description.trim(),
-          priority: ticketForm.priority,
+          priority: normalizedPriority,
+          urgency: normalizedPriority,
           category: ticketForm.category || 'other',
           property_id: propId,
           unit_id: unitId,
-          photos: ticketForm.photos || []
+          unit_code: unitCode,
+          photos: ticketForm.photos || [],
+          photo_urls: ticketForm.photos || []
         });
         toast.success('Maintenance request submitted!');
       }
@@ -1656,7 +1672,7 @@ export default function TenantPortalPage() {
                     <option value="low" className="bg-surface text-foreground">Low — No immediate action needed</option>
                     <option value="medium" className="bg-surface text-foreground">Medium — Repair within a week</option>
                     <option value="high" className="bg-surface text-foreground">High — Repair within 24-48h</option>
-                    <option value="urgent" className="bg-surface text-foreground">Urgent 🚨 — Severe or dangerous hazard</option>
+                    <option value="emergency" className="bg-surface text-foreground">Emergency 🚨 — Severe or dangerous hazard</option>
                   </select>
                 </div>
                 <div>

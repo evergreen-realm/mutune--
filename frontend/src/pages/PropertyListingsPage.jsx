@@ -39,13 +39,18 @@ export default function PropertyListingsPage() {
     setLoading(true);
     try {
       const params = {};
-      if (propertyType !== 'all') params.property_type = propertyType;
+      if (propertyType !== 'all') {
+        params.property_type = propertyType;
+        params.type = propertyType;
+      }
       if (bedrooms !== 'all') params.bedrooms = bedrooms;
       if (maxPrice) params.maxRent = maxPrice;
       if (searchQuery) params.search = searchQuery;
 
       const res = await fetchPublicListings(params);
-      if (res?.data?.success) {
+      if (res?.success) {
+        setListings(res.data || []);
+      } else if (res?.data?.success) {
         setListings(res.data.data || []);
       }
     } catch (err) {
@@ -84,22 +89,25 @@ export default function PropertyListingsPage() {
     try {
       const payload = {
         name: inquiryForm.name,
+        prospect_name: inquiryForm.name,
         phone: inquiryForm.phone,
+        prospect_phone: inquiryForm.phone,
         email: inquiryForm.email,
+        prospect_email: inquiryForm.email,
         message: inquiryForm.message,
         unit_id: inquiryModal.unit?.unit_id || null,
         unit_number: inquiryModal.unit?.unit_number || 'General Property Inquiry'
       };
 
       const res = await submitPropertyInquiry(inquiryModal.property.property_id, payload);
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         toast.success('Inquiry sent! Managing agent notified ✓');
         setInquiryModal({ open: false, property: null, unit: null });
       } else {
         toast.error('Failed to submit inquiry');
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || 'Error submitting inquiry');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || 'Error submitting inquiry');
     } finally {
       setSubmittingInquiry(false);
     }

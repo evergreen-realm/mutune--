@@ -30,7 +30,8 @@ export default function TenantUtilitySection({ profile }) {
         category: waterCategory,
         provider_id: waterProvider
       }).then(res => {
-        if (res?.data?.success) setEstBreakdown(res.data.data);
+        if (res?.success) setEstBreakdown(res.data);
+        else if (res?.data?.success) setEstBreakdown(res.data.data);
       }).catch(() => {});
     }
   }, [estConsumption, waterCategory, waterProvider]);
@@ -58,14 +59,14 @@ export default function TenantUtilitySection({ profile }) {
         property_id: profile?.current_property_id?._id
       });
 
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         toast.update(toastId, { render: 'KPLC token vended successfully! ✓', type: 'success', isLoading: false, autoClose: 5000 });
-        setVendedTokenResult(res.data.data);
+        setVendedTokenResult(res?.data?.data || res?.data || res);
       } else {
-        toast.update(toastId, { render: res?.data?.error?.message || 'Token vending failed', type: 'error', isLoading: false, autoClose: 5000 });
+        toast.update(toastId, { render: res?.error?.message || res?.data?.error?.message || 'Token vending failed', type: 'error', isLoading: false, autoClose: 5000 });
       }
     } catch (err) {
-      toast.update(toastId, { render: err?.response?.data?.error?.message || err?.message || 'Error vending token', type: 'error', isLoading: false, autoClose: 5000 });
+      toast.update(toastId, { render: err?.error?.message || err?.response?.data?.error?.message || err?.message || 'Error vending token', type: 'error', isLoading: false, autoClose: 5000 });
     } finally {
       setBuyingToken(false);
     }
@@ -79,12 +80,13 @@ export default function TenantUtilitySection({ profile }) {
     setQueryingWater(true);
     try {
       const res = await queryWaterBill(waterAccountNumber.trim(), waterProvider);
-      if (res?.data?.success) {
-        setWaterBillData(res.data.data);
-        toast.success(`Outstanding Water Balance: KES ${res.data.data.balance_kes.toLocaleString('en-KE')}`);
+      if (res?.success || res?.data?.success) {
+        const billData = res?.data?.data || res?.data;
+        setWaterBillData(billData);
+        toast.success(`Outstanding Water Balance: KES ${(billData?.balance_kes || 0).toLocaleString('en-KE')}`);
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || err?.message || 'Error querying water bill');
+      toast.error(err?.error?.message || err?.response?.data?.error?.message || err?.message || 'Error querying water bill');
     } finally {
       setQueryingWater(false);
     }
@@ -100,12 +102,13 @@ export default function TenantUtilitySection({ profile }) {
         amount_kes: waterBillData.balance_kes || 500,
         provider_id: waterProvider
       });
-      if (res?.data?.success) {
-        toast.update(toastId, { render: `Water bill settled! Receipt: ${res.data.data.receipt_number} ✓`, type: 'success', isLoading: false, autoClose: 5000 });
+      if (res?.success || res?.data?.success) {
+        const payData = res?.data?.data || res?.data;
+        toast.update(toastId, { render: `Water bill settled! Receipt: ${payData?.receipt_number || 'OK'} ✓`, type: 'success', isLoading: false, autoClose: 5000 });
         setWaterBillData(prev => ({ ...prev, balance_kes: 0 }));
       }
     } catch (err) {
-      toast.update(toastId, { render: err?.response?.data?.error?.message || err?.message || 'Water payment failed', type: 'error', isLoading: false, autoClose: 5000 });
+      toast.update(toastId, { render: err?.error?.message || err?.response?.data?.error?.message || err?.message || 'Water payment failed', type: 'error', isLoading: false, autoClose: 5000 });
     } finally {
       setPayingWater(false);
     }

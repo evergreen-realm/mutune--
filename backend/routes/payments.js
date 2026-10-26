@@ -62,13 +62,11 @@ const logger = require('../utils/logger');
  *                 checkoutRequestId:
  *                   type: string
  */
-router.post('/initiate-stk',
+router.post(['/initiate-stk', '/stk-push'],
   requireAuth,
   requirePermission('pay:rent'),
   [
-    body('tenant_id').isMongoId().withMessage('Invalid tenant ID'),
-    body('unit_id').notEmpty().withMessage('Unit ID required'),
-    body('amount').isInt({ min: 1 }).withMessage('Amount must be positive integer'),
+    body('tenant_id').optional({ values: 'falsy' }).isMongoId().withMessage('Invalid tenant ID'),
     body('payment_type').optional().isIn(['rent', 'deposit', 'penalty', 'water', 'electricity', 'service_charge'])
   ],
   async (req, res, next) => {
@@ -77,19 +75,136 @@ router.post('/initiate-stk',
       if (!errors.isEmpty()) {
         return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', details: errors.array() } });
       }
-      const { tenant_id, unit_id, amount, payment_type = 'rent' } = req.body;
-      const tenant = await Tenant.findById(tenant_id).lean();
+      const rawAmount = req.body.amount ?? req.body.amount_kes;
+      const amount = Number(rawAmount);
+      if (!Number.isInteger(amount) || amount < 1) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', details: [{ msg: 'Amount must be positive integer', path: 'amount' }] }
+        });
+      }
+
+      const { payment_type = 'rent', property_id } = req.body;
+      const rawPhone = req.body.phone || req.body.phone_number;
+      let { tenant_id, unit_id } = req.body;
+      const rawUnitInput = unit_id || req.body.unit_code;
+      const isHexObjectId = (val) => (typeof val === 'string'
+        ? /^[0-9a-fA-F]{24}$/.test(val)
+        : Boolean(val && mongoose.Types.ObjectId.isValid(val) && String(val).length === 24));
+
+      let property = null;
+      let matchedUnit = null;
+
+      if (property_id && isHexObjectId(property_id)) {
+        property = await Property.findById(property_id).lean();
+        if (property && rawUnitInput) {
+          matchedUnit = (property.units || []).find(
+            u => String(u._id) === String(rawUnitInput) || String(u.unit_number) === String(rawUnitInput)
+          ) || null;
+        }
+      } else if (rawUnitInput) {
+        if (isHexObjectId(rawUnitInput)) {
+          property = await Property.findOne({ 'units._id': rawUnitInput }).lean();
+          if (property) {
+            matchedUnit = (property.units || []).find(u => String(u._id) === String(rawUnitInput)) || null;
+          }
+        }
+        if (!property) {
+          property = await Property.findOne({ 'units.unit_number': String(rawUnitInput) }).lean();
+          if (property) {
+            matchedUnit = (property.units || []).find(u => String(u.unit_number) === String(rawUnitInput)) || null;
+          }
+        }
+      }
+
+      let tenant = null;
+      if (tenant_id) {
+        tenant = await Tenant.findById(tenant_id);
+      } else {
+        if (matchedUnit?.current_tenant_id) {
+          tenant = await Tenant.findById(matchedUnit.current_tenant_id);
+        }
+        if (!tenant && matchedUnit?._id) {
+          tenant = await Tenant.findOne({ current_unit_id: matchedUnit._id, tenancy_status: 'active' })
+            || await Tenant.findOne({ current_unit_id: matchedUnit._id });
+        }
+        if (!tenant && rawPhone) {
+          const { generateBlindIndex } = require('../utils/security');
+          const cleanPhone = String(rawPhone).trim();
+          const phoneQuery = {
+            $or: [
+              { phone_bindex: generateBlindIndex(cleanPhone) },
+              { phone: cleanPhone }
+            ]
+          };
+          if (property?._id) {
+            tenant = await Tenant.findOne({ ...phoneQuery, current_property_id: property._id });
+          }
+          if (!tenant) {
+            tenant = await Tenant.findOne(phoneQuery);
+          }
+        }
+        if (!tenant && req.user?.role === 'tenant') {
+          tenant = await Tenant.findOne({ user_id: req.user._id });
+        }
+      }
+
+      if (!tenant && !tenant_id && !rawPhone && !matchedUnit) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Valid tenant_id or registered tenant phone number is required' }
+        });
+      }
       if (!tenant) throw Object.assign(new Error('Tenant not found'), { status: 404, code: 'TENANT_NOT_FOUND' });
-      const property = await Property.findOne({ 'units._id': unit_id }).lean();
+
+      tenant_id = tenant._id;
+      const effectiveUnitInput = rawUnitInput || tenant.current_unit_id;
+      if (!effectiveUnitInput) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', details: [{ msg: 'Unit ID required', path: 'unit_id' }] }
+        });
+      }
+
+      if (!property) {
+        const candidatePropId = property_id || tenant.current_property_id;
+        if (candidatePropId && isHexObjectId(candidatePropId)) {
+          property = await Property.findById(candidatePropId).lean();
+        }
+        if (!property && isHexObjectId(effectiveUnitInput)) {
+          property = await Property.findOne({ 'units._id': effectiveUnitInput }).lean();
+        }
+        if (!property) {
+          property = await Property.findOne({ 'units.unit_number': String(effectiveUnitInput) }).lean();
+        }
+      }
       if (!property) throw Object.assign(new Error('Unit not found'), { status: 404, code: 'UNIT_NOT_FOUND' });
+
+      if (!matchedUnit && Array.isArray(property.units)) {
+        matchedUnit = property.units.find(
+          u => String(u._id) === String(effectiveUnitInput) || String(u.unit_number) === String(effectiveUnitInput)
+        ) || null;
+      }
+
+      const resolvedUnitObjectId = matchedUnit?._id
+        || (isHexObjectId(effectiveUnitInput) ? effectiveUnitInput : null)
+        || (isHexObjectId(tenant.current_unit_id) ? tenant.current_unit_id : null)
+        || property.units?.[0]?._id;
+
+      if (!resolvedUnitObjectId) {
+        throw Object.assign(new Error('Unit not found'), { status: 404, code: 'UNIT_NOT_FOUND' });
+      }
+      unit_id = resolvedUnitObjectId;
+
       const transactionId = `MUT-${crypto.randomUUID()}`;
+      const targetPhone = rawPhone ? String(rawPhone).trim() : tenant.phone;
       const stk = await mpesaService.initiateSTKPush({
-        phone: tenant.phone,
+        phone: targetPhone,
         amount,
         accountReference: `TNT-${tenant._id.toString().slice(-6).toUpperCase()}-${property.property_code}`,
         transactionDesc: `${payment_type} for ${property.name}`
       });
-      const payment = await Payment.create({
+      await Payment.create({
         transaction_id: stk.checkoutRequestId || transactionId,
         tenant_id,
         property_id: property._id,

@@ -37,16 +37,27 @@ export default function TenantMaintenanceSection({
             >
               <div className="space-y-2 flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-xs font-bold text-foreground truncate">{t.title}</h4>
+                  <h4 className="text-xs font-bold text-foreground truncate capitalize">
+                    {t.title || `${(t.category || 'Maintenance').replace(/_/g, ' ')} Repair`}
+                  </h4>
                   <span className={`text-xs font-extrabold uppercase px-2 py-0.5 rounded-full ${ticketStatusColor(t.status)}`}>
                     {t.status?.replace(/_/g, ' ')}
                   </span>
                 </div>
                 <p className="text-xs text-muted leading-relaxed break-words">{t.description}</p>
+                {(t.photos || t.photo_urls || []).length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    {(t.photos || t.photo_urls || []).map((url, idx) => (
+                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-400 underline">
+                        Photo #{idx + 1}
+                      </a>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
                   <span>Priority:</span>
                   <span className={`font-bold capitalize ${
-                    t.priority === 'urgent' ? 'text-red-400' : t.priority === 'high' ? 'text-amber-400' : 'text-muted'
+                    t.priority === 'urgent' || t.priority === 'emergency' ? 'text-red-400' : t.priority === 'high' ? 'text-amber-400' : 'text-muted'
                   }`}>
                     {t.priority}
                   </span>

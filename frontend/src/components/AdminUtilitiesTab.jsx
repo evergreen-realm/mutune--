@@ -68,8 +68,12 @@ export default function AdminUtilitiesTab() {
   const loadProviders = async () => {
     try {
       const res = await fetchUtilityProviders();
-      if (res?.data?.success) {
-        setProviders(res.data.data || []);
+      if (res?.success || res?.data?.success) {
+        const list = res?.data?.data || res?.data || [];
+        const normalized = Array.isArray(list)
+          ? list
+          : [...(list?.electricity || []), ...(list?.water || [])];
+        setProviders(normalized);
       }
     } catch (err) {
       console.error('Failed to load utility providers', err);
@@ -95,8 +99,8 @@ export default function AdminUtilitiesTab() {
     setLoadingAnalytics(true);
     try {
       const res = await fetchWaterAnalytics(propertyId, 6);
-      if (res?.data?.success) {
-        setAnalyticsData(res.data.data);
+      if (res?.success || res?.data?.success) {
+        setAnalyticsData(res?.data?.data || res?.data);
       }
     } catch (err) {
       console.error('Failed to load water analytics', err);
@@ -108,8 +112,8 @@ export default function AdminUtilitiesTab() {
   const loadTariffs = async () => {
     try {
       const res = await fetchMewascoTariffs();
-      if (res?.data?.success) {
-        setTariffs(res.data.data);
+      if (res?.success || res?.data?.success) {
+        setTariffs(res?.data?.data || res?.data);
       }
     } catch (err) {
       console.error('Failed to load MEWASCO tariffs', err);
@@ -128,14 +132,15 @@ export default function AdminUtilitiesTab() {
         account_number: accountNumber.trim(),
         provider_id: selectedProvider
       });
-      if (res?.data?.success) {
-        setValidatedAccount(res.data.data);
-        toast.success(`Validated: ${res.data.data.meter_owner} (${res.data.data.provider_name}) ✓`);
+      const data = res?.data?.data || res?.data;
+      if ((res?.success || res?.data?.success) && data) {
+        setValidatedAccount(data);
+        toast.success(`Validated: ${data.meter_owner} (${data.provider_name}) ✓`);
       } else {
         toast.error('Validation failed');
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || err?.message || 'Error validating account');
+      toast.error(err?.response?.data?.error?.message || err?.error?.message || err?.message || 'Error validating account');
     } finally {
       setLoading(false);
     }
@@ -153,12 +158,13 @@ export default function AdminUtilitiesTab() {
         ? await queryPostpaidBill(accountNumber.trim(), selectedProvider)
         : await queryWaterBill(accountNumber.trim(), selectedProvider);
 
-      if (res?.data?.success) {
-        setBillData(res.data.data);
-        toast.success(`Outstanding Balance: KES ${res.data.data.balance_kes.toLocaleString('en-KE')}`);
+      const data = res?.data?.data || res?.data;
+      if ((res?.success || res?.data?.success) && data) {
+        setBillData(data);
+        toast.success(`Outstanding Balance: KES ${(data.balance_kes || 0).toLocaleString('en-KE')}`);
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error?.message || err?.message || 'Error querying bill');
+      toast.error(err?.response?.data?.error?.message || err?.error?.message || err?.message || 'Error querying bill');
     } finally {
       setLoading(false);
     }
@@ -181,12 +187,13 @@ export default function AdminUtilitiesTab() {
             provider_id: selectedProvider
           });
 
-      if (res?.data?.success) {
-        toast.update(toastId, { render: `Bill paid successfully! Receipt: ${res.data.data.receipt_number} ✓`, type: 'success', isLoading: false, autoClose: 5000 });
+      const data = res?.data?.data || res?.data;
+      if ((res?.success || res?.data?.success) && data) {
+        toast.update(toastId, { render: `Bill paid successfully! Receipt: ${data.receipt_number} ✓`, type: 'success', isLoading: false, autoClose: 5000 });
         setBillData(prev => ({ ...prev, balance_kes: 0 }));
       }
     } catch (err) {
-      toast.update(toastId, { render: err?.response?.data?.error?.message || err?.message || 'Bill payment failed', type: 'error', isLoading: false, autoClose: 5000 });
+      toast.update(toastId, { render: err?.response?.data?.error?.message || err?.error?.message || err?.message || 'Bill payment failed', type: 'error', isLoading: false, autoClose: 5000 });
     } finally {
       setPaying(false);
     }
@@ -199,8 +206,8 @@ export default function AdminUtilitiesTab() {
         category: calcCategory,
         provider_id: selectedProvider
       });
-      if (res?.data?.success) {
-        setCalcResult(res.data.data);
+      if (res?.success || res?.data?.success) {
+        setCalcResult(res?.data?.data || res?.data);
       }
     } catch (err) {
       toast.error('Failed to calculate bill');
@@ -212,7 +219,7 @@ export default function AdminUtilitiesTab() {
     setSavingTariffs(true);
     try {
       const res = await updateMewascoTariffs(tariffs);
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         toast.success('MEWASCO WASREB tariff rates saved successfully ✓');
       }
     } catch (err) {
@@ -257,12 +264,13 @@ export default function AdminUtilitiesTab() {
       }
 
       const res = await bulkImportReadings(readings);
-      if (res?.data?.success) {
-        setBulkResult(res.data.data);
-        toast.success(`Bulk Import Completed: ${res.data.data.imported} imported, ${res.data.data.failed} failed ✓`);
+      const data = res?.data?.data || res?.data;
+      if ((res?.success || res?.data?.success) && data) {
+        setBulkResult(data);
+        toast.success(`Bulk Import Completed: ${data.imported} imported, ${data.failed} failed ✓`);
       }
     } catch (err) {
-      toast.error('Bulk import error: ' + (err?.response?.data?.error?.message || err.message));
+      toast.error('Bulk import error: ' + (err?.response?.data?.error?.message || err?.error?.message || err.message));
     } finally {
       setBulkImporting(false);
     }
@@ -276,7 +284,7 @@ export default function AdminUtilitiesTab() {
     }
     try {
       const res = await logUtilityReading(manualForm);
-      if (res?.data?.success) {
+      if (res?.success || res?.data?.success) {
         toast.success('Manual meter reading recorded & invoice updated ✓');
         setManualForm({
           property_id: '',

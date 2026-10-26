@@ -39,7 +39,7 @@ export default function PaymentsPage({ dbUser }) {
       toast.success('Payment voided successfully');
       setVoidingPmt(null);
       setVoidReason('');
-      qc.invalidateQueries(['payments']);
+      qc.invalidateQueries({ queryKey: ['payments'] });
     },
     onError: (err) => {
       toast.error(err?.error?.message || 'Failed to void payment');
@@ -221,7 +221,7 @@ export default function PaymentsPage({ dbUser }) {
       <STKPushModal
         isOpen={showStkModal}
         onClose={() => setShowStkModal(false)}
-        onSuccess={() => qc.invalidateQueries(['payments'])}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['payments'] })}
       />
     </motion.div>
   );

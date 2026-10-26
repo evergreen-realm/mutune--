@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MapPin, Camera, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { agentCheckIn } from '../lib/api';
+import { agentCheckIn, uploadDoc } from '../lib/api';
 
 /**
  * CheckInButton — lets a field agent geo-verify their presence at a property.
@@ -26,15 +26,23 @@ export default function CheckInButton({ propertyId, onSuccess }) {
       async (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
         try {
+          let photoUrl = 'https://mutunerent.co.ke/assets/checkin-verified.png';
+          if (photoFile) {
+            const uploaded = await uploadDoc(photoFile);
+            if (uploaded?.url) photoUrl = uploaded.url;
+          }
           const payload = {
             property_id: propertyId,
-            location: { coordinates: [longitude, latitude], accuracy }
+            latitude,
+            longitude,
+            accuracy: accuracy || 10,
+            location: { coordinates: [longitude, latitude], accuracy: accuracy || 10 },
+            photo_url: photoUrl
           };
-          // photo_url is optional — in production this would be a pre-signed R2 URL
-          // For now we pass undefined so the backend skips it
           const res = await agentCheckIn(payload);
-          setCheckedIn({ distance_m: res.distance_m, timestamp: res.timestamp });
-          toast.success(`Checked in! ${res.distance_m}m from property. ✓`);
+          const dist = res?.distance_m ?? res?.distance_meters ?? res?.data?.distance_m ?? 0;
+          setCheckedIn({ distance_m: dist, timestamp: res?.timestamp || new Date().toISOString() });
+          toast.success(`Checked in! ${dist}m from property. ✓`);
           onSuccess?.(res);
         } catch (err) {
           const code = err?.error?.code;

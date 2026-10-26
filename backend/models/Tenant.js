@@ -37,6 +37,8 @@ const tenantSchema = new mongoose.Schema({
   lease_end: Date,
   rent_amount_kes: { type: Number, min: 0 },
   deposit_paid_kes: { type: Number, min: 0 },
+  deposit_kes: { type: Number, min: 0 },
+  deposit_amount_kes: { type: Number, min: 0 },
   deposit_held: { type: Boolean, default: true },
   payment_history: [paymentHistorySchema],
   arrears_kes: { type: Number, default: 0, min: 0 },
@@ -65,6 +67,13 @@ tenantSchema.index({ tenancy_status: 1 });
 
 tenantSchema.pre('save', function(next) {
   this.updated_at = Date.now();
+
+  const dep = this.deposit_paid_kes ?? this.deposit_kes ?? this.deposit_amount_kes;
+  if (dep !== undefined) {
+    this.deposit_paid_kes = dep;
+    this.deposit_kes = dep;
+    this.deposit_amount_kes = dep;
+  }
 
   // Generate blind indexes before encrypting fields
   if (this.id_number && !this.id_number.startsWith('enc:')) {

@@ -131,7 +131,7 @@ router.post('/inspection',
       const report_code = `INSP-${String(count + 1).padStart(4, '0')}`;
 
       const total_damage_deductions_kes = damages.reduce((sum, d) => sum + (d.repair_cost_kes || 0), 0);
-      const deposit_paid_kes = tenant.deposit_amount_kes || tenant.rent_amount_kes || 0;
+      const deposit_paid_kes = tenant.deposit_kes ?? tenant.deposit_paid_kes ?? tenant.deposit_amount_kes ?? tenant.rent_amount_kes ?? 0;
       const net_deposit_refund_kes = deposit_paid_kes - total_damage_deductions_kes - Number(unpaid_utility_deductions_kes);
 
       const report = await DamageInspectionReport.create({

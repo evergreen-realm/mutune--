@@ -240,4 +240,95 @@ describe('Payment E2E Flow', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
   });
+
+  test('Step 7: STK push via /stk-push alias resolves unit_code scoped to property_id and custom payer phone without tenant_id', async () => {
+    const mpesaService = require('../services/mpesa');
+    mpesaService.initiateSTKPush.mockResolvedValueOnce({
+      checkoutRequestId: 'ws_CO_TEST_STEP7_001',
+      merchantRequestId: 'MRID_STEP7',
+      responseCode: '0',
+      customerMessage: 'Success. Request accepted for processing'
+    });
+
+    // Create a decoy property with the same unit_number 'E2E-1A' to verify property_id scoping
+    await Property.create({
+      property_code: 'MUT-DEC-002', name: 'Decoy Apartments', type: 'apartment',
+      address: { street: 'Decoy Rd', area: 'CBD', city: 'Mombasa' },
+      location: { type: 'Point', coordinates: [39.66, -4.05] },
+      landlord_id: agent._id, agent_ids: [agent._id],
+      units: [{ unit_number: 'E2E-1A', rent_kes: 10000, status: 'occupied', lock_status: 'unlocked' }]
+    });
+
+    const res = await request(app)
+      .post('/api/v1/payments/stk-push')
+      .send({
+        property_id: property._id.toString(),
+        unit_code: 'E2E-1A',
+        amount_kes: 25000,
+        phone_number: '254799888777',
+        payment_type: 'rent'
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const createdPayment = await Payment.findOne({ transaction_id: 'ws_CO_TEST_STEP7_001' }).lean();
+    expect(String(createdPayment.tenant_id)).toBe(String(tenant._id));
+    expect(String(createdPayment.unit_id)).toBe(String(property.units[0]._id));
+  });
+
+  test('Step 8: STK push with unmatched unit_code string falls back to tenant unit ObjectId without CastError', async () => {
+    const mpesaService = require('../services/mpesa');
+    mpesaService.initiateSTKPush.mockResolvedValueOnce({
+      checkoutRequestId: 'ws_CO_TEST_STEP8_001',
+      merchantRequestId: 'MRID_STEP8',
+      responseCode: '0',
+      customerMessage: 'Success. Request accepted for processing'
+    });
+
+    const res = await request(app)
+      .post('/api/v1/payments/stk-push')
+      .send({
+        property_id: property._id.toString(),
+        unit_code: 'UNMATCHED-UNIT-CODE',
+        tenant_id: tenant._id.toString(),
+        amount_kes: 12000,
+        phone_number: '254712345678'
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('Step 9: Maintenance ticket creation supports Caretaker blank unit_code/description and 12-char unit_code', async () => {
+    const resBlank = await request(app)
+      .post('/api/v1/maintenance')
+      .send({
+        property_id: property._id.toString(),
+        title: 'Corridor security light burnt out',
+        description: '',
+        unit_code: '',
+        category: 'electrical',
+        priority: 'urgent'
+      });
+
+    expect(resBlank.status).toBe(201);
+    expect(resBlank.body.data.unit_code).toBe('General');
+    expect(resBlank.body.data.priority).toBe('emergency');
+    expect(resBlank.body.data.description).toBe('Corridor security light burnt out');
+
+    const res12Char = await request(app)
+      .post('/api/v1/maintenance')
+      .send({
+        property_id: property._id.toString(),
+        title: 'Door hinge loose',
+        description: 'Needs tightening',
+        unit_code: 'BLOCK-A-RM01',
+        category: 'carpentry',
+        priority: 'medium'
+      });
+
+    expect(res12Char.status).toBe(201);
+    expect(res12Char.body.data.unit_code).toBe('BLOCK-A-RM01');
+    expect(res12Char.body.data.category).toBe('structural');
+  });
 });

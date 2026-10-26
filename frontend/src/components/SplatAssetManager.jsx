@@ -14,12 +14,14 @@ export default function SplatAssetManager({ assets = [], onDelete, onDownload })
           </span>
         );
       case 'ready':
+      case 'completed':
         return (
           <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
             Ready
           </span>
         );
       case 'error':
+      case 'failed':
         return (
           <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider">
             <AlertCircle size={12} /> Failed
@@ -45,72 +47,80 @@ export default function SplatAssetManager({ assets = [], onDelete, onDownload })
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {assets.map((asset) => (
-            <div 
-              key={asset.id} 
-              className="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all duration-300"
-            >
-              {/* Thumbnail / Status Area */}
-              <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
-                {asset.thumbnailUrl ? (
-                  <img 
-                    src={asset.thumbnailUrl} 
-                    alt={asset.title} 
-                    className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
-                  />
-                ) : (
-                  <Box size={32} className="text-slate-800" />
-                )}
-                
-                <div className="absolute top-3 right-3 z-10">
-                  {getStatusBadge(asset.status)}
-                </div>
-
-                {asset.status === 'ready' && (
-                  <button 
-                    onClick={() => setSelectedSplat(asset)}
-                    className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/40 backdrop-blur-sm"
-                  >
-                    <div className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                      <Play size={16} className="fill-current" />
-                      View 3D
-                    </div>
-                  </button>
-                )}
-              </div>
-
-              {/* Details & Actions */}
-              <div className="p-4 flex items-center justify-between">
-                <div>
-                  <h4 className="text-white font-bold text-sm truncate">{asset.title}</h4>
-                  <p className="text-slate-400 text-xs mt-1">
-                    {new Date(asset.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {asset.status === 'ready' && onDownload && (
-                    <button 
-                      onClick={() => onDownload(asset)}
-                      className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
-                      title="Download .splat"
-                    >
-                      <Download size={16} />
-                    </button>
+          {assets.map((asset) => {
+            const assetId = asset.id || asset._id;
+            const assetTitle = asset.title || asset.room_name || 'Room Scan';
+            const assetStatus = asset.status || asset.splat_status;
+            const isReady = assetStatus === 'ready' || assetStatus === 'completed';
+            const thumb = asset.thumbnailUrl || asset.thumbnail_url;
+            const created = asset.createdAt || asset.created_at || new Date().toISOString();
+            return (
+              <div 
+                key={assetId} 
+                className="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all duration-300"
+              >
+                {/* Thumbnail / Status Area */}
+                <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
+                  {thumb ? (
+                    <img 
+                      src={thumb} 
+                      alt={assetTitle} 
+                      className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                    />
+                  ) : (
+                    <Box size={32} className="text-slate-800" />
                   )}
-                  {onDelete && (
+                  
+                  <div className="absolute top-3 right-3 z-10">
+                    {getStatusBadge(assetStatus)}
+                  </div>
+
+                  {isReady && (
                     <button 
-                      onClick={() => onDelete(asset.id)}
-                      className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
-                      title="Delete asset"
+                      onClick={() => setSelectedSplat(asset)}
+                      className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/40 backdrop-blur-sm"
                     >
-                      <Trash2 size={16} />
+                      <div className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                        <Play size={16} className="fill-current" />
+                        View 3D
+                      </div>
                     </button>
                   )}
                 </div>
+
+                {/* Details & Actions */}
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-white font-bold text-sm truncate">{assetTitle}</h4>
+                    <p className="text-slate-400 text-xs mt-1">
+                      {new Date(created).toLocaleDateString()}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {isReady && onDownload && (
+                      <button 
+                        onClick={() => onDownload(asset)}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+                        title="Download .splat"
+                      >
+                        <Download size={16} />
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button 
+                        onClick={() => onDelete(assetId)}
+                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
+                        title="Delete asset"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -118,8 +128,8 @@ export default function SplatAssetManager({ assets = [], onDelete, onDownload })
       <SplatViewerModal 
         isOpen={!!selectedSplat}
         onClose={() => setSelectedSplat(null)}
-        splatUrl={selectedSplat?.splatUrl}
-        title={selectedSplat?.title}
+        splatUrl={selectedSplat?.splatUrl || selectedSplat?.splat_model_url || selectedSplat?.splat_url}
+        title={selectedSplat?.title || selectedSplat?.room_name}
       />
       
     </div>

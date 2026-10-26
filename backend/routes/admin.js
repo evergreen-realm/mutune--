@@ -500,6 +500,28 @@ router.get('/late-fee-rules',
   }
 );
 
+const normalizeLateFeeBody = (req, res, next) => {
+  if (req.body) {
+    if (req.body.grace_days === undefined && req.body.grace_period_days !== undefined) {
+      req.body.grace_days = req.body.grace_period_days;
+    }
+    if (req.body.penalty_type === undefined && req.body.fee_type !== undefined) {
+      req.body.penalty_type = req.body.fee_type === 'percent' ? 'percentage' : (req.body.fee_type === 'flat' ? 'fixed' : req.body.fee_type);
+    }
+    if (req.body.penalty_value === undefined && req.body.amount_kes !== undefined) {
+      req.body.penalty_value = req.body.amount_kes;
+    }
+    if (req.body.max_penalty_per_month === undefined && req.body.cap_kes !== undefined && req.body.cap_kes !== '') {
+      req.body.max_penalty_per_month = req.body.cap_kes;
+    }
+    if (req.method === 'POST') {
+      if (!req.body.name) req.body.name = 'Standard Late Fee Rule';
+      if (!req.body.applies_to) req.body.applies_to = 'all';
+    }
+  }
+  next();
+};
+
 /**
  * POST /api/v1/admin/late-fee-rules
  * Create a new late fee rule.
@@ -507,6 +529,7 @@ router.get('/late-fee-rules',
 router.post('/late-fee-rules',
   requireAuth,
   requireRole(['admin', 'super_admin']),
+  normalizeLateFeeBody,
   [
     body('name').trim().notEmpty().withMessage('Rule name is required'),
     body('grace_days').isInt({ min: 0 }).withMessage('Grace days must be a non-negative integer'),
@@ -549,6 +572,7 @@ router.post('/late-fee-rules',
 router.patch('/late-fee-rules/:id',
   requireAuth,
   requireRole(['admin', 'super_admin']),
+  normalizeLateFeeBody,
   [
     param('id').isMongoId().withMessage('Invalid rule ID'),
     body('name').optional().trim().notEmpty().withMessage('Rule name cannot be empty'),

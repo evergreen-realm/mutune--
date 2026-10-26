@@ -29,7 +29,9 @@ export default function TaxReportsTab() {
   const handleDownloadCSV = async () => {
     try {
       const response = await downloadETIMSCSV(selectedMonth);
-      const blob = new Blob([response.data], { type: 'text/csv' });
+      const blob = response instanceof Blob
+        ? response
+        : new Blob([response?.data ?? response], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

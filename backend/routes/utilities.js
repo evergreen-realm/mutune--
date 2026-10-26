@@ -162,9 +162,9 @@ router.post('/water/validate',
   async (req, res, next) => {
     try {
       if (!validate(req, res)) return;
-      const { account_number, provider_id } = req.body;
+      const { account_number, provider_id, provider_code } = req.body;
 
-      const result = await validateWaterAccount(account_number, provider_id || 'MOMBASA_WATER');
+      const result = await validateWaterAccount(account_number, provider_id || provider_code || 'MOMBASA_WATER');
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);
@@ -178,9 +178,9 @@ router.get('/water/bill/:accountNumber',
   async (req, res, next) => {
     try {
       const { accountNumber } = req.params;
-      const { provider_id } = req.query;
+      const { provider_id, provider_code } = req.query;
 
-      const bill = await queryWaterBill(accountNumber, provider_id || 'MOMBASA_WATER');
+      const bill = await queryWaterBill(accountNumber, provider_id || provider_code || 'MOMBASA_WATER');
       res.json({ success: true, data: bill });
     } catch (error) {
       next(error);
@@ -199,9 +199,9 @@ router.post('/water/pay',
   async (req, res, next) => {
     try {
       if (!validate(req, res)) return;
-      const { account_number, amount_kes, provider_id, property_id } = req.body;
+      const { account_number, amount_kes, provider_id, provider_code, property_id } = req.body;
 
-      const paymentResult = await payWaterBill(account_number, Number(amount_kes), provider_id || 'MOMBASA_WATER', property_id);
+      const paymentResult = await payWaterBill(account_number, Number(amount_kes), provider_id || provider_code || 'MOMBASA_WATER', property_id);
       res.json({
         success: true,
         message: 'Water utility bill paid successfully ✓',

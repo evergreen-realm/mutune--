@@ -1,25 +1,25 @@
 import React, { useState } from 'react';
 import { ClipboardCheck, X, Plus, Trash2, CheckCircle2, DollarSign, AlertCircle, Camera } from 'lucide-react';
-import { createMoveOutInspection, processDepositRefund } from '../lib/api';
+import { createMoveOutInspection, processDepositRefund, uploadDoc } from '../lib/api';
 import { toast } from 'react-toastify';
 
 export default function MoveOutInspectionModal({ isOpen, onClose, tenant, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [damages, setDamages] = useState([
-    { item_name: 'Wall Paint & Plaster', condition: 'good', repair_cost_kes: 0 },
-    { item_name: 'Door Locks & Keys', condition: 'good', repair_cost_kes: 0 }
+    { item_name: 'Wall Paint & Plaster', condition: 'good', repair_cost_kes: 0, photo_url: '' },
+    { item_name: 'Door Locks & Keys', condition: 'good', repair_cost_kes: 0, photo_url: '' }
   ]);
   const [unpaidUtilities, setUnpaidUtilities] = useState(0);
   const [notes, setNotes] = useState('');
 
   if (!isOpen || !tenant) return null;
 
-  const depositPaid = tenant.deposit_amount_kes || tenant.rent_amount_kes || 0;
+  const depositPaid = tenant.deposit_kes ?? tenant.deposit_paid_kes ?? tenant.deposit_amount_kes ?? tenant.rent_amount_kes ?? 0;
   const totalDamages = damages.reduce((sum, d) => sum + (Number(d.repair_cost_kes) || 0), 0);
   const netRefund = depositPaid - totalDamages - Number(unpaidUtilities);
 
   const handleAddDamageItem = () => {
-    setDamages([...damages, { item_name: '', condition: 'damaged', repair_cost_kes: 0 }]);
+    setDamages([...damages, { item_name: '', condition: 'damaged', repair_cost_kes: 0, photo_url: '' }]);
   };
 
   const handleRemoveDamageItem = (idx) => {
@@ -30,6 +30,20 @@ export default function MoveOutInspectionModal({ isOpen, onClose, tenant, onSucc
     const updated = [...damages];
     updated[idx][field] = val;
     setDamages(updated);
+  };
+
+  const handleItemPhotoUpload = async (idx, file) => {
+    if (!file) return;
+    try {
+      const res = await uploadDoc(file);
+      const uploadedUrl = res?.url || res?.data?.url;
+      if (uploadedUrl) {
+        handleItemChange(idx, 'photo_url', uploadedUrl);
+        toast.success('Inspection photo uploaded ✓');
+      }
+    } catch {
+      toast.error('Failed to upload inspection photo');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -43,11 +57,12 @@ export default function MoveOutInspectionModal({ isOpen, onClose, tenant, onSucc
         agent_notes: notes
       });
 
-      if (res?.success && res?.data) {
-        toast.success(`Inspection Report ${res.data.report_code} created ✓`);
+      const reportData = res?.data?.data || res?.data;
+      if ((res?.success || res?.data?.success) && reportData) {
+        toast.success(`Inspection Report ${reportData.report_code} created ✓`);
         // Trigger deposit refund & unit unlocking
-        const refundRes = await processDepositRefund(res.data._id);
-        if (refundRes?.success) {
+        const refundRes = await processDepositRefund(reportData._id);
+        if (refundRes?.success || refundRes?.data?.success) {
           toast.success('Deposit refund processed & unit unlocked successfully!');
         }
         if (onSuccess) onSuccess();
@@ -143,6 +158,20 @@ export default function MoveOutInspectionModal({ isOpen, onClose, tenant, onSucc
                     onChange={(e) => handleItemChange(idx, 'repair_cost_kes', Number(e.target.value))}
                     className="w-24 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-white outline-none font-mono"
                   />
+                  <label
+                    title={item.photo_url ? 'Photo attached' : 'Upload evidence photo'}
+                    className={`p-1.5 rounded-lg border cursor-pointer transition ${
+                      item.photo_url ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' : 'border-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Camera size={14} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleItemPhotoUpload(idx, e.target.files?.[0])}
+                    />
+                  </label>
                   <button
                     type="button"
                     onClick={() => handleRemoveDamageItem(idx)}

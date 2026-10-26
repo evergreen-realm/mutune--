@@ -250,8 +250,14 @@ router.post('/',
       const count = await Tenant.countDocuments();
       const tenantCode = `TNT-MOM-${String(count + 1).padStart(4, '0')}`;
 
+      const depVal = req.body.deposit_paid_kes ?? req.body.deposit_kes ?? req.body.deposit_amount_kes;
       const createPayload = {
         ...req.body,
+        ...(depVal !== undefined ? {
+          deposit_paid_kes: Number(depVal),
+          deposit_kes: Number(depVal),
+          deposit_amount_kes: Number(depVal)
+        } : {}),
         tenant_code: tenantCode,
         tenancy_status: 'active'
       };
@@ -383,9 +389,15 @@ router.patch('/:id',
       }
 
       const allowedFields = ['full_name', 'phone', 'email', 'emergency_contact', 'rent_amount_kes',
-        'lease_end', 'tenancy_status', 'notes', 'guarantor'];
+        'deposit_paid_kes', 'deposit_kes', 'deposit_amount_kes', 'lease_end', 'tenancy_status', 'notes', 'guarantor', 'kyc_verified'];
       const update = {};
       allowedFields.forEach(f => { if (req.body[f] !== undefined) update[f] = req.body[f]; });
+      const depVal = req.body.deposit_paid_kes ?? req.body.deposit_kes ?? req.body.deposit_amount_kes;
+      if (depVal !== undefined) {
+        update.deposit_paid_kes = Number(depVal);
+        update.deposit_kes = Number(depVal);
+        update.deposit_amount_kes = Number(depVal);
+      }
 
       const tenant = await Tenant.findByIdAndUpdate(
         req.params.id,

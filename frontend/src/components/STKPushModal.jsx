@@ -1,14 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, DollarSign, Send, X, Loader2 } from 'lucide-react';
-import { initiateSTKPush } from '../lib/api';
+import { initiateSTKPush, fetchTenants } from '../lib/api';
 import { toast } from 'react-toastify';
 
-export default function STKPushModal({ isOpen, onClose, onSuccess, defaultPropertyId, defaultUnitId, defaultTenantId }) {
-  const [phone, setPhone] = useState('254');
-  const [amount, setAmount] = useState('');
+export default function STKPushModal({
+  isOpen = true,
+  onClose,
+  onSuccess,
+  defaultPropertyId,
+  defaultUnitId,
+  defaultTenantId,
+  unit,
+  tenant,
+  property
+}) {
+  const [tenants, setTenants] = useState([]);
+  const [selectedTenantId, setSelectedTenantId] = useState(defaultTenantId || tenant?._id || '');
+  const [selectedUnitId, setSelectedUnitId] = useState(defaultUnitId || unit?._id || tenant?.current_unit_id?._id || tenant?.current_unit_id || '');
+  const [selectedUnitCode, setSelectedUnitCode] = useState(unit?.unit_number || tenant?.unit_number || tenant?.current_unit_id?.unit_number || '');
+  const [selectedPropertyId, setSelectedPropertyId] = useState(
+    defaultPropertyId || property?._id || tenant?.current_property_id?._id || tenant?.current_property_id || ''
+  );
+  const [phone, setPhone] = useState(tenant?.phone || '254');
+  const [amount, setAmount] = useState(tenant?.rent_amount_kes || unit?.rent_kes || '');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedTenantId(defaultTenantId || tenant?._id || '');
+    setSelectedUnitId(defaultUnitId || unit?._id || tenant?.current_unit_id?._id || tenant?.current_unit_id || '');
+    setSelectedUnitCode(unit?.unit_number || tenant?.unit_number || tenant?.current_unit_id?.unit_number || '');
+    setSelectedPropertyId(
+      defaultPropertyId || property?._id || tenant?.current_property_id?._id || tenant?.current_property_id || ''
+    );
+    if (tenant?.phone) setPhone(tenant.phone);
+    if (tenant?.rent_amount_kes || unit?.rent_kes) setAmount(tenant?.rent_amount_kes || unit?.rent_kes || '');
+
+    fetchTenants({ limit: 100 })
+      .then((res) => {
+        const list = res?.data || res?.data?.data || [];
+        if (Array.isArray(list)) setTenants(list);
+      })
+      .catch(() => {});
+  }, [isOpen, defaultPropertyId, defaultUnitId, defaultTenantId, unit, tenant, property]);
+
   if (!isOpen) return null;
+
+  const handleTenantChange = (tid) => {
+    setSelectedTenantId(tid);
+    const found = tenants.find((t) => t._id === tid);
+    if (found) {
+      setSelectedUnitId(found.current_unit_id?._id || found.current_unit_id || '');
+      setSelectedUnitCode(found.unit_number || found.current_unit_id?.unit_number || '');
+      setSelectedPropertyId(found.current_property_id?._id || found.current_property_id || '');
+      if (found.phone) setPhone(found.phone);
+      if (found.rent_amount_kes) setAmount(found.rent_amount_kes);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,23 +72,27 @@ export default function STKPushModal({ isOpen, onClose, onSuccess, defaultProper
     setLoading(true);
     const toastId = toast.loading('Sending M-Pesa STK Push prompt to tenant phone...');
     try {
+      const numericAmount = Math.round(Number(amount));
       const res = await initiateSTKPush({
+        phone: phone.trim(),
         phone_number: phone.trim(),
-        amount: Number(amount),
-        property_id: defaultPropertyId,
-        unit_id: defaultUnitId,
-        tenant_id: defaultTenantId
+        amount: numericAmount,
+        amount_kes: numericAmount,
+        property_id: selectedPropertyId || undefined,
+        unit_id: selectedUnitId || undefined,
+        unit_code: selectedUnitCode || selectedUnitId || undefined,
+        tenant_id: selectedTenantId || undefined
       });
 
-      if (res?.data?.success) {
-        toast.update(toastId, { render: 'STK push prompt sent! Check phone to enter PIN.', type: 'success', isLoading: false, autoClose: 5000 });
-        if (onSuccess) onSuccess(res.data);
+      if (res?.success || res?.data?.success) {
+        toast.update(toastId, { render: res?.message || res?.data?.message || 'STK push prompt sent! Check phone to enter PIN.', type: 'success', isLoading: false, autoClose: 5000 });
+        if (onSuccess) onSuccess(res.data || res);
         onClose();
       } else {
-        toast.update(toastId, { render: res?.data?.error?.message || 'STK Push failed', type: 'error', isLoading: false, autoClose: 5000 });
+        toast.update(toastId, { render: res?.error?.message || res?.data?.error?.message || 'STK Push failed', type: 'error', isLoading: false, autoClose: 5000 });
       }
     } catch (err) {
-      toast.update(toastId, { render: err?.response?.data?.error?.message || err?.message || 'Error triggering STK push', type: 'error', isLoading: false, autoClose: 5000 });
+      toast.update(toastId, { render: err?.error?.message || err?.response?.data?.error?.message || err?.message || 'Error triggering STK push', type: 'error', isLoading: false, autoClose: 5000 });
     } finally {
       setLoading(false);
     }
@@ -67,6 +119,24 @@ export default function STKPushModal({ isOpen, onClose, onSuccess, defaultProper
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          {tenants.length > 0 && !defaultTenantId && !tenant && (
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Select Tenant (Optional)</label>
+              <select
+                value={selectedTenantId}
+                onChange={(e) => handleTenantChange(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-emerald-500"
+              >
+                <option value="">-- Select tenant or enter phone below --</option>
+                {tenants.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.full_name} ({t.phone}) — KES {(t.rent_amount_kes || 0).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="block text-slate-400 font-bold mb-1">M-Pesa Phone Number *</label>
             <input

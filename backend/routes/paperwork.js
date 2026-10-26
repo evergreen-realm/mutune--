@@ -60,6 +60,7 @@ router.post('/generate-pdf',
   requireAuth,
   [
     body('doc_type').isIn([
+      'lease',
       'lease_agreement',
       'demand_note_7day',
       'quit_notice_30day',
@@ -74,7 +75,8 @@ router.post('/generate-pdf',
     try {
       if (!validate(req, res)) return;
 
-      const { doc_type, payload = {} } = req.body;
+      const { payload = {} } = req.body;
+      const doc_type = req.body.doc_type === 'lease' ? 'lease_agreement' : req.body.doc_type;
 
       // Scope Role Permission Enforcements
       if (doc_type === 'agent_salary_voucher' && req.user.role === 'tenant') {
@@ -123,8 +125,14 @@ router.post('/generate-pdf',
  *       200:
  *         description: OTP dispatched via SMS
  */
-router.post('/sign/request-otp',
+router.post(['/sign/request-otp', '/lease/:tenantId/request-otp'],
   requireAuth,
+  (req, res, next) => {
+    if (req.params?.tenantId && (!req.body || !req.body.tenant_id)) {
+      req.body = { ...(req.body || {}), tenant_id: req.params.tenantId };
+    }
+    next();
+  },
   [
     body('tenant_id').isMongoId().withMessage('Valid tenant_id is required')
   ],
@@ -175,7 +183,7 @@ router.post('/sign/request-otp',
       logger.info('Lease signing OTP dispatched', { tenantId: tenant_id, phone: tenant.phone });
       res.json({
         success: true,
-        message: `Signing OTP sent to registered phone ${tenant.phone.slice(0, 6)}****`,
+        message: `Signing OTP sent to registered phone ${String(tenant.phone || '').slice(0, 6)}****`,
         expires_in_seconds: 600
       });
     } catch (error) {
@@ -210,8 +218,17 @@ router.post('/sign/request-otp',
  *       200:
  *         description: Lease signed and verification hash generated
  */
-router.post('/sign/verify-and-sign',
+router.post(['/sign/verify-and-sign', '/lease/:tenantId/sign'],
   requireAuth,
+  (req, res, next) => {
+    if (req.params?.tenantId && (!req.body || !req.body.tenant_id)) {
+      req.body = { ...(req.body || {}), tenant_id: req.params.tenantId };
+    }
+    if (req.body && !req.body.otp_code && req.body.otp) {
+      req.body.otp_code = req.body.otp;
+    }
+    next();
+  },
   [
     body('tenant_id').isMongoId().withMessage('Valid tenant_id is required'),
     body('otp_code').isLength({ min: 6, max: 6 }).withMessage('6-digit OTP code required')
@@ -235,7 +252,9 @@ router.post('/sign/verify-and-sign',
           success: true,
           message: 'Lease agreement is already digitally signed and immutable',
           data: {
+            status: 'signed',
             signing_status: 'signed',
+            signed: true,
             signed_at: signatureRecord.signed_at,
             verification_hash: signatureRecord.verification_hash
           }
@@ -283,7 +302,9 @@ router.post('/sign/verify-and-sign',
         success: true,
         message: 'Lease agreement digitally signed and verified ✓',
         data: {
+          status: 'signed',
           signing_status: 'signed',
+          signed: true,
           signed_at: signatureRecord.signed_at,
           verification_hash: verificationHash,
           attestation_text: signatureRecord.attestation_text
@@ -313,7 +334,7 @@ router.post('/sign/verify-and-sign',
  *       200:
  *         description: Lease signature status details
  */
-router.get('/sign/status/:tenantId',
+router.get(['/sign/status/:tenantId', '/lease/:tenantId/status'],
   requireAuth,
   async (req, res, next) => {
     try {
@@ -323,9 +344,23 @@ router.get('/sign/status/:tenantId',
         document_type: 'lease_agreement'
       }).lean();
 
+      const statusVal = signature?.signing_status || 'unsigned';
       res.json({
         success: true,
-        data: signature || { signing_status: 'unsigned' }
+        data: signature
+          ? {
+              ...signature,
+              status: statusVal,
+              signing_status: statusVal,
+              signed: statusVal === 'signed',
+              signature
+            }
+          : {
+              status: 'unsigned',
+              signing_status: 'unsigned',
+              signed: false,
+              signature: null
+            }
       });
     } catch (error) {
       next(error);

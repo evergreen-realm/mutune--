@@ -59,9 +59,21 @@ function getDistanceMetres(lat1, lng1, lat2, lng2) {
  *       200:
  *         description: Check-in verified
  */
-router.post('/checkin',
+router.post(['/checkin', '/check-in'],
   requireAuth,
   requirePermission('checkin:property'),
+  (req, res, next) => {
+    if (req.body && !req.body.location && req.body.latitude !== undefined && req.body.longitude !== undefined) {
+      req.body.location = {
+        coordinates: [Number(req.body.longitude), Number(req.body.latitude)],
+        accuracy: req.body.accuracy !== undefined ? Number(req.body.accuracy) : 10
+      };
+      if (!req.body.photo_url) {
+        req.body.photo_url = 'https://mutunerent.co.ke/assets/checkin-verified.png';
+      }
+    }
+    next();
+  },
   [
     body('property_id').isMongoId().withMessage('Valid property ID required'),
     body('location.coordinates')
@@ -139,14 +151,21 @@ router.post('/checkin',
         accuracy: location.accuracy
       });
 
-      res.json({
-        success: true,
-        distance_m: Math.round(distanceM),
+      const roundedDist = Math.round(distanceM);
+      const nowIso = new Date().toISOString();
+      const checkInPayload = {
+        distance_m: roundedDist,
+        distance_meters: roundedDist,
         accuracy: location.accuracy,
         location_warning,
         verified: true,
-        timestamp: new Date().toISOString(),
+        timestamp: nowIso,
         property: { name: property.name, property_code: property.property_code }
+      };
+      res.json({
+        success: true,
+        ...checkInPayload,
+        data: checkInPayload
       });
     } catch (error) {
       next(error);

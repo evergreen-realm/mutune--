@@ -53,7 +53,8 @@ const EMPTY_FORM = {
   legal_basis: ''
 };
 
-export default function NoticesPage({ user }) {
+export default function NoticesPage({ user: propUser, dbUser }) {
+  const user = dbUser || propUser;
   const queryClient = useQueryClient();
 
   const { data: noticesData, isLoading: noticesLoading } = useQuery({
@@ -1024,7 +1025,7 @@ export default function NoticesPage({ user }) {
                 </button>
                 <button
                   type="button"
-                  onClick={handleDeleteConfirm}
+                  onClick={() => deleteMutation.mutate(deletingNotice._id)}
                   disabled={deleteMutation.isPending}
                   className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >

@@ -12,8 +12,8 @@ export default function ScanProcessingOverlay({ propertyId, onComplete }) {
       try {
         const data = await getPropertyScans(propertyId);
         // Find if any scan is processing
-        const scans = data.scans || [];
-        const isProcessing = scans.some(scan => scan.splat_status === 'processing') || data.splat_status === 'processing';
+        const scans = data?.scans || data?.room_scans || data?.data || [];
+        const isProcessing = scans.some(scan => (scan.splat_status || scan.status) === 'processing') || data?.splat_status === 'processing';
         
         setProcessing(isProcessing);
         

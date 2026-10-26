@@ -36,7 +36,18 @@ import 'leaflet/dist/leaflet.css';
 
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-const EMPTY_RULE = { grace_period_days: 5, fee_type: 'flat', amount_kes: 500, cap_kes: '' };
+const EMPTY_RULE = {
+  name: 'Standard Late Fee Rule',
+  grace_days: 5,
+  grace_period_days: 5,
+  penalty_type: 'fixed',
+  fee_type: 'flat',
+  penalty_value: 500,
+  amount_kes: 500,
+  max_penalty_per_month: '',
+  cap_kes: '',
+  applies_to: 'all'
+};
 
 const MOMBASA_AREAS = [
   'Nyali', 'Bamburi', 'Mtwapa', 'Tudor', 'Likoni', 'Changamwe',
@@ -74,7 +85,7 @@ function LateFeePanel() {
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => updateLateFeeRule(id, data),
-    onSuccess: () => { toast.success('Rule updated'); invalidate(); setEditId(null); },
+    onSuccess: () => { toast.success('Rule updated'); invalidate(); setEditId(null); setShowForm(false); },
     onError: (e) => toast.error(e?.error?.message || 'Failed to update rule')
   });
 
@@ -85,11 +96,24 @@ function LateFeePanel() {
   });
 
   const handleSubmit = () => {
+    const graceDays = Number(form.grace_days ?? form.grace_period_days ?? 0);
+    const penaltyType = form.penalty_type || (form.fee_type === 'percent' ? 'percentage' : 'fixed');
+    const feeType = penaltyType === 'percentage' ? 'percent' : 'flat';
+    const penaltyValue = Number(form.penalty_value ?? form.amount_kes ?? 0);
+    const capVal = form.max_penalty_per_month !== '' && form.max_penalty_per_month !== undefined
+      ? Number(form.max_penalty_per_month)
+      : (form.cap_kes !== '' && form.cap_kes !== undefined ? Number(form.cap_kes) : undefined);
+
     const payload = {
-      grace_period_days: Number(form.grace_period_days),
-      fee_type: form.fee_type,
-      amount_kes: Number(form.amount_kes),
-      ...(form.cap_kes !== '' ? { cap_kes: Number(form.cap_kes) } : {})
+      name: (form.name || 'Standard Late Fee Rule').trim(),
+      grace_days: graceDays,
+      grace_period_days: graceDays,
+      penalty_type: penaltyType,
+      fee_type: feeType,
+      penalty_value: penaltyValue,
+      amount_kes: penaltyValue,
+      applies_to: form.applies_to || 'all',
+      ...(capVal !== undefined ? { max_penalty_per_month: capVal, cap_kes: capVal } : {})
     };
     if (editId) {
       updateMut.mutate({ id: editId, data: payload });
@@ -99,8 +123,24 @@ function LateFeePanel() {
   };
 
   const startEdit = (rule) => {
+    const graceDays = rule.grace_days ?? rule.grace_period_days ?? 5;
+    const penaltyType = rule.penalty_type || (rule.fee_type === 'percent' ? 'percentage' : 'fixed');
+    const feeType = penaltyType === 'percentage' ? 'percent' : 'flat';
+    const penaltyValue = rule.penalty_value ?? rule.amount_kes ?? 500;
+    const capVal = rule.max_penalty_per_month ?? rule.cap_kes ?? '';
     setEditId(rule._id);
-    setForm({ grace_period_days: rule.grace_period_days, fee_type: rule.fee_type, amount_kes: rule.amount_kes, cap_kes: rule.cap_kes ?? '' });
+    setForm({
+      name: rule.name || 'Standard Late Fee Rule',
+      grace_days: graceDays,
+      grace_period_days: graceDays,
+      penalty_type: penaltyType,
+      fee_type: feeType,
+      penalty_value: penaltyValue,
+      amount_kes: penaltyValue,
+      max_penalty_per_month: capVal,
+      cap_kes: capVal,
+      applies_to: rule.applies_to || 'all'
+    });
     setShowForm(true);
   };
 
@@ -133,31 +173,60 @@ function LateFeePanel() {
           </h4>
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className={labelCls}>Rule Name</label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                className={inputCls}
+                placeholder="e.g. Standard Late Fee Rule"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Applies To</label>
+              <select
+                value={form.applies_to || 'all'}
+                onChange={e => setForm(f => ({ ...f, applies_to: e.target.value }))}
+                className={inputCls}
+              >
+                <option value="all">All Properties</option>
+                <option value="residential">Residential Only</option>
+                <option value="commercial">Commercial Only</option>
+              </select>
+            </div>
+            <div>
               <label className={labelCls}>Grace Period (Days)</label>
               <input
                 type="number"
-                value={form.grace_period_days}
-                onChange={e => setForm(f => ({ ...f, grace_period_days: e.target.value }))}
+                value={form.grace_days ?? form.grace_period_days}
+                onChange={e => setForm(f => ({ ...f, grace_days: e.target.value, grace_period_days: e.target.value }))}
                 className={inputCls}
               />
             </div>
             <div>
               <label className={labelCls}>Fee Type</label>
               <select
-                value={form.fee_type}
-                onChange={e => setForm(f => ({ ...f, fee_type: e.target.value }))}
+                value={form.penalty_type || (form.fee_type === 'percent' ? 'percentage' : 'fixed')}
+                onChange={e => {
+                  const val = e.target.value;
+                  setForm(f => ({
+                    ...f,
+                    penalty_type: val,
+                    fee_type: val === 'percentage' ? 'percent' : 'flat'
+                  }));
+                }}
                 className={inputCls}
               >
-                <option value="flat">Flat Fee</option>
-                <option value="percent">Percentage</option>
+                <option value="fixed">Flat Fee (Fixed)</option>
+                <option value="percentage">Percentage (%)</option>
               </select>
             </div>
             <div>
-              <label className={labelCls}>{form.fee_type === 'percent' ? 'Percentage (%)' : 'Amount (KES)'}</label>
+              <label className={labelCls}>{(form.penalty_type === 'percentage' || form.fee_type === 'percent') ? 'Percentage (%)' : 'Amount (KES)'}</label>
               <input
                 type="number"
-                value={form.amount_kes}
-                onChange={e => setForm(f => ({ ...f, amount_kes: e.target.value }))}
+                value={form.penalty_value ?? form.amount_kes}
+                onChange={e => setForm(f => ({ ...f, penalty_value: e.target.value, amount_kes: e.target.value }))}
                 className={inputCls}
               />
             </div>
@@ -165,8 +234,8 @@ function LateFeePanel() {
               <label className={labelCls}>Cap Amount (KES, Optional)</label>
               <input
                 type="number"
-                value={form.cap_kes}
-                onChange={e => setForm(f => ({ ...f, cap_kes: e.target.value }))}
+                value={form.max_penalty_per_month ?? form.cap_kes}
+                onChange={e => setForm(f => ({ ...f, max_penalty_per_month: e.target.value, cap_kes: e.target.value }))}
                 className={inputCls}
               />
             </div>
@@ -184,20 +253,28 @@ function LateFeePanel() {
         <p className="text-xs text-muted text-center py-4">No late fee rules created yet</p>
       ) : (
         <div className="divide-y divide-border/40">
-          {rules.map(r => (
-            <div key={r._id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-              <div>
-                <p className="text-xs font-bold text-foreground">
-                  Grace Period: {r.grace_period_days} Days · {r.fee_type === 'percent' ? `${r.amount_kes}%` : FMT_KES(r.amount_kes)} {r.fee_type}
-                </p>
-                {r.cap_kes && <p className="text-[10px] text-muted mt-0.5">Maximum Cap: {FMT_KES(r.cap_kes)}</p>}
+          {rules.map(r => {
+            const graceDays = r.grace_days ?? r.grace_period_days ?? 0;
+            const pType = r.penalty_type || (r.fee_type === 'percent' ? 'percentage' : 'fixed');
+            const pVal = r.penalty_value ?? r.amount_kes ?? 0;
+            const capVal = r.max_penalty_per_month ?? r.cap_kes;
+            return (
+              <div key={r._id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                <div>
+                  <p className="text-xs font-bold text-foreground">
+                    {r.name ? `${r.name} · ` : ''}Grace Period: {graceDays} Days · {pType === 'percentage' ? `${pVal}%` : FMT_KES(pVal)} ({pType})
+                  </p>
+                  {capVal !== undefined && capVal !== null && (
+                    <p className="text-[10px] text-muted mt-0.5">Maximum Cap: {FMT_KES(capVal)}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => startEdit(r)} className="p-1.5 bg-background/50 hover:bg-surface border border-border rounded-lg text-muted hover:text-foreground transition"><Edit2 size={12} /></button>
+                  <button onClick={() => deleteMut.mutate(r._id)} className="p-1.5 bg-background/50 hover:bg-red-500/10 border border-border hover:border-red-500/30 text-muted hover:text-red-400 rounded-lg transition"><Trash2 size={12} /></button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => startEdit(r)} className="p-1.5 bg-background/50 hover:bg-surface border border-border rounded-lg text-muted hover:text-foreground transition"><Edit2 size={12} /></button>
-                <button onClick={() => deleteMut.mutate(r._id)} className="p-1.5 bg-background/50 hover:bg-red-500/10 border border-border hover:border-red-500/30 text-muted hover:text-red-400 rounded-lg transition"><Trash2 size={12} /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -244,7 +321,7 @@ export default function AdminDashboardPage({ dbUser }) {
     queryKey: ['mpesaFloatBalance'],
     queryFn: async () => {
       const res = await fetchMpesaWorkingBalance();
-      return res?.data?.data || null;
+      return res?.data?.data || res?.data || null;
     },
     staleTime: 5 * 60 * 1000 // 5 minutes cache
   });

@@ -328,7 +328,7 @@ export default function LandlordDashboardPage() {
                       <div>
                         <span className="text-muted block text-[9px] uppercase font-bold tracking-wider">Rent Expected</span>
                         <span className="font-mono font-extrabold text-emerald-500">
-                          {FMT_KES(activeProperty.units?.reduce((sum, u) => sum + (u.rent_amount_kes || 0), 0))}
+                          {FMT_KES(activeProperty.units?.reduce((sum, u) => sum + Number(u.rent_kes || u.rent_amount_kes || 0), 0))}
                         </span>
                       </div>
                     </div>

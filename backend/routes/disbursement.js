@@ -29,7 +29,7 @@ const validate = (req, res) => {
  *       200:
  *         description: Priority order and pending amount totals
  */
-router.get('/priority',
+router.get(['/priority', '/priority-queue'],
   requireAuth,
   requireRole(['admin', 'super_admin']),
   async (req, res, next) => {
@@ -91,9 +91,15 @@ router.get('/priority',
  *       200:
  *         description: Priority order updated successfully
  */
-router.put('/priority',
+router.put(['/priority', '/priority-queue'],
   requireAuth,
   requireRole(['admin', 'super_admin']),
+  (req, res, next) => {
+    if (req.body && !req.body.disbursement_priority && Array.isArray(req.body.priority_order)) {
+      req.body.disbursement_priority = req.body.priority_order;
+    }
+    next();
+  },
   [
     body('disbursement_priority').isArray().withMessage('disbursement_priority must be an array of categories')
   ],
@@ -128,7 +134,7 @@ router.put('/priority',
  *       200:
  *         description: Payout execution summary
  */
-router.post('/execute',
+router.post(['/execute', '/execute-bulk'],
   requireAuth,
   requireRole(['admin', 'super_admin']),
   async (req, res, next) => {

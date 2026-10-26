@@ -76,7 +76,7 @@ export default function PaperworkSuiteTab() {
     const t = setTimeout(async () => {
       try {
         const r = await api.get('/tenants', { params: { search: tenantSearch, limit: 8 } });
-        setTenantResults(r?.data?.data || r?.data?.tenants || []);
+        setTenantResults(r?.data || r?.tenants || r?.data?.data || r?.data?.tenants || []);
       } catch { setTenantResults([]); }
     }, 300);
     return () => clearTimeout(t);
@@ -88,7 +88,7 @@ export default function PaperworkSuiteTab() {
     (async () => {
       try {
         const r = await api.get('/properties', { params: { limit: 50 } });
-        setPropertyResults(r?.data?.data || r?.data?.properties || []);
+        setPropertyResults(r?.data || r?.properties || r?.data?.data || r?.data?.properties || []);
       } catch { setPropertyResults([]); }
     })();
   }, [autoPopulate]);
@@ -98,7 +98,7 @@ export default function PaperworkSuiteTab() {
       ...prev,
       tenant_name: t.full_name || t.name || '',
       tenant_code: t.tenant_code || '',
-      national_id: t.national_id || '',
+      national_id: t.national_id || t.id_number || '',
       phone: t.phone || '',
       email: t.email || '',
     }));
@@ -142,7 +142,9 @@ export default function PaperworkSuiteTab() {
     try {
       const payload = { ...formData, stamp_duty_kes: stampDutyKes, net_payout_kes: netPayout };
       const response = await generateLegalPDF(docType, payload);
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blob = response instanceof Blob
+        ? response
+        : new Blob([response?.data ?? response], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       if (isDownload) {
         const link = document.createElement('a');

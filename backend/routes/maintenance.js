@@ -39,9 +39,41 @@ const validate = (req, res) => {
  *       201:
  *         description: Ticket created successfully
  */
+const CATEGORY_MAP = {
+  carpentry: 'structural',
+  general: 'other',
+  painting: 'other'
+};
+
 router.post('/',
   requireAuth,
   requirePermission('create:maintenance'),
+  (req, res, next) => {
+    if (req.body) {
+      if (!req.body.unit_id && req.body.unit_code) {
+        req.body.unit_id = req.body.unit_code;
+      }
+      if (!req.body.unit_id) {
+        req.body.unit_id = req.user?.current_unit_id ? String(req.user.current_unit_id) : 'General';
+      }
+      if ((!req.body.description || !String(req.body.description).trim()) && req.body.title) {
+        req.body.description = String(req.body.title).trim();
+      }
+      if (!req.body.priority && req.body.urgency) {
+        req.body.priority = req.body.urgency;
+      }
+      if (req.body.priority === 'urgent') {
+        req.body.priority = 'emergency';
+      }
+      if (!req.body.photos && Array.isArray(req.body.photo_urls)) {
+        req.body.photos = req.body.photo_urls;
+      }
+      if (req.body.category && CATEGORY_MAP[req.body.category]) {
+        req.body.category = CATEGORY_MAP[req.body.category];
+      }
+    }
+    next();
+  },
   [
     body('property_id').isMongoId().withMessage('Valid property ID required'),
     body('unit_id').notEmpty().withMessage('Unit ID required'),
@@ -56,12 +88,32 @@ router.post('/',
     try {
       if (!validate(req, res)) return;
 
-      const { property_id, unit_id, category, priority = 'medium', description, photos = [] } = req.body;
+      const mongoose = require('mongoose');
+      const { property_id, unit_id, unit_code, title, category, priority = 'medium', description, photos = [] } = req.body;
 
       if (req.user.role === 'caretaker') {
         const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
         if (!assigned.includes(property_id.toString())) {
           return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Cannot create ticket for unassigned property' } });
+        }
+      }
+
+      const isHexObjectId = (val) => typeof val === 'string' && /^[0-9a-fA-F]{24}$/.test(val);
+      let resolvedUnitId = isHexObjectId(String(unit_id)) ? unit_id : undefined;
+      let resolvedUnitCode = unit_code || (!resolvedUnitId && unit_id ? String(unit_id) : undefined);
+
+      if ((!resolvedUnitId || !resolvedUnitCode) && property_id && mongoose.Types.ObjectId.isValid(property_id)) {
+        const propDoc = await Property.findById(property_id).select('units').lean();
+        if (propDoc && Array.isArray(propDoc.units)) {
+          const matchedUnit = propDoc.units.find(
+            u => (resolvedUnitId && String(u._id) === String(resolvedUnitId)) ||
+                 (unit_id && String(u.unit_number) === String(unit_id)) ||
+                 (unit_code && String(u.unit_number) === String(unit_code))
+          );
+          if (matchedUnit) {
+            resolvedUnitId = matchedUnit._id;
+            resolvedUnitCode = matchedUnit.unit_number;
+          }
         }
       }
 
@@ -71,8 +123,10 @@ router.post('/',
       const tenant = await Tenant.findOne({ user_id: req.user._id }).select('_id').lean();
       const ticket = await MaintenanceTicket.create({
         ticket_code: ticketCode,
+        ...(title ? { title: String(title).trim() } : {}),
         property_id,
-        unit_id,
+        ...(resolvedUnitId ? { unit_id: resolvedUnitId } : {}),
+        ...(resolvedUnitCode ? { unit_code: resolvedUnitCode } : {}),
         tenant_id: tenant ? tenant._id : undefined,
         created_by: req.user._id,
         category,
@@ -244,7 +298,22 @@ router.patch('/:id',
     try {
       if (!validate(req, res)) return;
 
-      const allowedFields = ['status', 'agent_notes', 'assigned_agent_id', 'tenant_satisfaction', 'photos'];
+      if (req.body) {
+        if (!req.body.priority && req.body.urgency) {
+          req.body.priority = req.body.urgency;
+        }
+        if (req.body.priority === 'urgent') {
+          req.body.priority = 'emergency';
+        }
+        if (!req.body.photos && Array.isArray(req.body.photo_urls)) {
+          req.body.photos = req.body.photo_urls;
+        }
+        if (req.body.category && CATEGORY_MAP[req.body.category]) {
+          req.body.category = CATEGORY_MAP[req.body.category];
+        }
+      }
+
+      const allowedFields = ['title', 'category', 'priority', 'description', 'status', 'agent_notes', 'assigned_agent_id', 'tenant_satisfaction', 'photos'];
       const update = {};
       allowedFields.forEach((f) => { if (req.body[f] !== undefined) update[f] = req.body[f]; });
 
