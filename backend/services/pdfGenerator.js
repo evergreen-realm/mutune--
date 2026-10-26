@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const logger = require('../utils/logger');
 const { calculateStampDuty } = require('./financials');
+const { decryptPII } = require('../utils/security');
 
 /**
  * PDF Document Generator for MutuneRent Pro Official Paperwork
@@ -8,6 +9,11 @@ const { calculateStampDuty } = require('./financials');
 function generateLegalPDF(docType, data) {
   return new Promise((resolve, reject) => {
     try {
+      if (data) {
+        if (data.id_number) data.id_number = decryptPII(data.id_number);
+        if (data.tenant_phone) data.tenant_phone = decryptPII(data.tenant_phone);
+        if (data.landlord_phone) data.landlord_phone = decryptPII(data.landlord_phone);
+      }
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
       const buffers = [];
 

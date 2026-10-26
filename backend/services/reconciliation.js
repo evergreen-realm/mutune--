@@ -2,6 +2,7 @@ const Tenant = require('../models/Tenant');
 const Payment = require('../models/Payment');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
+const { generateBlindIndex, normalizePhone } = require('../utils/security');
 
 /**
  * Auto-reconciliation algorithm matching incoming M-Pesa payment parameters
@@ -55,7 +56,16 @@ async function autoReconcilePayment({ mpesa_code, phone, account_reference, amou
 
   // Rule 3: Phone Number Match on Active Tenant (95% confidence if amount matches rent)
   if (cleanPhone) {
-    const tenantByPhone = await Tenant.findOne({ phone: cleanPhone, tenancy_status: 'active' }).lean();
+    const bindex = generateBlindIndex(cleanPhone);
+    const norm = normalizePhone(cleanPhone);
+    const normBindex = norm ? generateBlindIndex(norm) : null;
+    const phoneQueries = [{ phone: cleanPhone }, { phone_bindex: bindex }];
+    if (normBindex && normBindex !== bindex) phoneQueries.push({ phone_bindex: normBindex }, { phone: norm });
+
+    const tenantByPhone = await Tenant.findOne({
+      $or: phoneQueries,
+      tenancy_status: 'active'
+    }).lean();
     if (tenantByPhone) {
       const exactAmountMatch = Math.abs((tenantByPhone.rent_amount_kes || 0) - amount_kes) < 1;
       const confidence = exactAmountMatch ? 95 : 85;

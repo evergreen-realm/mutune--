@@ -696,7 +696,7 @@ router.post('/unmatched/:id/assign',
       payment.tenant_id = tenant._id;
       payment.property_id = tenant.current_property_id;
       payment.unit_id = tenant.current_unit_id;
-      payment.status = 'completed';
+      payment.status = 'confirmed';
       payment.discrepancy_flag = false;
       payment.notes = `${payment.notes || ''}\n[RECONCILED] Manually assigned to ${tenant.full_name} (${tenant.tenant_code}) by ${req.user.email}`.trim();
       await payment.save();

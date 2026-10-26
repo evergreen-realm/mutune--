@@ -206,15 +206,28 @@ router.post('/inspection/:id/refund',
       }
 
       // Post GL Entry
+      const depositPaid = Number(report.deposit_paid_kes || 0);
+      const netRefund = Math.max(0, Number(report.net_deposit_refund_kes || 0));
+      const deduction = Number((depositPaid - netRefund).toFixed(2));
+      const line_items = [
+        { account_code: '2010', account_name: 'Tenant Deposits Held', debit_kes: depositPaid, credit_kes: 0 },
+        { account_code: '1010', account_name: 'Cash & M-Pesa Account', debit_kes: 0, credit_kes: netRefund }
+      ];
+      if (deduction > 0) {
+        line_items.push({
+          account_code: '5020',
+          account_name: 'Property Maintenance / Damage Deductions',
+          debit_kes: 0,
+          credit_kes: deduction
+        });
+      }
+
       const glEntry = await postJournalEntry({
-        entry_type: 'deposit_refund',
-        description: `Tenant Deposit Refund ${tenant?.full_name || 'Tenant'}`,
+        reference_type: 'deposit_settlement',
+        notes: `Tenant Deposit Settlement ${tenant?.full_name || 'Tenant'} (${report.report_code})`,
         property_id: report.property_id,
-        reference: report.report_code,
-        items: [
-          { account_code: '2010', account_name: 'Tenant Deposits Held', debit_kes: report.deposit_paid_kes, credit_kes: 0 },
-          { account_code: '1010', account_name: 'Cash & M-Pesa Account', debit_kes: 0, credit_kes: Math.max(0, report.net_deposit_refund_kes) }
-        ]
+        line_items,
+        posted_by_user_id: req.user?._id
       });
 
       report.refund_status = 'refunded';

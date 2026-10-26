@@ -67,10 +67,50 @@ function generateBlindIndex(text) {
   return crypto.createHmac('sha256', BLIND_INDEX_KEY).update(normalized).digest('hex');
 }
 
+/**
+ * Normalize Kenyan phone numbers into 254XXXXXXXXX format
+ */
+function normalizePhone(phone) {
+  if (!phone || typeof phone !== 'string') return '';
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('0')) cleaned = '254' + cleaned.slice(1);
+  if (!cleaned.startsWith('254') && cleaned.length === 9) cleaned = '254' + cleaned;
+  return cleaned;
+}
+
+/**
+ * Deeply decrypt any string starting with 'enc:' in a plain JavaScript object or array
+ */
+function decryptLeanDoc(doc) {
+  if (!doc) return doc;
+  if (Array.isArray(doc)) {
+    for (let i = 0; i < doc.length; i++) {
+      decryptLeanDoc(doc[i]);
+    }
+    return doc;
+  }
+  if (typeof doc === 'object' && !(doc instanceof Date) && !(doc instanceof RegExp) && !doc._bsontype) {
+    const isMongooseDoc = typeof doc.$isDefault === 'function' || typeof doc.save === 'function';
+    if (!isMongooseDoc) {
+      for (const key of Object.keys(doc)) {
+        const val = doc[key];
+        if (typeof val === 'string' && val.startsWith('enc:')) {
+          doc[key] = decryptPII(val);
+        } else if (val && typeof val === 'object' && !(val instanceof Date) && !(val instanceof RegExp) && !val._bsontype) {
+          decryptLeanDoc(val);
+        }
+      }
+    }
+  }
+  return doc;
+}
+
 module.exports = {
   getAdminPassword,
   escapeRegExp,
   encryptPII,
   decryptPII,
-  generateBlindIndex
+  generateBlindIndex,
+  normalizePhone,
+  decryptLeanDoc
 };

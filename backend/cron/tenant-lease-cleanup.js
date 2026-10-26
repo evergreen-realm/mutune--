@@ -69,15 +69,22 @@ const runTenantLeaseCleanup = async () => {
         });
       }
 
-      // ── Step 3: Flag inventory items in their vacated unit as auctionable ─
-      if (tenant.current_property_id && tenant.unit_id) {
+      // ── Step 3: Flag inventory items in their vacated unit as auctionable & vacate unit
+      const targetUnitId = tenant.current_unit_id || tenant.unit_id;
+      if (tenant.current_property_id && targetUnitId) {
         const property = await Property.findById(tenant.current_property_id);
         if (property) {
           let changed = false;
+          const unit = property.units?.id(targetUnitId);
+          if (unit && unit.status !== 'vacant') {
+            unit.status = 'vacant';
+            unit.current_tenant_id = null;
+            changed = true;
+          }
           for (const item of property.inventory || []) {
             if (
               item.unit_id &&
-              item.unit_id.toString() === tenant.unit_id.toString() &&
+              item.unit_id.toString() === targetUnitId.toString() &&
               (!item.auction_status || item.auction_status === 'pending') &&
               !item.auctionable_marked_at
             ) {

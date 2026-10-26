@@ -29,7 +29,7 @@ async function calculateAgentCommission(agentId, billingMonth) {
 
   const collectedPayments = await Payment.find({
     property_id: { $in: propertyIds },
-    status: 'completed',
+    status: 'confirmed',
     created_at: { $gte: startDate, $lte: endDate }
   }).lean();
 

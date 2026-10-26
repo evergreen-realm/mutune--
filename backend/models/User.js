@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { getAdminPassword, encryptPII, decryptPII, generateBlindIndex, normalizePhone, decryptLeanDoc } = require('../utils/security');
+const logger = require('../utils/logger');
 
 const userSchema = new mongoose.Schema({
   user_code:   { type: String, unique: true, required: true },
@@ -6,6 +8,9 @@ const userSchema = new mongoose.Schema({
   full_name:   { type: String, required: true },
   email:       { type: String, unique: true, required: true },
   phone:       String,
+  phone_bindex: String,
+  id_number:   { type: String, get: decryptPII },
+  id_number_bindex: String,
   password_hash: String,
   earb_license:  String,
   earb_verified: { type: Boolean, default: false },
@@ -39,7 +44,7 @@ const userSchema = new mongoose.Schema({
   is_deleted: { type: Boolean, default: false },
   clerk_id:  { type: String, unique: true, sparse: true },
   created_at:{ type: Date, default: Date.now }
-});
+}, { toJSON: { getters: true }, toObject: { getters: true } });
 
 // Single centralized index definitions — no duplicates with field-level options
 userSchema.index({ 'last_location.coordinates': '2dsphere' }, { sparse: true });
@@ -47,6 +52,47 @@ userSchema.index({ role: 1, is_active: 1 });
 userSchema.index({ agent_approval_status: 1 });
 userSchema.index({ is_deleted: 1 }, { sparse: true });
 userSchema.index({ created_at: -1 });
+userSchema.index({ id_number_bindex: 1 }, { sparse: true });
+userSchema.index({ phone_bindex: 1 }, { sparse: true });
+
+function applyUserBlindIndexToFilter(filter) {
+  if (!filter || typeof filter !== 'object') return;
+  if (filter.phone && typeof filter.phone === 'string' && !filter.phone.startsWith('enc:')) {
+    const raw = filter.phone;
+    const bindex = generateBlindIndex(raw);
+    const norm = normalizePhone(raw);
+    const normBindex = norm ? generateBlindIndex(norm) : null;
+    delete filter.phone;
+    filter.$or = filter.$or || [];
+    filter.$or.push({ phone_bindex: bindex }, { phone: raw });
+    if (normBindex && normBindex !== bindex) {
+      filter.$or.push({ phone_bindex: normBindex }, { phone: norm });
+    }
+  }
+  if (filter.id_number && typeof filter.id_number === 'string' && !filter.id_number.startsWith('enc:')) {
+    const raw = filter.id_number;
+    const bindex = generateBlindIndex(raw);
+    delete filter.id_number;
+    filter.$or = filter.$or || [];
+    filter.$or.push({ id_number_bindex: bindex }, { id_number: raw });
+  }
+}
+
+userSchema.pre(/^find/, function(next) {
+  applyUserBlindIndexToFilter(this.getQuery());
+  if (typeof next === 'function') next();
+});
+userSchema.pre('countDocuments', function(next) {
+  applyUserBlindIndexToFilter(this.getQuery());
+  if (typeof next === 'function') next();
+});
+
+userSchema.post(/^find/, function(res) {
+  if (res) decryptLeanDoc(res);
+});
+userSchema.post('aggregate', function(res) {
+  if (res) decryptLeanDoc(res);
+});
 
 userSchema.pre('validate', function (next) {
   if (!this.user_code) {
@@ -58,9 +104,17 @@ userSchema.pre('validate', function (next) {
 });
 
 const bcrypt = require('bcryptjs');
-const { getAdminPassword } = require('../utils/security');
 
 userSchema.pre('save', async function (next) {
+  if (this.id_number && !this.id_number.startsWith('enc:')) {
+    this.id_number_bindex = generateBlindIndex(this.id_number);
+    this.id_number = encryptPII(this.id_number);
+  }
+  if (this.phone && !this.phone.startsWith('enc:')) {
+    const norm = normalizePhone(this.phone);
+    this.phone_bindex = generateBlindIndex(norm || this.phone);
+  }
+
   if (['admin', 'super_admin'].includes(this.role) && !this.admin_hardcoded_hash) {
     if (process.env.NODE_ENV !== 'production' && (process.env.ADMIN_HARDCODED_PASSWORD || process.env.ADMIN_PASSWORD)) {
       try {

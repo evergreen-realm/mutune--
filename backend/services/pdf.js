@@ -1,6 +1,7 @@
 const PDFDocument = require('pdfkit');
 const { uploadImage } = require('../utils/r2');
 const logger = require('../utils/logger');
+const { decryptPII } = require('../utils/security');
 
 class PDFService {
   constructor() {
@@ -10,6 +11,10 @@ class PDFService {
   }
 
   async generateNoticePDF({ notice, tenant, property, unit }) {
+    if (tenant) {
+      if (tenant.phone) tenant.phone = decryptPII(tenant.phone);
+      if (tenant.id_number) tenant.id_number = decryptPII(tenant.id_number);
+    }
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({ margin: 50, size: 'A4' });

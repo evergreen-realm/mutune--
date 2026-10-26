@@ -13,7 +13,7 @@ const kycDocumentSchema = new mongoose.Schema({
   uploaded_at: Date
 }, { _id: false });
 
-const { encryptPII, decryptPII, generateBlindIndex } = require('../utils/security');
+const { encryptPII, decryptPII, generateBlindIndex, normalizePhone, decryptLeanDoc } = require('../utils/security');
 
 const tenantSchema = new mongoose.Schema({
   tenant_code: { type: String, unique: true, required: true },
@@ -42,7 +42,11 @@ const tenantSchema = new mongoose.Schema({
   deposit_held: { type: Boolean, default: true },
   payment_history: [paymentHistorySchema],
   arrears_kes: { type: Number, default: 0, min: 0 },
-  tenancy_status: { type: String, enum: ['active', 'terminated', 'notice', 'pending', 'expired', 'departed'], default: 'active' },
+  tenancy_status: {
+    type: String,
+    enum: ['active', 'terminated', 'notice', 'notice_period', 'pending', 'pending_move_in', 'expired', 'departed', 'vacated', 'evicted', 'ended'],
+    default: 'active'
+  },
   departed_at: Date,
   notice_status:    { type: String, enum: ['none', '7_day', '30_day', 'eviction_pending'], default: 'none' },
   preferred_channel: { type: String, enum: ['email', 'sms', 'both'], default: 'both' },
@@ -65,6 +69,65 @@ tenantSchema.index({ current_unit_id: 1 });
 tenantSchema.index({ current_property_id: 1 });
 tenantSchema.index({ tenancy_status: 1 });
 
+function applyBlindIndexToFilter(filter) {
+  if (!filter || typeof filter !== 'object') return;
+  if (filter.phone && typeof filter.phone === 'string' && !filter.phone.startsWith('enc:')) {
+    const raw = filter.phone;
+    const bindex = generateBlindIndex(raw);
+    const norm = normalizePhone(raw);
+    const normBindex = norm ? generateBlindIndex(norm) : null;
+    delete filter.phone;
+    filter.$or = filter.$or || [];
+    filter.$or.push({ phone_bindex: bindex }, { phone: raw });
+    if (normBindex && normBindex !== bindex) {
+      filter.$or.push({ phone_bindex: normBindex }, { phone: norm });
+    }
+  }
+  if (filter.id_number && typeof filter.id_number === 'string' && !filter.id_number.startsWith('enc:')) {
+    const raw = filter.id_number;
+    const bindex = generateBlindIndex(raw);
+    delete filter.id_number;
+    filter.$or = filter.$or || [];
+    filter.$or.push({ id_number_bindex: bindex }, { id_number: raw });
+  }
+  if (Array.isArray(filter.$or)) {
+    const additions = [];
+    for (const item of filter.$or) {
+      if (item && item.phone && typeof item.phone === 'string' && !item.phone.startsWith('enc:')) {
+        additions.push({ phone_bindex: generateBlindIndex(item.phone) });
+        const norm = normalizePhone(item.phone);
+        if (norm) additions.push({ phone_bindex: generateBlindIndex(norm) });
+      }
+      if (item && item.id_number && typeof item.id_number === 'string' && !item.id_number.startsWith('enc:')) {
+        additions.push({ id_number_bindex: generateBlindIndex(item.id_number) });
+      }
+    }
+    if (additions.length > 0) {
+      filter.$or.push(...additions);
+    }
+  }
+}
+
+tenantSchema.pre(/^find/, function(next) {
+  applyBlindIndexToFilter(this.getQuery());
+  if (typeof next === 'function') next();
+});
+tenantSchema.pre('countDocuments', function(next) {
+  applyBlindIndexToFilter(this.getQuery());
+  if (typeof next === 'function') next();
+});
+tenantSchema.pre('count', function(next) {
+  applyBlindIndexToFilter(this.getQuery());
+  if (typeof next === 'function') next();
+});
+
+tenantSchema.post(/^find/, function(res) {
+  if (res) decryptLeanDoc(res);
+});
+tenantSchema.post('aggregate', function(res) {
+  if (res) decryptLeanDoc(res);
+});
+
 tenantSchema.pre('save', function(next) {
   this.updated_at = Date.now();
 
@@ -81,7 +144,8 @@ tenantSchema.pre('save', function(next) {
     this.id_number = encryptPII(this.id_number);
   }
   if (this.phone && !this.phone.startsWith('enc:')) {
-    this.phone_bindex = generateBlindIndex(this.phone);
+    const norm = normalizePhone(this.phone);
+    this.phone_bindex = generateBlindIndex(norm || this.phone);
     this.phone = encryptPII(this.phone);
   }
 

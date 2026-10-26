@@ -51,6 +51,17 @@ const scanSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now }
 });
 
+const assetSchema = new mongoose.Schema({
+  asset_id: String,
+  type: { type: String, enum: ['splat', 'glb', 'photo', 'video', 'document', 'floorplan', 'other'], default: 'other' },
+  name: String,
+  url: String,
+  splat_url: String,
+  status: { type: String, enum: ['pending', 'processing', 'ready', 'completed', 'failed'], default: 'ready' },
+  uploaded_at: { type: Date, default: Date.now },
+  metadata: mongoose.Schema.Types.Mixed
+}, { _id: true });
+
 const inquirySchema = new mongoose.Schema({
   name: { type: String, required: true },
   phone: { type: String, required: true },
@@ -100,6 +111,7 @@ const propertySchema = new mongoose.Schema({
   splat_model_url: String,
   splat_status: { type: String, enum: ['none', 'processing', 'completed', 'failed'], default: 'none' },
   scans: [scanSchema],
+  assets: [assetSchema],
   floor_plan_url: String,
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }

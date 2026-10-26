@@ -268,13 +268,13 @@ async function executeTool(toolName, args, callerUser) {
       }
 
       case 'get_tenants_in_arrears': {
-        const tenants = await Tenant.find({ tenancy_status: 'arrears' }).lean();
-        return { found: true, arrears_count: tenants.length, list: tenants.map(t => ({ name: t.full_name, code: t.tenant_code, amount: t.rent_amount_kes })) };
+        const tenants = await Tenant.find({ arrears_kes: { $gt: 0 } }).lean();
+        return { found: true, arrears_count: tenants.length, list: tenants.map(t => ({ name: t.full_name, code: t.tenant_code, amount: t.rent_amount_kes, arrears_kes: t.arrears_kes })) };
       }
 
       case 'get_system_financial_summary': {
         if (!['admin', 'super_admin'].includes(callerUser.role)) return { error: 'Unauthorized' };
-        const payments = await Payment.find({ status: 'completed' }).lean();
+        const payments = await Payment.find({ status: { $in: ['confirmed', 'completed'] } }).lean();
         const total = payments.reduce((acc, p) => acc + (p.amount_kes || 0), 0);
         return { found: true, total_revenue_kes: total, completed_transactions: payments.length };
       }

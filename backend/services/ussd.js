@@ -5,6 +5,7 @@ const MaintenanceTicket = require('../models/MaintenanceTicket');
 const mpesaService = require('./mpesa');
 const smsService = require('./sms');
 const logger = require('../utils/logger');
+const { generateBlindIndex, normalizePhone } = require('../utils/security');
 
 /**
  * Africa's Talking USSD Gateway Handler
@@ -18,13 +19,21 @@ async function handleUSSDSession({ sessionId, serviceCode, phoneNumber, text }) 
   if (phone.startsWith('0')) phone = '254' + phone.slice(1);
   if (!phone.startsWith('254') && phone.length === 9) phone = '254' + phone;
 
+  const bindex = generateBlindIndex(phone);
+  const rawBindex = phoneNumber ? generateBlindIndex(phoneNumber) : null;
+  const orConditions = [
+    { phone },
+    { phone: `+${phone}` },
+    { phone: phoneNumber },
+    { phone_bindex: bindex }
+  ];
+  if (rawBindex && rawBindex !== bindex) {
+    orConditions.push({ phone_bindex: rawBindex });
+  }
+
   // Find tenant by matching phone
   const tenant = await Tenant.findOne({
-    $or: [
-      { phone },
-      { phone: `+${phone}` },
-      { phone: phoneNumber }
-    ]
+    $or: orConditions
   }).populate('current_property_id').lean();
 
   if (!tenant) {

@@ -36,6 +36,8 @@ async function processMonthlyRentAccrual(billingMonth) {
         notes: `Monthly rent accrual for tenant ${tenant.full_name} (${currentMonth})`
       });
 
+      await Tenant.findByIdAndUpdate(tenant._id, { $inc: { arrears_kes: rentKes } });
+
       accruedCount++;
       totalAccruedKes += rentKes;
     } catch (err) {

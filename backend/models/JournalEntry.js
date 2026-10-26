@@ -39,7 +39,12 @@ const journalEntrySchema = new mongoose.Schema({
   },
   reference_type: {
     type: String,
-    enum: ['rent_payment', 'landlord_remittance', 'agent_payroll', 'supplier_expense', 'deposit_refund', 'manual_adjustment'],
+    enum: [
+      'rent_payment', 'landlord_remittance', 'agent_payroll', 'supplier_expense',
+      'deposit_refund', 'manual_adjustment', 'payment', 'reversal', 'expense',
+      'commission', 'manual', 'opening_balance',
+      'rent_accrual', 'late_fee', 'utility', 'deposit_settlement', 'maintenance_expense'
+    ],
     required: true
   },
   reference_id: {
@@ -78,7 +83,7 @@ const journalEntrySchema = new mongoose.Schema({
   posted_by_user_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   notes: String
 }, {

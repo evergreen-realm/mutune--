@@ -6,6 +6,7 @@ const LateFeeRule = require('../models/LateFeeRule');
 const Notification = require('../models/Notification');
 const { sendEmail } = require('../services/email');
 const smsService = require('../services/sms');
+const { postJournalEntry } = require('../services/financials');
 const logger = require('../utils/logger');
 
 const SystemSetting = require('../models/SystemSetting');
@@ -152,6 +153,22 @@ const runLateFeeApplicator = async () => {
       // Update tenant arrears
       tenant.arrears_kes = (tenant.arrears_kes || 0) + penaltyAmount;
       await tenant.save();
+
+      // Post GL Journal Entry for Late Fee (Debit 1100 Receivable, Credit 4030 Late Fee Income)
+      try {
+        await postJournalEntry({
+          reference_type: 'late_fee',
+          reference_id: tenant._id,
+          property_id: property._id,
+          line_items: [
+            { account_code: '1100', account_name: 'Tenant Rent Receivable', debit_kes: penaltyAmount, credit_kes: 0, description: `Late Fee Penalty - ${tenant.full_name}` },
+            { account_code: '4030', account_name: 'Late Fee Income', debit_kes: 0, credit_kes: penaltyAmount, description: `Late Fee Income (${matchedRule.name})` }
+          ],
+          notes: `Late payment fee applied for tenant ${tenant.full_name} (${matchedRule.name})`
+        });
+      } catch (glErr) {
+        logger.warn('Failed to post GL entry for late fee penalty', { error: glErr.message });
+      }
 
       // Create Payment invoice/record
       const transactionId = `PEN-${tenant.tenant_code}-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;

@@ -15,7 +15,8 @@ const DEFAULT_ACCOUNTS = [
   { account_code: '4020', account_name: 'Agency Management Commission Income', account_type: 'income', account_subtype: 'commission_income', description: 'Management % income' },
   { account_code: '4030', account_name: 'Late Fee Income', account_type: 'income', account_subtype: 'late_fee_income', description: 'Late fee penalties' },
   { account_code: '5010', account_name: 'Agent Commission Expense', account_type: 'expense', account_subtype: 'management_expense', description: 'Agent payroll payouts' },
-  { account_code: '5020', account_name: 'Property Maintenance Expense', account_type: 'expense', account_subtype: 'maintenance_expense', description: 'Repairs & maintenance' }
+  { account_code: '5020', account_name: 'Property Maintenance Expense', account_type: 'expense', account_subtype: 'maintenance_expense', description: 'Repairs & maintenance' },
+  { account_code: '5030', account_name: 'Utility Expense - Water', account_type: 'expense', account_subtype: 'maintenance_expense', description: 'Municipal / borehole water bill expenses' }
 ];
 
 async function seedDefaultAccounts() {
@@ -28,21 +29,45 @@ async function seedDefaultAccounts() {
   }
 }
 
-async function postJournalEntry({ reference_type, reference_id, property_id, line_items, posted_by_user_id, notes }) {
+async function postJournalEntry({
+  reference_type,
+  entry_type,
+  reference_id,
+  reference,
+  property_id,
+  line_items,
+  items,
+  lines,
+  posted_by_user_id,
+  notes,
+  description
+}) {
   await seedDefaultAccounts();
+
+  const refType = reference_type || entry_type || 'manual_adjustment';
+  const rawItems = line_items || items || lines || [];
+  const refNotes = notes || description || '';
+  const mongoose = require('mongoose');
+  const refId = reference_id || (reference && mongoose.isValidObjectId(reference) ? reference : undefined);
 
   // Validate line items
   let sumDebit = 0;
   let sumCredit = 0;
   const enrichedItems = [];
 
-  for (const item of line_items) {
-    const acc = await Account.findOne({ account_code: item.account_code });
+  for (const item of rawItems) {
+    let acc = await Account.findOne({ account_code: item.account_code });
     if (!acc) {
-      throw new Error(`Account with code ${item.account_code} not found in Chart of Accounts`);
+      acc = await Account.create({
+        account_code: item.account_code,
+        account_name: item.account_name || `Account ${item.account_code}`,
+        account_type: item.account_code.startsWith('5') ? 'expense' : item.account_code.startsWith('4') ? 'income' : item.account_code.startsWith('2') ? 'liability' : 'asset',
+        account_subtype: 'general',
+        description: item.description || item.account_name || ''
+      });
     }
-    const debit = Number(item.debit_kes || 0);
-    const credit = Number(item.credit_kes || 0);
+    const debit = Number(item.debit_kes ?? item.debit ?? 0);
+    const credit = Number(item.credit_kes ?? item.credit ?? 0);
     sumDebit += debit;
     sumCredit += credit;
 
@@ -51,7 +76,7 @@ async function postJournalEntry({ reference_type, reference_id, property_id, lin
       account_code: acc.account_code,
       debit_kes: debit,
       credit_kes: credit,
-      description: item.description || acc.account_name
+      description: item.description || item.account_name || acc.account_name
     });
   }
 
@@ -61,14 +86,14 @@ async function postJournalEntry({ reference_type, reference_id, property_id, lin
   const entry = new JournalEntry({
     entry_code,
     posting_date: new Date(),
-    reference_type,
-    reference_id,
+    reference_type: refType,
+    reference_id: refId,
     property_id,
     line_items: enrichedItems,
     total_debit_kes: Number(sumDebit.toFixed(2)),
     total_credit_kes: Number(sumCredit.toFixed(2)),
     posted_by_user_id,
-    notes
+    notes: refNotes
   });
 
   await entry.save();
@@ -79,7 +104,7 @@ async function postJournalEntry({ reference_type, reference_id, property_id, lin
     await Account.findByIdAndUpdate(item.account_id, { $inc: { balance_kes: change } });
   }
 
-  logger.info('Journal entry posted successfully', { entry_code, reference_type, reference_id });
+  logger.info('Journal entry posted successfully', { entry_code, reference_type: refType, reference_id: refId });
   return entry;
 }
 

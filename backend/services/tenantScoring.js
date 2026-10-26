@@ -17,7 +17,7 @@ async function calculateTenantScore(tenantId) {
 
   payments.forEach(p => {
     const month = new Date(p.created_at).toISOString().slice(0, 7);
-    if (p.status === 'completed') {
+    if (p.status === 'confirmed' || p.status === 'completed') {
       onTimeCount++;
       score += 2;
       history.push({ billing_month: month, status: 'on_time', days_late: 0 });

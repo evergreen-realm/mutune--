@@ -2,6 +2,7 @@ const axios = require('axios');
 const logger = require('../utils/logger');
 const JournalEntry = require('../models/JournalEntry');
 const AuditLog = require('../models/AuditLog');
+const { postJournalEntry } = require('./financials');
 
 // ── Multi-Provider Water & Utility Registry ─────────────────────────────────
 const UTILITY_CONFIGS = {
@@ -79,6 +80,7 @@ const UTILITY_CONFIGS = {
   }
 };
 
+const mongoose = require('mongoose');
 const SystemSetting = require('../models/SystemSetting');
 
 // WASREB-approved 2024 default tariffs for Mombasa Water (MEWASCO)
@@ -98,8 +100,10 @@ const DEFAULT_MEWASCO_TARIFFS = {
 
 async function getMewascoTariffs() {
   try {
-    const setting = await SystemSetting.findOne({ key: 'mewasco_tariffs' }).lean();
-    if (setting?.value) return setting.value;
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      const setting = await SystemSetting.findOne({ key: 'mewasco_tariffs' }).lean();
+      if (setting?.value) return setting.value;
+    }
   } catch (err) {
     logger.warn('Failed to load MEWASCO tariffs from settings, using defaults', { error: err.message });
   }
@@ -252,15 +256,13 @@ async function purchasePrepaidToken(meterNumber, amountKes, paymentMethod = 'mpe
 
     // Post to General Ledger
     try {
-      await JournalEntry.create({
-        reference: `TOKEN-VEND-${receipt}`,
-        description: `Prepaid KPLC electricity token vending for meter ${meterNumber}`,
-        lines: [
-          { account_code: '5020', account_name: 'Utility Expense - Electricity', debit: amountKes, credit: 0 },
-          { account_code: '1010', account_name: 'Cash / M-Pesa Clearing', debit: 0, credit: amountKes }
-        ],
-        entry_date: new Date(),
-        status: 'posted'
+      await postJournalEntry({
+        reference_type: 'utility',
+        notes: `Prepaid KPLC electricity token vending for meter ${meterNumber} (${receipt})`,
+        line_items: [
+          { account_code: '5020', account_name: 'Utility Expense - Electricity', debit_kes: amountKes, credit_kes: 0 },
+          { account_code: '1010', account_name: 'Cash / M-Pesa Clearing', debit_kes: 0, credit_kes: amountKes }
+        ]
       });
     } catch (glErr) {
       logger.warn('Failed to auto-post GL entry for token vending', { error: glErr.message });
@@ -363,15 +365,13 @@ async function payPostpaidBill(accountNumber, amountKes, propertyId) {
 
     // Post to General Ledger
     try {
-      await JournalEntry.create({
-        reference: `BILL-PAY-${receipt}`,
-        description: `Postpaid KPLC electricity bill payment for account ${accountNumber}`,
-        lines: [
-          { account_code: '5020', account_name: 'Utility Expense - Electricity', debit: amountKes, credit: 0 },
-          { account_code: '1010', account_name: 'Cash / Bank Operating Account', debit: 0, credit: amountKes }
-        ],
-        entry_date: new Date(),
-        status: 'posted'
+      await postJournalEntry({
+        reference_type: 'utility',
+        notes: `Postpaid KPLC electricity bill payment for account ${accountNumber} (${receipt})`,
+        line_items: [
+          { account_code: '5020', account_name: 'Utility Expense - Electricity', debit_kes: amountKes, credit_kes: 0 },
+          { account_code: '1010', account_name: 'Cash / Bank Operating Account', debit_kes: 0, credit_kes: amountKes }
+        ]
       });
     } catch (glErr) {
       logger.warn('Failed to auto-post GL entry for bill payment', { error: glErr.message });
@@ -449,15 +449,13 @@ async function payWaterBill(accountNumber, amountKes, providerId = 'MOMBASA_WATE
 
     // Post to General Ledger
     try {
-      await JournalEntry.create({
-        reference: `WATER-PAY-${receipt}`,
-        description: `${utility.name} bill payment for account ${accountNumber}`,
-        lines: [
-          { account_code: '5030', account_name: 'Utility Expense - Water', debit: amountKes, credit: 0 },
-          { account_code: '1010', account_name: 'Cash / Bank Operating Account', debit: 0, credit: amountKes }
-        ],
-        entry_date: new Date(),
-        status: 'posted'
+      await postJournalEntry({
+        reference_type: 'utility',
+        notes: `${utility.name} bill payment for account ${accountNumber} (${receipt})`,
+        line_items: [
+          { account_code: '5030', account_name: 'Utility Expense - Water', debit_kes: amountKes, credit_kes: 0 },
+          { account_code: '1010', account_name: 'Cash / Bank Operating Account', debit_kes: 0, credit_kes: amountKes }
+        ]
       });
     } catch (glErr) {
       logger.warn('Failed to auto-post GL entry for water payment', { error: glErr.message });

@@ -813,7 +813,7 @@ router.delete('/:id/soft',
       // Anonymize PII
       target.full_name = `Deleted User ${deletedAt}`;
       target.email = `deleted_${deletedAt}@mutunerent.deleted`;
-      target.phone = `0000000000`;
+      target.phone = `254000000000`;
       target.is_active = false;
       target.is_deleted = true;
       await target.save();
@@ -821,11 +821,12 @@ router.delete('/:id/soft',
       // Vacate tenant record if any
       const tenant = await Tenant.findOne({ user_id: target._id, tenancy_status: { $in: ['active', 'expired'] } });
       if (tenant) {
-        if (tenant.current_property_id && tenant.unit_id) {
+        const unitId = tenant.current_unit_id || tenant.unit_id;
+        if (tenant.current_property_id && unitId) {
           const property = await Property.findById(tenant.current_property_id);
           if (property) {
-            const unit = property.units.id(tenant.unit_id);
-            if (unit) { unit.status = 'vacant'; unit.tenant_id = null; }
+            const unit = property.units?.id(unitId);
+            if (unit) { unit.status = 'vacant'; unit.current_tenant_id = null; }
             await property.save();
           }
         }

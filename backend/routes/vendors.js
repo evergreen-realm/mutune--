@@ -188,14 +188,14 @@ router.post('/approve-invoice', requireAuth, requireRole(['agent', 'admin', 'sup
 
     // Post GL Expense Entry
     await postJournalEntry({
-      entry_type: 'maintenance_expense',
-      description: `Vendor Maintenance Payment to ${vendor.vendor_name || vendor.name} for ${ticket.title}`,
+      reference_type: 'supplier_expense',
+      notes: `Vendor Maintenance Payment to ${vendor.vendor_name || vendor.name} for ${ticket.title}`,
       property_id: ticket.property_id,
-      reference: `VND-PAY-${ticket_id.toString().slice(-6)}`,
-      items: [
+      line_items: [
         { account_code: '5020', account_name: 'Property Maintenance Expense', debit_kes: Number(actual_cost_kes), credit_kes: 0 },
         { account_code: '1010', account_name: 'Cash & M-Pesa Account', debit_kes: 0, credit_kes: Number(actual_cost_kes) }
-      ]
+      ],
+      posted_by_user_id: req.user?._id
     });
 
     const updatedTicket = await MaintenanceTicket.findByIdAndUpdate(ticket_id, {

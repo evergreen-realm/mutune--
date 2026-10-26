@@ -7,6 +7,7 @@ const Tenant = require('../models/Tenant');
 const User   = require('../models/User');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
+const { generateBlindIndex, normalizePhone } = require('../utils/security');
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 const validate = (req, res) => {
@@ -72,12 +73,20 @@ router.get('/', requireAuth, requirePermission('view:assigned'), async (req, res
 
     if (status) filter.tenancy_status = status;
     if (search) {
+      const bindex = generateBlindIndex(search);
+      const norm = normalizePhone(search);
+      const normBindex = norm ? generateBlindIndex(norm) : null;
       filter.$or = [
         { full_name: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } },
         { id_number: { $regex: search, $options: 'i' } },
-        { tenant_code: { $regex: search, $options: 'i' } }
+        { tenant_code: { $regex: search, $options: 'i' } },
+        { phone_bindex: bindex },
+        { id_number_bindex: bindex }
       ];
+      if (normBindex && normBindex !== bindex) {
+        filter.$or.push({ phone_bindex: normBindex });
+      }
     }
 
     const [tenants, total] = await Promise.all([
