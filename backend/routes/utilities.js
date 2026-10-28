@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param, query, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
+const { getCaretakerAssignedProperties } = require('../middleware/scopeToProperty');
 const UtilityMeter = require('../models/UtilityMeter');
 const UtilityReading = require('../models/UtilityReading');
 const Tenant = require('../models/Tenant');
@@ -249,7 +250,7 @@ router.post('/readings', requireAuth, async (req, res, next) => {
     const { meter_id, property_id, unit_id, tenant_id, billing_month, previous_reading, current_reading, rate_per_unit_kes } = req.body;
 
     if (req.user.role === 'caretaker' && property_id) {
-      const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
+      const assigned = getCaretakerAssignedProperties(req.user).map(id => id.toString());
       if (!assigned.includes(property_id.toString())) {
         return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Cannot record reading for unassigned property' } });
       }

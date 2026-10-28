@@ -3,6 +3,28 @@ const MaintenanceTicket = require('../models/MaintenanceTicket');
 const logger = require('../utils/logger');
 
 /**
+ * Helper to safely extract all assigned properties for a caretaker or user,
+ * combining assigned_properties and assigned_property_ids without truthy-empty-array fallback bugs.
+ */
+function getCaretakerAssignedProperties(user) {
+  if (!user) return [];
+  const p1 = Array.isArray(user.assigned_properties) ? user.assigned_properties : [];
+  const p2 = Array.isArray(user.assigned_property_ids) ? user.assigned_property_ids : [];
+  const combined = [...p1, ...p2];
+  const seen = new Set();
+  const result = [];
+  for (const item of combined) {
+    if (!item) continue;
+    const str = item.toString();
+    if (!seen.has(str)) {
+      seen.add(str);
+      result.push(item);
+    }
+  }
+  return result;
+}
+
+/**
  * Middleware enforcing strict per-property scoping for Caretaker (and scoped Agent) roles.
  * Every query from a caretaker MUST be restricted to their assigned_properties array.
  * If requesting a specific property outside their assigned properties, 403 Forbidden is returned.
@@ -17,7 +39,7 @@ const scopeToProperty = async (req, res, next) => {
   }
 
   if (req.user.role === 'caretaker') {
-    const rawAssigned = req.user.assigned_properties || req.user.assigned_property_ids || [];
+    const rawAssigned = getCaretakerAssignedProperties(req.user);
     const assignedProps = rawAssigned.map(id => id.toString());
     let propertyId = req.params.propertyId || req.body?.property_id || req.query?.property_id;
 
@@ -27,8 +49,19 @@ const scopeToProperty = async (req, res, next) => {
       if (isMaintenanceRoute) {
         try {
           const ticket = await MaintenanceTicket.findById(req.params.id).select('property_id').lean();
-          if (ticket && ticket.property_id) {
-            propertyId = ticket.property_id.toString();
+          if (ticket) {
+            if (ticket.property_id) {
+              propertyId = ticket.property_id.toString();
+            } else {
+              // Ticket exists but has no associated property -> caretaker cannot access it
+              return res.status(403).json({
+                success: false,
+                error: {
+                  code: 'FORBIDDEN',
+                  message: 'You are not authorized to access this unassigned ticket'
+                }
+              });
+            }
           }
         } catch (e) {
           // Invalid ID will be handled by validators/controllers
@@ -67,3 +100,5 @@ const scopeToProperty = async (req, res, next) => {
 };
 
 module.exports = scopeToProperty;
+module.exports.getCaretakerAssignedProperties = getCaretakerAssignedProperties;
+

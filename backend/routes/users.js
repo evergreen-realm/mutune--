@@ -156,12 +156,6 @@ const handleCompleteOnboarding = async (req, res, next) => {
         updateData.landlord_approval_status = 'n_a';
       }
 
-      if (['admin', 'super_admin'].includes(role)) {
-        const bcrypt = require('bcryptjs');
-        const adminPass = getAdminPassword();
-        updateData.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
-      }
-
       // —— Tenant-specific: link tenant profile or auto-create ——
       if (role === 'tenant') {
         const { tenant_code } = req.body;

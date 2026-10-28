@@ -8,6 +8,7 @@ const AgentSalary = require('../models/AgentSalary');
 const { executePriorityBulkDisbursement, getPendingDisbursementMetrics } = require('../services/bulkDisbursement');
 const logger = require('../utils/logger');
 const { requireSafaricomIP } = require('../middleware/security');
+const { safeCompare } = require('../utils/security');
 
 const validate = (req, res) => {
   const errors = validationResult(req);
@@ -162,10 +163,14 @@ const verifyDarajaCallback = (req, res, next) => {
   const webhookSecret = process.env.DARAJA_WEBHOOK_SECRET || process.env.DARAJA_B2C_SECRET || process.env.WEBHOOK_SECRET;
   if (webhookSecret) {
     const token = req.headers['x-webhook-secret'] || req.headers['authorization'] || req.query.secret;
-    if (token !== webhookSecret && token !== `Bearer ${webhookSecret}`) {
+    const isValid = safeCompare(token, webhookSecret) || safeCompare(token, `Bearer ${webhookSecret}`);
+    if (!isValid) {
       logger.warn('Unauthorized Daraja B2C callback attempt', { ip: req.ip });
       return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED_WEBHOOK', message: 'Daraja webhook secret verification failed' } });
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    logger.error('DARAJA_WEBHOOK_SECRET is not configured in production');
+    return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Webhook secret not configured' } });
   }
   next();
 };

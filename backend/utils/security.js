@@ -105,6 +105,17 @@ function decryptLeanDoc(doc) {
   return doc;
 }
 
+/**
+ * Constant-time string comparison preventing timing side-channel attacks
+ */
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 module.exports = {
   getAdminPassword,
   escapeRegExp,
@@ -112,5 +123,6 @@ module.exports = {
   decryptPII,
   generateBlindIndex,
   normalizePhone,
-  decryptLeanDoc
+  decryptLeanDoc,
+  safeCompare
 };

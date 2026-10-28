@@ -10,6 +10,7 @@ const {
 } = require('../services/bankPayments');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
+const { safeCompare } = require('../utils/security');
 
 /**
  * @openapi
@@ -81,7 +82,10 @@ router.post('/webhook', async (req, res, next) => {
       let verified = false;
 
       // 1. Check direct token/secret match
-      if (authHeader === webhookSecret || authHeader === `Bearer ${webhookSecret}` || querySecret === webhookSecret || signature === webhookSecret) {
+      if (safeCompare(authHeader, webhookSecret) ||
+          safeCompare(authHeader, `Bearer ${webhookSecret}`) ||
+          safeCompare(querySecret, webhookSecret) ||
+          safeCompare(signature, webhookSecret)) {
         verified = true;
       }
 
@@ -94,7 +98,7 @@ router.post('/webhook', async (req, res, next) => {
         const computedHex = crypto.createHmac('sha256', webhookSecret).update(rawPayload).digest('hex');
         const computedBase64 = crypto.createHmac('sha256', webhookSecret).update(rawPayload).digest('base64');
 
-        if (signature === computedHex || signature === computedBase64) {
+        if (safeCompare(signature, computedHex) || safeCompare(signature, computedBase64)) {
           verified = true;
         }
       }

@@ -269,6 +269,50 @@ describe('Phase 3 Verification: RBAC, Multi-Tenant Scoping & Security Hardening'
       expect(res.status).toBe(403);
       expect(res.body.success).toBe(false);
     });
+
+    test('Caretaker assigned via assigned_property_ids ONLY (with empty assigned_properties) correctly accesses assigned property', async () => {
+      // Emulate user created via admin API where only assigned_property_ids is set
+      const legacyCaretaker = await User.create({
+        clerk_id: 'clerk_caretaker_legacy',
+        email: 'caretaker_legacy@mutunerent.com',
+        full_name: 'Legacy Caretaker',
+        role: 'caretaker',
+        is_active: true,
+        assigned_property_ids: [propA._id],
+        assigned_properties: [] // empty array as defaulted by Mongoose schema
+      });
+
+      mockClerkId = legacyCaretaker.clerk_id;
+
+      const propRes = await request(app).get('/api/v1/properties');
+      expect(propRes.status).toBe(200);
+      const propIds = propRes.body.data.map(p => p._id.toString());
+      expect(propIds).toContain(propA._id.toString());
+      expect(propIds).not.toContain(propB._id.toString());
+
+      // Reset mockClerkId back to primary caretaker
+      mockClerkId = caretakerUser.clerk_id;
+    });
+
+    test('Caretaker PATCH /maintenance/:id is blocked (403) on ticket with no assigned property', async () => {
+      const unassignedTicket = await MaintenanceTicket.create({
+        ticket_code: 'MT-NO-PROP-999',
+        property_id: null,
+        unit_id: new mongoose.Types.ObjectId(),
+        created_by: tenantUser._id,
+        category: 'other',
+        priority: 'low',
+        description: 'Unassigned ticket',
+        status: 'open'
+      });
+
+      const res = await request(app)
+        .patch(`/api/v1/maintenance/${unassignedTicket._id}`)
+        .send({ status: 'in_progress' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -603,6 +647,49 @@ describe('Phase 3 Verification: RBAC, Multi-Tenant Scoping & Security Hardening'
       expect(goodRes.body.ResultCode).toBe(0);
 
       delete process.env.MPESA_BALANCE_SECRET;
+    });
+
+    test('In production, webhooks fail closed (500 CONFIG_ERROR) when secrets are missing', async () => {
+      const origEnv = process.env.NODE_ENV;
+      const origDaraja = process.env.DARAJA_WEBHOOK_SECRET;
+      const origBalance = process.env.MPESA_BALANCE_SECRET;
+      const origIntasend = process.env.INTASEND_WEBHOOK_SECRET;
+
+      try {
+        process.env.NODE_ENV = 'production';
+        delete process.env.DARAJA_WEBHOOK_SECRET;
+        delete process.env.MPESA_BALANCE_SECRET;
+        delete process.env.INTASEND_WEBHOOK_SECRET;
+        delete process.env.WEBHOOK_SECRET;
+
+        // 1. Daraja B2C
+        const b2cRes = await request(app)
+          .post('/api/v1/disbursement/b2c/result')
+          .set('X-Forwarded-For', '196.201.214.1')
+          .send({ ResultCode: 0 });
+        expect(b2cRes.status).toBe(500);
+        expect(b2cRes.body.error.code).toBe('CONFIG_ERROR');
+
+        // 2. Daraja Balance
+        const balRes = await request(app)
+          .post('/api/v1/payments/balance/result')
+          .set('X-Forwarded-For', '196.201.214.1')
+          .send({ ResultCode: 0 });
+        expect(balRes.status).toBe(500);
+        expect(balRes.body.error.code).toBe('CONFIG_ERROR');
+
+        // 3. Bank payment webhook
+        const bankRes = await request(app)
+          .post('/api/v1/bank-payments/webhook')
+          .send({ invoice_id: 'INV-PROD' });
+        expect(bankRes.status).toBe(500);
+        expect(bankRes.body.error.code).toBe('CONFIG_ERROR');
+      } finally {
+        process.env.NODE_ENV = origEnv;
+        if (origDaraja) process.env.DARAJA_WEBHOOK_SECRET = origDaraja;
+        if (origBalance) process.env.MPESA_BALANCE_SECRET = origBalance;
+        if (origIntasend) process.env.INTASEND_WEBHOOK_SECRET = origIntasend;
+      }
     });
   });
 });

@@ -4,6 +4,7 @@ const { body, param, query, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission, requireRole, enforcePropertyScope } = require('../middleware/rbac');
 const scopeToProperty = require('../middleware/scopeToProperty');
+const { getCaretakerAssignedProperties } = require('../middleware/scopeToProperty');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
 const { escapeRegExp } = require('../utils/security');
@@ -86,7 +87,7 @@ router.get('/', requireAuth, scopeToProperty, async (req, res, next) => {
       }
       if (review_status) filter.review_status = review_status;
     } else if (req.user.role === 'caretaker') {
-      const assigned = req.user.assigned_properties || req.user.assigned_property_ids || [];
+      const assigned = getCaretakerAssignedProperties(req.user);
       filter._id = { $in: assigned };
       if (review_status) filter.review_status = review_status;
     } else if (req.user.role === 'landlord') {

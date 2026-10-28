@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
 const { postJournalEntry } = require('../services/financials');
+const { safeCompare } = require('../utils/security');
 const logger = require('../utils/logger');
 
 /**
@@ -877,10 +878,14 @@ const verifyDarajaCallback = (req, res, next) => {
   const webhookSecret = process.env.DARAJA_WEBHOOK_SECRET || process.env.MPESA_BALANCE_SECRET || process.env.WEBHOOK_SECRET;
   if (webhookSecret) {
     const token = req.headers['x-webhook-secret'] || req.headers['authorization'] || req.query.secret;
-    if (token !== webhookSecret && token !== `Bearer ${webhookSecret}`) {
+    const isValid = safeCompare(token, webhookSecret) || safeCompare(token, `Bearer ${webhookSecret}`);
+    if (!isValid) {
       logger.warn('Unauthorized Daraja callback attempt', { ip: req.ip, path: req.path });
       return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED_WEBHOOK', message: 'Daraja webhook secret verification failed' } });
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    logger.error('MPESA_BALANCE_SECRET is not configured in production');
+    return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Webhook secret not configured' } });
   }
   next();
 };

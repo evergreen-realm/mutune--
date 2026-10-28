@@ -26,11 +26,13 @@ const requireRole = (roles) => (req, res, next) => {
   next();
 };
 
+const { getCaretakerAssignedProperties } = require('./scopeToProperty');
+
 const enforcePropertyScope = async (req, res, next) => {
   if (['super_admin', 'admin'].includes(req.user.role)) return next();
   const propertyId = req.params.propertyId || req.params.id || req.body.property_id;
   if (req.user.role === 'caretaker' && propertyId) {
-    const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
+    const assigned = getCaretakerAssignedProperties(req.user).map(id => id.toString());
     if (!assigned.includes(propertyId.toString())) {
       logger.warn('Caretaker scope denied', { userId: req.user._id, propertyId });
       return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not in caretaker assignments' } });

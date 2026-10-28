@@ -4,6 +4,7 @@ const { body, param, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/rbac');
 const scopeToProperty = require('../middleware/scopeToProperty');
+const { getCaretakerAssignedProperties } = require('../middleware/scopeToProperty');
 const logger = require('../utils/logger');
 const { paginate } = require('../utils/paginate');
 
@@ -94,7 +95,7 @@ router.post('/',
       const { property_id, unit_id, unit_code, title, category, priority = 'medium', description, photos = [] } = req.body;
 
       if (req.user.role === 'caretaker') {
-        const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
+        const assigned = getCaretakerAssignedProperties(req.user).map(id => id.toString());
         if (!assigned.includes(property_id.toString())) {
           return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Cannot create ticket for unassigned property' } });
         }
@@ -222,7 +223,7 @@ router.get('/',
       const filter = {};
 
       if (req.user.role === 'caretaker') {
-        const assigned = req.user.assigned_properties || req.user.assigned_property_ids || [];
+        const assigned = getCaretakerAssignedProperties(req.user);
         filter.property_id = { $in: assigned };
       } else if (req.user.role === 'agent') {
         filter.property_id = { $in: req.user.assigned_property_ids || [] };
@@ -238,7 +239,7 @@ router.get('/',
       if (priority) filter.priority = priority;
       if (property_id) {
         if (req.user.role === 'caretaker') {
-          const isAssigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).some(id => id.toString() === property_id);
+          const isAssigned = getCaretakerAssignedProperties(req.user).some(id => id.toString() === property_id);
           if (!isAssigned) {
             return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not in caretaker assignments' } });
           }
@@ -327,8 +328,8 @@ router.patch('/:id',
       }
 
       if (req.user.role === 'caretaker') {
-        const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
-        if (ticket.property_id && !assigned.includes(ticket.property_id.toString())) {
+        const assigned = getCaretakerAssignedProperties(req.user).map(id => id.toString());
+        if (!ticket.property_id || !assigned.includes(ticket.property_id.toString())) {
           return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not in caretaker assignments' } });
         }
       }
