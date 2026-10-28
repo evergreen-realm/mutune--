@@ -8,7 +8,7 @@ import {
   Camera, RefreshCw, KeyRound, UserCheck, Droplets, Zap
 } from 'lucide-react';
 import {
-  fetchProperties, fetchMaintenanceTickets, createMaintenanceTicket,
+  fetchProperties, fetchMaintenanceTickets, createMaintenanceTicket, updateMaintenanceTicket,
   recordMeterReading
 } from '../lib/api';
 
@@ -58,6 +58,20 @@ export default function CaretakerDashboardPage() {
       setSelectedPropertyId(properties[0]._id);
     }
   }, [properties, selectedPropertyId]);
+
+  
+  const handleUpdateTicketStatus = async (ticketId, nextStatus) => {
+    try {
+      await updateMaintenanceTicket(ticketId, { status: nextStatus });
+      toast.success(`Ticket status updated to ${nextStatus.replace('_', ' ')}`);
+      if (activeProperty?._id) {
+        const res = await fetchMaintenanceTickets({ property_id: activeProperty._id });
+        setTickets(Array.isArray(res?.data) ? res.data : []);
+      }
+    } catch (err) {
+      toast.error(err?.error?.message || err?.message || 'Failed to update ticket status');
+    }
+  };
 
   const activeProperty = properties.find(p => p._id === selectedPropertyId) || properties[0] || null;
 
@@ -399,11 +413,29 @@ export default function CaretakerDashboardPage() {
                     </div>
                     <p className="text-xs text-slate-400 mt-1">{t.description}</p>
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
-                    t.priority === 'emergency' || t.priority === 'high' ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-300'
-                  }`}>
-                    {t.priority}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {(t.status === 'open' || t.status === 'assigned') && (
+                      <button
+                        onClick={() => handleUpdateTicketStatus(t._id, 'in_progress')}
+                        className="px-2.5 py-1 text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition cursor-pointer"
+                      >
+                        Start Work
+                      </button>
+                    )}
+                    {t.status === 'in_progress' && (
+                      <button
+                        onClick={() => handleUpdateTicketStatus(t._id, 'resolved')}
+                        className="px-2.5 py-1 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition cursor-pointer"
+                      >
+                        Mark Resolved
+                      </button>
+                    )}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                      t.priority === 'emergency' || t.priority === 'high' ? 'bg-red-500/20 text-red-400' : 'bg-slate-800 text-slate-300'
+                    }`}>
+                      {t.priority}
+                    </span>
+                  </div>
                 </div>
               ))
             )}

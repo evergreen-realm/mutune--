@@ -22,6 +22,7 @@ import TaxReportsTab from '../components/TaxReportsTab';
 import AdminUtilitiesTab from '../components/AdminUtilitiesTab';
 import UnmatchedPaymentsTab from '../components/UnmatchedPaymentsTab';
 import PaperworkSuiteTab from '../components/PaperworkSuiteTab';
+import PaymentsPage from './PaymentsPage';
 
 const TABS = [
   { key: 'overview',       label: 'Overview',           icon: BarChart3 },
@@ -591,13 +592,7 @@ export default function AccountantDashboardPage({ dbUser }) {
         {activeTab === 'gl' && <GLTrialBalanceTab />}
         {activeTab === 'payments' && (
           <div className="space-y-4 animate-fade-in">
-            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl">
-              <h2 className="text-lg font-black text-white flex items-center gap-2 mb-1">
-                <CreditCard size={18} className="text-indigo-400" /> Payment Management
-              </h2>
-              <p className="text-xs text-slate-400">View, verify, and export payment records</p>
-            </div>
-            <UnmatchedPaymentsTab />
+            <PaymentsPage dbUser={{ role: 'accountant' }} />
           </div>
         )}
         {activeTab === 'tax' && <TaxReportsTab />}

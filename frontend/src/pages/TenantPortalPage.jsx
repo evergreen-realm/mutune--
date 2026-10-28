@@ -199,6 +199,47 @@ export default function TenantPortalPage() {
   const [tickets,    setTickets]    = useState([]);
   const [notifs,     setNotifs]     = useState([]);
   const [loading,    setLoading]    = useState(true);
+  
+  const [vacateDate, setVacateDate] = useState('');
+  const [vacateReason, setVacateReason] = useState('');
+  const [submittingVacate, setSubmittingVacate] = useState(false);
+
+  const handleFileVacateNotice = async (e) => {
+    e.preventDefault();
+    if (!tenant?._id) {
+      toast.error('Tenant profile not loaded');
+      return;
+    }
+    if (!vacateDate) {
+      toast.error('Please specify intended move-out date');
+      return;
+    }
+    try {
+      setSubmittingVacate(true);
+      const res = await fileVacationNotice({
+        tenant_id: tenant._id,
+        vacate_date: new Date(vacateDate).toISOString(),
+        reason: vacateReason.trim() || '30-Day Notice Served'
+      });
+      if (res?.success) {
+        toast.success('30-day move-out notice filed successfully');
+        setTenant(prev => ({
+          ...prev,
+          tenancy_status: 'notice_period',
+          expected_vacate_date: vacateDate,
+          vacate_reason: vacateReason.trim()
+        }));
+        setVacateReason('');
+      } else {
+        toast.error('Failed to submit notice');
+      }
+    } catch (err) {
+      toast.error(err?.error?.message || err?.message || 'Error submitting notice');
+    } finally {
+      setSubmittingVacate(false);
+    }
+  };
+
   const [activeTab,  setActiveTab]  = useState('overview');
   const [splatViewerOpen, setSplatViewerOpen] = useState(false);
 
@@ -1436,11 +1477,70 @@ export default function TenantPortalPage() {
 
             {/* NOTICES TAB */}
             {activeTab === 'notices' && (
-              <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
-                <div>
-                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Estate Broadcasts</h2>
-                  <p className="text-xs text-muted mt-1">Official communications from Mutune Agency management.</p>
+              <div className="space-y-6">
+                {/* 30-Day Move-Out Vacate Notice Card */}
+                <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                        <LogOut size={16} className="text-amber-400" /> 30-Day Move-Out Notice
+                      </h2>
+                      <p className="text-xs text-muted mt-1">Submit formal notice of vacation per your lease agreement terms.</p>
+                    </div>
+                    {tenant?.tenancy_status === 'notice_period' && (
+                      <span className="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/30">
+                        Notice Active (Move-out: {FMT_DATE(tenant?.expected_vacate_date)})
+                      </span>
+                    )}
+                  </div>
+
+                  {tenant?.tenancy_status === 'notice_period' ? (
+                    <div className="p-4 bg-amber-950/30 border border-amber-800/40 rounded-xl text-xs text-amber-200">
+                      Your move-out notice is on file. Move-out inspection and deposit settlement will be scheduled around {FMT_DATE(tenant?.expected_vacate_date)}.
+                    </div>
+                  ) : (
+                    <form onSubmit={handleFileVacateNotice} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-2">
+                      <div>
+                        <label className="text-[10px] text-muted font-bold uppercase block mb-1">Intended Move-Out Date *</label>
+                        <input
+                          type="date"
+                          value={vacateDate}
+                          onChange={(e) => setVacateDate(e.target.value)}
+                          className="w-full bg-background border border-border rounded-xl px-3 py-2 text-foreground outline-none font-bold"
+                          required
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] text-muted font-bold uppercase block mb-1">Reason for Moving (Optional)</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={vacateReason}
+                            onChange={(e) => setVacateReason(e.target.value)}
+                            placeholder="e.g. Relocating, purchasing home, job transfer"
+                            className="flex-1 bg-background border border-border rounded-xl px-3 py-2 text-foreground outline-none"
+                          />
+                          <button
+                            type="submit"
+                            disabled={submittingVacate}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 flex-shrink-0"
+                          >
+                            {submittingVacate ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />}
+                            Submit Notice
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  )}
                 </div>
+
+                {/* Estate Broadcasts */}
+                <div className="bg-surface/30 backdrop-blur-md border border-border rounded-[24px] p-6 space-y-6">
+                  <div>
+                    <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Estate Broadcasts</h2>
+                    <p className="text-xs text-muted mt-1">Official communications from Mutune Agency management.</p>
+                  </div>
 
                 {notices.length === 0 ? (
                   <div className="text-center py-12">
@@ -1466,8 +1566,9 @@ export default function TenantPortalPage() {
                   </div>
                 )}
               </div>
-            )}
-          </motion.div>
+            </div>
+          )}
+        </motion.div>
         </AnimatePresence>
       </div>
 

@@ -111,7 +111,7 @@ export default function Topbar({
     retry: 1,
   });
 
-  const notifications: Notification[] = notifData?.data || [];
+  const notifications: Notification[] = Array.isArray(notifData?.data) ? notifData.data : [];
   const unreadCount: number            = notifData?.unreadCount || 0;
 
   return (

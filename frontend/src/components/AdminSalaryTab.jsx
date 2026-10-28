@@ -146,14 +146,14 @@ export default function AdminSalaryTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {payrollData.map(({ agent, payroll }) => (
-                  <tr key={agent._id} className="hover:bg-slate-800/30 transition-colors">
+                {payrollData.map(({ agent, payroll }, index) => (
+                  <tr key={agent?._id || index} className="hover:bg-slate-800/30 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-100">{agent.full_name || 'Agent'}</div>
-                      <div className="text-[10px] text-slate-400">{agent.phone || agent.email}</div>
+                      <div className="font-bold text-slate-100">{agent?.full_name || 'Agent'}</div>
+                      <div className="text-[10px] text-slate-400">{agent?.phone || agent?.email || 'N/A'}</div>
                     </td>
                     <td className="py-3.5 px-4 font-mono text-[11px] text-indigo-300">
-                      {agent.earb_license_number ? (
+                      {agent?.earb_license_number ? (
                         <span className="flex items-center gap-1">
                           <Award size={12} className="text-emerald-400" />
                           {agent.earb_license_number}

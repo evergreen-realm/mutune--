@@ -99,7 +99,8 @@ export default function PropertyListingsPage() {
         unit_number: inquiryModal.unit?.unit_number || 'General Property Inquiry'
       };
 
-      const res = await submitPropertyInquiry(inquiryModal.property.property_id, payload);
+      const propId = inquiryModal.property?.property_id || inquiryModal.property?._id || inquiryModal.property?.id;
+      const res = await submitPropertyInquiry(propId, payload);
       if (res?.success || res?.data?.success) {
         toast.success('Inquiry sent! Managing agent notified ✓');
         setInquiryModal({ open: false, property: null, unit: null });
