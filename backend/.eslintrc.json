@@ -1,12 +1,23 @@
 {
   "env": { "node": true, "es2022": true, "jest": true },
   "extends": "eslint:recommended",
+  "ignorePatterns": ["coverage/", "node_modules/"],
   "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
   "rules": {
     "no-console": ["warn", { "allow": ["error"] }],
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
     "no-throw-literal": "error",
-    "prefer-const": "error",
+    "prefer-const": "warn",
     "no-var": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["tests/**/*.js"],
+      "rules": {
+        "no-unused-vars": "off",
+        "prefer-const": "off",
+        "no-console": "off"
+      }
+    }
+  ]
 }

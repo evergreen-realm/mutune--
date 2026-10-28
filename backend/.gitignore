@@ -1,6 +1,18 @@
-node_modules
-.env
-.env.local
+# Dependencies
+node_modules/
+
+# Environment files - strictly exclude all .env files except .env.example
+.env*
+!.env.example
+
+# Logs
 *.log
-coverage
-.nyc_output
+npm-debug.log*
+
+# Test & Coverage outputs
+coverage/
+.nyc_output/
+
+# Editor & OS files
+.DS_Store
+Thumbs.db

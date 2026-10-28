@@ -193,7 +193,7 @@ router.post('/match-tenant',
   async (req, res, next) => {
     try {
       const { payment_id, phone, query, account_reference, amount_kes, name, auto_assign } = req.body;
-      let matchParams = { phone, query, account_reference, amount_kes, name };
+      const matchParams = { phone, query, account_reference, amount_kes, name };
 
       let payment = null;
       if (payment_id) {

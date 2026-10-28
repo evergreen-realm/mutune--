@@ -204,8 +204,8 @@ const handleCompleteOnboarding = async (req, res, next) => {
 
           const existingTenant = await Tenant.findOne({ user_id: userId }).lean();
           if (!existingTenant) {
-            let assignedPropertyId = property_id;
-            let assignedUnitId = unit_id;
+            const assignedPropertyId = property_id;
+            const assignedUnitId = unit_id;
 
             // Verify the selected unit is actually vacant (prevent race condition)
             const prop = await Property.findById(assignedPropertyId).lean();

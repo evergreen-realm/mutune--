@@ -293,8 +293,9 @@ export async function mockClerkAuth(page, userRole = 'admin') {
       window.sessionStorage.setItem('mutune_admin_unlocked', 'true');
       window.sessionStorage.setItem('admin_verified', 'true');
       window.sessionStorage.setItem('role_verified_mock_user_123', 'true');
-      window.localStorage.setItem('mutunerent_verified_id_mock_user_123', 'true');
-    } catch (e) {}
+    } catch (_e) {
+      /* ignore storage access error */
+    }
 
     window.__E2E_AUTH__ = true;
 
@@ -337,7 +338,9 @@ export async function mockNewUserAuth(page) {
     try {
       window.sessionStorage.clear();
       window.localStorage.clear();
-    } catch (e) {}
+    } catch (_e) {
+      /* ignore storage clear error */
+    }
 
     window.__E2E_AUTH__ = true;
     window.Clerk = {

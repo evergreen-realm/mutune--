@@ -1,9 +1,26 @@
-node_modules
-dist
-.env
-.env.local
-*.log
+# Dependencies
+node_modules/
 
-.vercel
-playwright-report
-test-results
+# Production Build outputs
+dist/
+build/
+
+# Environment files - strictly exclude all .env files except .env.example
+.env*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing & Reports
+playwright-report/
+test-results/
+coverage/
+
+# Vercel & Deployment
+.vercel/
+
+# Editor & OS files
+.DS_Store
+Thumbs.db

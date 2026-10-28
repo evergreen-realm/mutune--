@@ -35,7 +35,7 @@ async function generateProperty3DModel(property) {
   logger.info('Starting automated 3D model generation...', { propertyId, propertyCode, floors, units });
 
   let textureUrl = '';
-  let texturePath = null;
+  const texturePath = null;
   if (property.photos && property.photos.length > 0) {
     textureUrl = property.photos[0];
   }

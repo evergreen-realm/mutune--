@@ -91,7 +91,7 @@ export async function extractFramesFromVideo(videoFile, onProgress = () => {}, t
       captureNextSector();
     };
 
-    video.onerror = (e) => {
+    video.onerror = (_e) => {
       URL.revokeObjectURL(objectUrl);
       reject(new Error('Failed to load video file. Ensure format is MP4 or WebM.'));
     };

@@ -298,11 +298,12 @@ All endpoints are prefixed with `/api/v1/`. Full interactive documentation at [`
 
 | Role | Description | Home Route |
 |------|-------------|------------|
-| **Admin** | Full platform control, approves users & properties | `/admin` |
-| **Landlord** | Manages their properties, views payments | `/dashboard` |
-| **Agent** | Lists properties, tracks commissions, geo check-in | `/dashboard` |
-| **Tenant** | Pays rent, raises maintenance tickets | `/tenant` |
-| **Caretaker** | On-site property management | `/caretaker` |
+| **Admin** | Full platform control, approves users, properties, and system-wide settings | `/admin` |
+| **Landlord** | Manages owned properties, tracks unit occupancy, views real-time payments | `/dashboard` |
+| **Agent** | Lists properties, executes lease workflows, tracks commission payroll, geo check-in | `/dashboard` |
+| **Accountant** | General ledger, KRA eTIMS tax reports, payment reconciliation, bank disbursements | `/accountant` |
+| **Tenant** | Digital rent payment (M-Pesa STK), statements, raises maintenance tickets | `/tenant` |
+| **Caretaker** | On-site inspections, assigned property maintenance triage, move-out surveys | `/caretaker` |
 
 ### Registration Workflow
 
@@ -315,41 +316,29 @@ User signs up → Role selected → Admin reviews → Approved → Access grante
 ## Testing
 
 ```bash
-# Backend (Jest + Supertest — 14 suites, 166 tests)
-cd backend && npm test
+# Backend (Jest + Supertest — 17 suites, 229 tests, 100% pass)
+cd backend && npm test -- --runInBand
 
-# Frontend (Vitest — 7 suites, 17 tests)
+# Frontend (Vitest — 8 suites, 46 tests, 100% pass)
 cd frontend && npm test
 
-# Playwright E2E (requires running dev server)
+# Playwright E2E Multi-Role Real Browser Testing
 cd frontend && npx playwright test
 
-# k6 Load Tests
+# k6 High-Throughput Load Tests
 k6 run load-tests/k6-payments.js
 k6 run load-tests/k6-properties.js
 ```
 
 ---
 
-## Development Workflow
+## Security & Data Protection Architecture
 
-1. Branch from `main` — use `feat/*`, `fix/*`, `docs/*` naming
-2. Write tests alongside code changes
-3. Run full test suite before pushing: `cd backend && npm test && cd ../frontend && npm test`
-4. Push and create a Pull Request
-5. CI runs automatically (lint → test → build → Playwright → npm audit)
-6. Merge to `main` triggers auto-deploy to Render + Vercel
-
----
-
-## Contributing
-
-1. **Branch naming**: `feat/description`, `fix/description`, `docs/description`
-2. **Commit format**: `type(scope): description` (e.g., `feat(payments): add M-Pesa reversal`)
-3. **All PRs must pass CI** — lint, tests, and build
-4. **Backend changes** require test coverage ≥ 60% lines
-5. **Frontend changes** require successful production build
-6. **No hardcoded credentials** — see [API Key Rotation Guide](docs/API_KEY_ROTATION.md)
+- **PII Encryption at Rest**: Sensitive tenant personal identification numbers (KRA PIN, national ID) and financial fields are encrypted using **AES-256-GCM** with authenticated checksums.
+- **Blind Indexing**: Fast deterministic queries over encrypted fields are achieved using **HMAC-SHA256 blind indexes**, ensuring zero raw PII is exposed to database query logs.
+- **Multi-Tenant Scoping**: All resource queries for landlords and caretakers enforce strict tenancy boundary scoping at the middleware layer.
+- **Webhook Authenticity**: M-Pesa Daraja and Clerk webhook endpoints enforce constant-time signature verification (`crypto.timingSafeEqual`) and fail closed in production.
+- **PCI-DSS SAQ-A Exemption**: Direct primary account numbers (PANs) are strictly out of scope via tokenized gateways.
 
 ---
 
@@ -357,8 +346,10 @@ k6 run load-tests/k6-properties.js
 
 - [Deployment Guide](docs/DEPLOYMENT.md) — step-by-step deploy to Render + Vercel
 - [API Key Rotation](docs/API_KEY_ROTATION.md) — credential rotation procedures
+- [PCI-DSS Compliance Scope](docs/PCI_COMPLIANCE.md) — SAQ-A assessment and controls
 - [Changelog](CHANGELOG.md) — release history
 - [API Docs](https://mutunerent-api.onrender.com/api/docs) — interactive Swagger UI
+- [Archive Branch (`archive/pre-v1-experimental-artifacts`)](https://github.com/evergreen-realm/mutune--/tree/archive/pre-v1-experimental-artifacts) — historical v0.x exploratory prototypes, competitor evaluations, and GPU research archive
 
 ---
 

@@ -144,7 +144,7 @@ async function getPendingDisbursementMetrics() {
  * Landlords -> Agents -> Suppliers -> Staff -> Tenants
  */
 async function executePriorityBulkDisbursement(executorUserId) {
-  let config = await CommissionConfig.findOne({ config_name: 'GLOBAL_FINANCIAL_CONFIG' }).lean();
+  const config = await CommissionConfig.findOne({ config_name: 'GLOBAL_FINANCIAL_CONFIG' }).lean();
   const priorityOrder = config?.disbursement_priority || ['landlords', 'agents', 'suppliers', 'staff', 'tenants'];
 
   const results = {

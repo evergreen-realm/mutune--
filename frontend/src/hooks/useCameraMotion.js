@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 // α = 0.98: trust gyroscope 98% for smooth short-term tracking,
 // compass 2% for long-term drift correction.
 // At 60 Hz, this corrects ~1.2° of drift per second.
-const FILTER_ALPHA = 0.98;
 
 // Dead-zone: raw rotationRate magnitude below this (deg/s) is treated as "Still".
 // Normal hand tremor is ~3-7 deg/s. This prevents phantom "Moving" readings.
@@ -40,7 +39,7 @@ function fuseHeading(prevFused, gyroRate, compassHeading, dt, currentSpeed = 0) 
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
-export function useCameraMotion(isActive = false, webcamRef = null) {
+export function useCameraMotion(isActive = false, _webcamRef = null) {
   const [angle, setAngle] = useState(0);           // 0..360 degrees (Fused Yaw)
   const [pitch, setPitch] = useState(0);            // -90..90 degrees
   const [roll, setRoll] = useState(0);              // -180..180 degrees
