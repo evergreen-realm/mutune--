@@ -2,7 +2,7 @@ const Tenant = require('../models/Tenant');
 const Payment = require('../models/Payment');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
-const { generateBlindIndex, normalizePhone } = require('../utils/security');
+const { generateBlindIndex, normalizePhone, decryptPII } = require('../utils/security');
 
 /**
  * Auto-reconciliation algorithm matching incoming M-Pesa payment parameters
@@ -22,7 +22,7 @@ async function autoReconcilePayment({ mpesa_code, phone, account_reference, amou
     match_reason: ''
   };
 
-  const eligibleStatuses = ['active', 'notice_period', 'pending_move_in', 'notice'];
+  const eligibleStatuses = ['active', 'notice_period', 'pending_move_in', 'notice', 'expired'];
 
   // Rule 1: Exact Tenant Code Match (100% confidence)
   if (cleanRef) {
@@ -144,7 +144,7 @@ async function aiTenantMatch({ query, phone, amount_kes, account_reference, name
         tenant_id: tenant._id,
         tenant_code: tenant.tenant_code,
         name: tenant.full_name,
-        phone: tenant.phone,
+        phone: decryptPII(tenant.phone) || tenant.phone,
         property_id: tenant.current_property_id,
         unit_id: tenant.current_unit_id,
         rent_amount_kes: tenant.rent_amount_kes,

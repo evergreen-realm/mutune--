@@ -39,7 +39,7 @@ const {
   SystemSetting
 } = require('../models');
 
-const { generateBlindIndex, normalizePhone, encryptField } = require('../utils/security');
+const { generateBlindIndex, normalizePhone, encryptPII } = require('../utils/security');
 const { acquireCronLock, releaseCronLock } = require('../utils/cronLock');
 const { submitETIMSInvoice, generateETIMSInvoiceForPayment, retryETIMSInvoice } = require('../services/kraEtims');
 const { autoReconcilePayment, aiTenantMatch } = require('../services/reconciliation');
@@ -385,7 +385,7 @@ describe('Phase 4 Verification Suite: Real Service & Cron Logic', () => {
       expect(result2.accruedCount).toBe(0);
     });
 
-    test('lateFeeApplicator records penalties as status: pending (not confirmed revenue)', async () => {
+    test('lateFeeApplicator applies penalty, increments arrears, and posts GL late_fee entry', async () => {
       await LateFeeRule.create({
         name: 'Residential Default Late Fee',
         applies_to: 'all',
@@ -611,6 +611,203 @@ describe('Phase 4 Verification Suite: Real Service & Cron Logic', () => {
       const prop = await Property.findById(propertyDoc._id);
       expect(prop.glb_model_url).toBe('https://r2.mutune.co.ke/models/nyali-heights.glb');
       expect(prop.assets.some(a => a.type === 'glb' && a.url.includes('nyali-heights.glb'))).toBe(true);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 6. Hardening & Deep Verification of Edge Cases & Integrity
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('6. Hardening & Deep Verification of Edge Cases', () => {
+    test('generateETIMSInvoiceForPayment rejects unconfirmed payments and non-positive amounts', async () => {
+      const pendingPayment = await Payment.create({
+        transaction_id: 'TXN-P4-UNCONFIRMED',
+        amount_kes: 20000,
+        payment_type: 'rent',
+        channel: 'mpesa_c2b',
+        status: 'pending'
+      });
+
+      await expect(generateETIMSInvoiceForPayment(pendingPayment._id)).rejects.toThrow(
+        /must be 'confirmed'/
+      );
+
+      const zeroPayment = await Payment.create({
+        transaction_id: 'TXN-P4-ZERO',
+        amount_kes: 0,
+        payment_type: 'rent',
+        channel: 'cash',
+        status: 'confirmed'
+      });
+
+      await expect(generateETIMSInvoiceForPayment(zeroPayment._id)).rejects.toThrow(
+        /greater than zero/
+      );
+    });
+
+    test('retryETIMSInvoice returns already_transmitted on transmitted invoice without re-calling KRA API', async () => {
+      const transmittedInvoice = await EtimsInvoice.create({
+        invoice_number: 'INV-ALREADY-TRANSMITTED',
+        gross_amount_kes: 15000,
+        taxable_amount_kes: 15000,
+        tax_amount_kes: 1125,
+        transmission_status: 'transmitted',
+        control_number: 'KRA-EXISTING-CN',
+        qr_code_url: 'https://etims.kra.go.ke/verify?pin=P051234567Z&inv=INV-ALREADY-TRANSMITTED'
+      });
+
+      const spy = jest.spyOn(axios, 'post');
+      const res = await retryETIMSInvoice(transmittedInvoice._id);
+
+      expect(res.already_transmitted).toBe(true);
+      expect(res.control_number).toBe('KRA-EXISTING-CN');
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    test('submitETIMSInvoice decrypts encrypted tenant pin and rejects gross amount <= 0', async () => {
+      postSpy = jest.spyOn(axios, 'post').mockImplementation(async (url) => {
+        if (url.includes('selectToken')) return { data: { token: 'mock-token-xyz' } };
+        return { data: { resultCd: '0000', rcptSign: 'KRA-SIGN-DECRYPT-PIN' } };
+      });
+
+      // Valid PIN encrypted
+      const encryptedPin = encryptPII('A012345678Z');
+      const res = await submitETIMSInvoice({
+        invoice_number: 'INV-DECRYPT-PIN-TEST',
+        amount: 10000,
+        tenant_pin: encryptedPin
+      });
+
+      expect(res.success).toBe(true);
+      const saved = await EtimsInvoice.findOne({ invoice_number: 'INV-DECRYPT-PIN-TEST' });
+      expect(saved.customer_pin).toBe('A012345678Z');
+
+      await expect(submitETIMSInvoice({
+        invoice_number: 'INV-ZERO-AMOUNT',
+        amount: 0
+      })).rejects.toThrow(/greater than zero/);
+    });
+
+    test('executeTool allows accountant role to access get_system_financial_summary', async () => {
+      const accountantUser = {
+        _id: new mongoose.Types.ObjectId(),
+        role: 'accountant',
+        full_name: 'Audit Accountant'
+      };
+
+      const res = await aiService.executeTool('get_system_financial_summary', {}, accountantUser);
+      expect(res.error).toBeUndefined();
+      expect(res.found).toBe(true);
+      expect(typeof res.total_revenue_kes).toBe('number');
+    });
+
+    test('executeTool scopes get_tenants_in_arrears by landlord properties', async () => {
+      const landlordA = {
+        _id: landlordUser._id,
+        role: 'landlord',
+        full_name: 'Landlord Omar'
+      };
+
+      const res = await aiService.executeTool('get_tenants_in_arrears', {}, landlordA);
+      expect(res.found).toBe(true);
+      for (const t of res.list) {
+        expect(t.phone).not.toMatch(/^enc:/);
+      }
+    });
+
+    test('POST /ai/match-tenant with auto_assign does not double-decrement arrears for already-confirmed payment', async () => {
+      const tenantBefore = await Tenant.findById(tenantDoc._id);
+      const initialArrears = tenantBefore.arrears_kes || 5000;
+      await Tenant.findByIdAndUpdate(tenantDoc._id, { arrears_kes: initialArrears });
+
+      const confirmedPayment = await Payment.create({
+        transaction_id: 'TXN-ALREADY-CONFIRMED-MATCH',
+        amount_kes: 2500,
+        payment_type: 'rent',
+        channel: 'mpesa_c2b',
+        status: 'confirmed',
+        workflow_state: 'PAYMENT_CONFIRMED'
+      });
+
+      const res = await request(app)
+        .post('/api/v1/ai/match-tenant')
+        .send({
+          payment_id: confirmedPayment._id.toString(),
+          query: tenantDoc.tenant_code,
+          phone: '254711000004',
+          amount_kes: tenantDoc.rent_amount_kes,
+          auto_assign: true
+        })
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.assigned).toBe(true);
+
+      const tenantAfter = await Tenant.findById(tenantDoc._id);
+      expect(tenantAfter.arrears_kes).toBe(initialArrears);
+    });
+
+    test('aiTenantMatch returns decrypted phone numbers for candidate matches', async () => {
+      const matchRes = await aiTenantMatch({ phone: '254711000004' });
+      expect(matchRes.candidates.length).toBeGreaterThan(0);
+      for (const cand of matchRes.candidates) {
+        expect(cand.phone).not.toMatch(/^enc:/);
+      }
+    });
+
+    test('acquireCronLock re-acquires expired locks after TTL', async () => {
+      const lockJob = 'ttl_expired_job';
+      const period = '2026-10-28';
+
+      const acquired1 = await acquireCronLock(lockJob, period, { forceInTest: true, ttlMs: 50 });
+      expect(acquired1).toBe(true);
+
+      const acquired2 = await acquireCronLock(lockJob, period, { forceInTest: true, ttlMs: 50 });
+      expect(acquired2).toBe(false);
+
+      await new Promise(r => setTimeout(r, 60));
+
+      const acquired3 = await acquireCronLock(lockJob, period, { forceInTest: true, ttlMs: 50 });
+      expect(acquired3).toBe(true);
+
+      await releaseCronLock(lockJob, period);
+    });
+
+    test('POST /scans/callback enforces safeCompare and fails closed in production when secret is missing', async () => {
+      await request(app)
+        .post('/api/v1/scans/callback')
+        .send({
+          property_id: propertyDoc._id.toString(),
+          status: 'success',
+          splat_url: 'https://r2.mutune.co.ke/splats/test.splat',
+          api_secret: 'wrong-secret'
+        })
+        .expect(401);
+
+      const origEnv = process.env.NODE_ENV;
+      const origSecret = process.env.MODAL_WEBHOOK_SECRET;
+      const origKey = process.env.WEBHOOK_SECRET_KEY;
+      try {
+        process.env.NODE_ENV = 'production';
+        delete process.env.MODAL_WEBHOOK_SECRET;
+        delete process.env.WEBHOOK_SECRET_KEY;
+
+        const res = await request(app)
+          .post('/api/v1/scans/callback')
+          .send({
+            property_id: propertyDoc._id.toString(),
+            status: 'success',
+            splat_url: 'https://r2.mutune.co.ke/splats/test.splat',
+            api_secret: 'any-secret'
+          })
+          .expect(500);
+
+        expect(res.body.error.code).toBe('CONFIG_ERROR');
+      } finally {
+        process.env.NODE_ENV = origEnv;
+        process.env.MODAL_WEBHOOK_SECRET = origSecret;
+        process.env.WEBHOOK_SECRET_KEY = origKey;
+      }
     });
   });
 });

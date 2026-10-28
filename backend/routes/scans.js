@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
 const Property = require('../models/Property');
+const { safeCompare } = require('../utils/security');
 const logger = require('../utils/logger');
 
 /**
@@ -150,7 +151,15 @@ router.post('/callback', async (req, res, next) => {
   try {
     const { property_id, scan_id, status, splat_url, api_secret, error } = req.body;
 
-    if (!process.env.MODAL_WEBHOOK_SECRET || api_secret !== process.env.MODAL_WEBHOOK_SECRET) {
+    const expectedSecret = process.env.MODAL_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET_KEY;
+    if (process.env.NODE_ENV === 'production' && !expectedSecret) {
+      logger.error('MODAL_WEBHOOK_SECRET not configured in production');
+      return res.status(500).json({
+        success: false,
+        error: { code: 'CONFIG_ERROR', message: 'Webhook secret not configured' }
+      });
+    }
+    if (expectedSecret && (!api_secret || !safeCompare(api_secret, expectedSecret))) {
       return res.status(401).json({
         success: false,
         error: { code: 'UNAUTHORIZED', message: 'Unauthorized webhook request' }

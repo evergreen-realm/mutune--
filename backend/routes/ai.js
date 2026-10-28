@@ -212,9 +212,11 @@ router.post('/match-tenant',
 
       if (auto_assign && payment && matchResult.best_match && matchResult.confidence_score >= 80) {
         const best = matchResult.best_match;
+        const wasConfirmed = payment.status === 'confirmed';
+
         payment.tenant_id = best.tenant_id;
-        payment.property_id = best.property_id;
-        payment.unit_id = best.unit_id;
+        payment.property_id = best.property_id || payment.property_id;
+        payment.unit_id = best.unit_id || payment.unit_id;
         payment.status = 'confirmed';
         payment.workflow_state = 'PAYMENT_CONFIRMED';
         payment.discrepancy_flag = false;
@@ -222,7 +224,7 @@ router.post('/match-tenant',
         payment.notes = `${payment.notes || ''}\n[AI_RECONCILED] Auto-matched to ${best.name} (${best.tenant_code}) with confidence ${matchResult.confidence_score}% by ${req.user.email}`.trim();
         await payment.save();
 
-        if (payment.amount_kes) {
+        if (!wasConfirmed && payment.amount_kes) {
           await Tenant.findByIdAndUpdate(best.tenant_id, { $inc: { arrears_kes: -payment.amount_kes } });
         }
         matchResult.assigned = true;

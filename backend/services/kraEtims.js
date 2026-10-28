@@ -6,6 +6,7 @@ const EtimsInvoice = require('../models/EtimsInvoice');
 const Payment = require('../models/Payment');
 const Property = require('../models/Property');
 const Tenant = require('../models/Tenant');
+const { decryptPII } = require('../utils/security');
 
 let cachedAccessToken = null;
 let tokenExpiresAt = 0;
@@ -84,6 +85,9 @@ async function submitETIMSInvoice(invoiceData) {
     || (invoiceData.payment_id ? `INV-PAY-${invoiceData.payment_id}` : `INV-${invoiceData.property_code || 'MUT'}-${Date.now()}`);
 
   const grossAmount = Number(invoiceData.amount || invoiceData.gross_amount_kes || 0);
+  if (grossAmount <= 0) {
+    throw new Error(`Invalid invoice amount KES ${grossAmount}: gross amount must be greater than zero`);
+  }
   const isCommercial = Boolean(invoiceData.is_commercial);
   const taxRate = isCommercial ? 16 : 7.5;
   const vatAmount = isCommercial
@@ -92,12 +96,17 @@ async function submitETIMSInvoice(invoiceData) {
   const taxableAmount = Number((invoiceData.taxable_amount !== undefined ? invoiceData.taxable_amount : (grossAmount - vatAmount)).toFixed(2));
   const taxAmount = isCommercial ? vatAmount : Number(((grossAmount * 0.075)).toFixed(2));
 
+  const rawPin = invoiceData.tenant_pin || invoiceData.customer_pin;
+  const decryptedPin = rawPin ? (decryptPII(rawPin) || rawPin) : null;
+  const isValidPin = typeof decryptedPin === 'string' && /^[A-Z]\d{9}[A-Z]$/i.test(decryptedPin.trim());
+  const custTin = isValidPin ? decryptedPin.trim().toUpperCase() : (decryptedPin && !decryptedPin.startsWith('enc:') ? decryptedPin.trim() : 'P000000000X');
+
   const payload = {
     tin: config.pin,
     bhfId: '00',
     invcNo: invoiceNumber,
     orgInvcNo: 0,
-    custTin: invoiceData.tenant_pin || invoiceData.customer_pin || 'P000000000X',
+    custTin,
     custNm: invoiceData.tenant_name || invoiceData.customer_name || 'Valued Tenant',
     salesDt: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
     rcptTyCd: 'S',
@@ -255,6 +264,18 @@ async function retryETIMSInvoice(invoiceId) {
     throw new Error(`eTIMS Invoice with ID ${invoiceId} not found`);
   }
 
+  if (invoice.transmission_status === 'transmitted') {
+    return {
+      success: true,
+      already_transmitted: true,
+      invoice_id: invoice._id,
+      invoice_number: invoice.invoice_number,
+      control_number: invoice.control_number,
+      qr_code_url: invoice.qr_code_url,
+      transmitted_at: invoice.transmitted_at
+    };
+  }
+
   const invoiceData = {
     invoice_number: invoice.invoice_number,
     payment_id: invoice.payment_id,
@@ -288,6 +309,14 @@ async function generateETIMSInvoiceForPayment(paymentId) {
     throw new Error(`Payment ${paymentId} not found`);
   }
 
+  if (payment.status !== 'confirmed') {
+    throw new Error(`Cannot generate eTIMS invoice for payment ${paymentId}: payment status is '${payment.status}' (must be 'confirmed')`);
+  }
+
+  if (!payment.amount_kes || payment.amount_kes <= 0) {
+    throw new Error(`Cannot generate eTIMS invoice for payment ${paymentId}: amount must be greater than zero`);
+  }
+
   // Idempotency check: see if invoice already exists
   const existingInvoice = await EtimsInvoice.findOne({ payment_id: payment._id });
   if (existingInvoice && existingInvoice.transmission_status === 'transmitted') {
@@ -302,16 +331,20 @@ async function generateETIMSInvoiceForPayment(paymentId) {
   const tenant = payment.tenant_id || {};
   const isCommercial = property.property_type === 'commercial' || property.type === 'commercial';
 
+  const rawPin = tenant.id_number ? (decryptPII(tenant.id_number) || tenant.id_number) : null;
+  const isValidPin = typeof rawPin === 'string' && /^[A-Z]\d{9}[A-Z]$/i.test(rawPin.trim());
+  const tenantPin = isValidPin ? rawPin.trim().toUpperCase() : 'P000000000X';
+
   const invoiceData = {
     invoice_number: `INV-${payment.transaction_id || payment._id}`,
     payment_id: payment._id,
-    property_id: property._id,
+    property_id: property._id || payment.property_id,
     property_code: property.property_code,
-    tenant_id: tenant._id,
+    tenant_id: tenant._id || payment.tenant_id,
     landlord_id: property.landlord_id,
     amount: payment.amount_kes,
     is_commercial: isCommercial,
-    tenant_pin: tenant.id_number || 'P000000000X',
+    tenant_pin: tenantPin,
     tenant_name: tenant.full_name || 'Valued Tenant',
     description: `Rent Payment - ${property.name || 'Property'} Unit ${tenant.current_unit_id || ''}`
   };

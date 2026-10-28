@@ -137,7 +137,7 @@ const TOOLS = [
 ];
 
 function getToolsForRole(role) {
-  if (['admin', 'super_admin', 'agent', 'landlord'].includes(role)) {
+  if (['admin', 'super_admin', 'agent', 'landlord', 'accountant'].includes(role)) {
     return TOOLS;
   }
   // Tenants (basic chat) only get get_payment_status and create_maintenance_ticket
@@ -157,13 +157,15 @@ async function executeTool(toolName, args, callerUser) {
     switch (toolName) {
       case 'get_payment_status': {
         let tenant;
-        if (args.tenant_code) {
-          const tCode = args.tenant_code.trim();
-          const norm = normalizePhone(tCode);
-          const orList = [{ tenant_code: tCode }];
+        const searchInput = (args.tenant_code || args.query || args.phone || '').trim();
+        if (searchInput) {
+          const norm = normalizePhone(searchInput);
+          const orList = [{ tenant_code: searchInput }];
           if (norm) {
             orList.push({ phone_bindex: generateBlindIndex(norm) }, { phone: norm });
           }
+          const rawBindex = generateBlindIndex(searchInput);
+          orList.push({ phone_bindex: rawBindex }, { phone: searchInput });
           tenant = await Tenant.findOne({ $or: orList }).lean();
         } else if (callerUser.role === 'tenant') {
           tenant = await Tenant.findOne({ user_id: callerUser._id }).lean();
@@ -279,12 +281,29 @@ async function executeTool(toolName, args, callerUser) {
       }
 
       case 'get_tenants_in_arrears': {
-        const tenants = await Tenant.find({ arrears_kes: { $gt: 0 } }).lean();
-        return { found: true, arrears_count: tenants.length, list: tenants.map(t => ({ name: t.full_name, code: t.tenant_code, amount: t.rent_amount_kes, arrears_kes: t.arrears_kes })) };
+        const filter = { arrears_kes: { $gt: 0 } };
+        if (callerUser?.role === 'landlord') {
+          const props = await Property.find({ landlord_id: callerUser._id }).select('_id').lean();
+          filter.current_property_id = { $in: props.map(p => p._id) };
+        } else if (callerUser?.role === 'agent' && callerUser.assigned_property_ids?.length) {
+          filter.current_property_id = { $in: callerUser.assigned_property_ids };
+        }
+        const tenants = await Tenant.find(filter).lean();
+        return {
+          found: true,
+          arrears_count: tenants.length,
+          list: tenants.map(t => ({
+            name: t.full_name,
+            code: t.tenant_code,
+            amount: t.rent_amount_kes,
+            arrears_kes: t.arrears_kes,
+            phone: decryptPII(t.phone) || t.phone
+          }))
+        };
       }
 
       case 'get_system_financial_summary': {
-        if (!['admin', 'super_admin'].includes(callerUser.role)) return { error: 'Unauthorized' };
+        if (!['admin', 'super_admin', 'accountant'].includes(callerUser?.role)) return { error: 'Unauthorized' };
         const payments = await Payment.find({ status: 'confirmed' }).lean();
         const total = payments.reduce((acc, p) => acc + (p.amount_kes || 0), 0);
         return { found: true, total_revenue_kes: total, completed_transactions: payments.length };
