@@ -642,11 +642,11 @@ export default function AgentPerformancePage({ dbUser }) {
           >
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Commission Earned</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-450">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
                 <TrendingUp size={16} />
               </div>
             </div>
-            <p className="text-3xl font-black text-emerald-450 font-mono">
+            <p className="text-3xl font-black text-emerald-400 font-mono">
               <AnimatedCounter value={commissionEarned} prefix="KES " suffix="K" />
             </p>
             <p className="text-[10px] text-slate-400 font-semibold mt-1">Current collection tier rate</p>
@@ -669,7 +669,7 @@ export default function AgentPerformancePage({ dbUser }) {
               onClick={() => setTab(t.key)}
               className={`px-4.5 py-2.5 rounded-xl text-xs font-bold transition tracking-wider uppercase cursor-pointer flex-shrink-0 whitespace-nowrap ${
                 tab === t.key
-                  ? 'bg-blue-650/20 text-blue-400 border border-blue-500/35'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/35'
                   : 'bg-transparent border border-transparent text-slate-400 hover:text-white'
               }`}
             >
@@ -704,7 +704,7 @@ export default function AgentPerformancePage({ dbUser }) {
                         {i < 3 ? MEDAL_LABELS[i] : `#${i + 1}`}
                       </div>
 
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-600 to-indigo-650 flex items-center justify-center text-white font-extrabold text-sm flex-shrink-0 shadow-md">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-sm flex-shrink-0 shadow-md">
                         {agent.name?.charAt(0) || 'A'}
                       </div>
 
@@ -715,9 +715,9 @@ export default function AgentPerformancePage({ dbUser }) {
 
                       <div className="flex gap-6 flex-wrap justify-between sm:justify-start">
                         {[
-                          { label: 'Completion', value: `${agent.task_completion_rate_pct}%`, color: agent.task_completion_rate_pct >= 80 ? 'text-emerald-450' : 'text-amber-450' },
+                          { label: 'Completion', value: `${agent.task_completion_rate_pct}%`, color: agent.task_completion_rate_pct >= 80 ? 'text-emerald-400' : 'text-amber-400' },
                           { label: 'Tasks', value: `${agent.completed_tasks}/${agent.total_tasks}`, color: 'text-blue-400' },
-                          { label: 'Collected', value: FMT_KES(agent.rent_collected_kes), color: 'text-emerald-455' }
+                          { label: 'Collected', value: FMT_KES(agent.rent_collected_kes), color: 'text-emerald-400' }
                         ].map((kpi, j) => (
                           <div key={j} className="text-center min-w-[70px]">
                             <p className={`text-sm font-black ${kpi.color}`}>{kpi.value}</p>
@@ -1312,7 +1312,7 @@ export default function AgentPerformancePage({ dbUser }) {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-2.5 bg-blue-650 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition uppercase tracking-wider shadow-md active:scale-95 disabled:opacity-50 border-none cursor-pointer"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition uppercase tracking-wider shadow-md active:scale-95 disabled:opacity-50 border-none cursor-pointer"
               >
                 {submitting ? 'Assigning...' : 'Assign Task'}
               </button>

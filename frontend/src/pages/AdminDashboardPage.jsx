@@ -1307,7 +1307,7 @@ export default function AdminDashboardPage({ dbUser }) {
               <div className="flex gap-3 pt-4 border-t border-border/40">
                 <button 
                   type="submit" 
-                  className="flex-1 py-3 bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-550 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition"
+                  className="flex-1 py-3 bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition"
                 >
                   Save changes
                 </button>
@@ -1400,7 +1400,7 @@ export default function AdminDashboardPage({ dbUser }) {
               <div className="flex gap-3 pt-4 border-t border-border/40">
                 <button 
                   type="submit" 
-                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-550 hover:to-teal-550 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-md"
+                  className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-md"
                 >
                   Create Unit
                 </button>

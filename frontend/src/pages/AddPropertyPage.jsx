@@ -231,7 +231,7 @@ function StepDetails({ form, setField }) {
                   toast.error('Geolocation is not supported by your browser');
                 }
               }}
-              className="self-start text-xs font-semibold py-1.5 px-3 rounded-lg border border-blue-500 text-blue-600 dark:text-blue-450 hover:bg-blue-50 dark:hover:bg-blue-950/20 cursor-pointer transition"
+              className="self-start text-xs font-semibold py-1.5 px-3 rounded-lg border border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20 cursor-pointer transition"
             >
               📍 Detect My Current Location
             </button>
@@ -259,7 +259,7 @@ function StepUnits({ form, addUnitFn, removeUnitFn, updateUnitFn }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-between items-center">
-        <p className="text-slate-550 dark:text-slate-400 text-xs">
+        <p className="text-slate-500 dark:text-slate-400 text-xs">
           Add individual units for this property. At least 1 unit is required.
         </p>
         <button
@@ -276,7 +276,7 @@ function StepUnits({ form, addUnitFn, removeUnitFn, updateUnitFn }) {
             {form.units.length > 1 && (
               <button
                 type="button" onClick={() => removeUnitFn(i)}
-                className="bg-red-100 dark:bg-red-950/40 hover:bg-red-200 border-none text-red-650 rounded-lg py-1 px-2.5 text-xs cursor-pointer transition"
+                className="bg-red-100 dark:bg-red-950/40 hover:bg-red-200 border-none text-red-600 rounded-lg py-1 px-2.5 text-xs cursor-pointer transition"
               >
                 <Trash2 size={13} />
               </button>
@@ -411,8 +411,8 @@ function StepReview({ form }) {
           {form.units.map((u, i) => (
             <div key={i} className="flex gap-3 items-center py-2 px-3 bg-slate-100/50 dark:bg-slate-900/40 rounded-xl">
               <span className="text-blue-600 dark:text-blue-400 font-extrabold text-xs min-w-[32px]">#{u.unit_number}</span>
-              <span className="text-slate-550 dark:text-slate-400 text-xs">{u.type.replace(/_/g, ' ')} · Floor {u.floor}</span>
-              <span className="ml-auto text-emerald-600 dark:text-emerald-450 font-bold text-xs">
+              <span className="text-slate-500 dark:text-slate-400 text-xs">{u.type.replace(/_/g, ' ')} · Floor {u.floor}</span>
+              <span className="ml-auto text-emerald-600 dark:text-emerald-400 font-bold text-xs">
                 KES {Number(u.rent_kes || 0).toLocaleString('en-KE')}
               </span>
             </div>
@@ -628,7 +628,7 @@ export default function AddPropertyPage() {
         <div className="flex justify-between mt-6 gap-3">
           <button
             onClick={step === 0 ? () => navigate('/properties') : back}
-            className="flex items-center gap-2 px-5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-355 font-bold text-xs cursor-pointer transition"
+            className="flex items-center gap-2 px-5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition"
           >
             <ChevronLeft size={16} /> {step === 0 ? 'Cancel' : 'Back'}
           </button>

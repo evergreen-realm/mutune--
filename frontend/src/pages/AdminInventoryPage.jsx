@@ -216,7 +216,7 @@ export default function AdminInventoryPage() {
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-slate-900 dark:text-slate-100 text-2xl sm:text-3xl font-black tracking-tight margin-0">Inventory &amp; Auction Control</h1>
               <button onClick={() => setShowInfo(v => !v)} title="How it works"
-                className="bg-slate-250 dark:bg-slate-800 border-none rounded-lg p-1.5 cursor-pointer text-slate-500 dark:text-slate-400 flex items-center transition">
+                className="bg-slate-200 dark:bg-slate-800 border-none rounded-lg p-1.5 cursor-pointer text-slate-500 dark:text-slate-400 flex items-center transition">
                 <Info size={14} />
               </button>
             </div>
@@ -303,13 +303,13 @@ export default function AdminInventoryPage() {
                   <div className="flex-1 min-w-[200px]">
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-slate-900 dark:text-slate-100 text-sm font-extrabold">{item.name}</p>
-                      {urgent && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-650 uppercase">URGENT</span>}
+                      {urgent && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 uppercase">URGENT</span>}
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-xs mb-0.5">{item.property_name} ({item.property_code})</p>
-                    <p className="text-slate-400 dark:text-slate-550 text-xs">Reason: {item.auctionable_reason} &middot; Flagged {days} day{days !== 1 ? 's' : ''} ago</p>
+                    <p className="text-slate-400 dark:text-slate-500 text-xs">Reason: {item.auctionable_reason} &middot; Flagged {days} day{days !== 1 ? 's' : ''} ago</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-amber-600 dark:text-amber-405 text-base font-black">{FMT_KES(item.estimated_value_kes)}</p>
+                    <p className="text-amber-600 dark:text-amber-400 text-base font-black">{FMT_KES(item.estimated_value_kes)}</p>
                     <p className="text-slate-400 dark:text-slate-500 text-xs">Est. value</p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0 ml-auto">
@@ -364,10 +364,10 @@ export default function AdminInventoryPage() {
                       <p className="text-slate-500 dark:text-slate-400 text-xs">{item.description || 'No description'} &middot; Condition: {item.condition || 'unknown'}</p>
                     </div>
                     <div className="flex items-center gap-3.5 flex-wrap">
-                      <span className="text-xs font-black text-amber-600 dark:text-amber-405">{FMT_KES(item.estimated_value_kes)}</span>
-                      {item.auction_status === 'sold' && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/20 text-emerald-650">SOLD {FMT_KES(item.auction_sale_amount)}</span>}
-                      {item.auction_status === 'reclaimed' && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/20 text-emerald-650">RECLAIMED</span>}
-                      {item.auction_status === 'pending' && item.auctionable_marked_at && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/20 text-amber-650">PENDING AUCTION</span>}
+                      <span className="text-xs font-black text-amber-600 dark:text-amber-400">{FMT_KES(item.estimated_value_kes)}</span>
+                      {item.auction_status === 'sold' && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/20 text-emerald-600">SOLD {FMT_KES(item.auction_sale_amount)}</span>}
+                      {item.auction_status === 'reclaimed' && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/20 text-emerald-600">RECLAIMED</span>}
+                      {item.auction_status === 'pending' && item.auctionable_marked_at && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/20 text-amber-600">PENDING AUCTION</span>}
                       {!item.auctionable_marked_at && item.auction_status !== 'sold' && (
                         <button onClick={() => setFlag({ open: true, propId: prop.property_id, itemId: item._id, reason: '' })}
                           className="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-lg text-xs font-bold cursor-pointer transition"
@@ -385,7 +385,7 @@ export default function AdminInventoryPage() {
                       {item.auction_status !== 'pending' && (
                         <button onClick={() => setDel({ open: true, propId: prop.property_id, itemId: item._id, itemName: item.name })}
                           title="Delete item"
-                          className="flex items-center gap-1 p-1.5 bg-red-100 dark:bg-red-950/40 border border-red-200 dark:border-red-900/30 text-red-650 rounded-lg cursor-pointer transition"
+                          className="flex items-center gap-1 p-1.5 bg-red-100 dark:bg-red-950/40 border border-red-200 dark:border-red-900/30 text-red-600 rounded-lg cursor-pointer transition"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -478,7 +478,7 @@ export default function AdminInventoryPage() {
           <div className="fixed inset-0 z-[201] overflow-y-auto p-4 sm:p-6 flex items-center justify-center pointer-events-none">
             <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-red-200 dark:border-red-950/40 rounded-2xl p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 pointer-events-auto">
             <div className="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
-              <Trash2 size={24} className="text-red-650" />
+              <Trash2 size={24} className="text-red-600" />
             </div>
             <h3 className="text-slate-900 dark:text-slate-100 text-lg font-extrabold text-center mb-2">Delete Inventory Item?</h3>
             <p className="text-slate-500 dark:text-slate-400 text-xs text-center mb-6">
@@ -584,7 +584,7 @@ export default function AdminInventoryPage() {
                 <X size={16} />
               </button>
             </div>
-            <p className="text-slate-550 dark:text-slate-400 text-xs mb-4">
+            <p className="text-slate-500 dark:text-slate-400 text-xs mb-4">
               Enter the M-Pesa or cash Payment Receipt Mongo ID generated when the tenant cleared their outstanding balance.
             </p>
             <label className="block text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1.5">Payment Receipt ID *</label>

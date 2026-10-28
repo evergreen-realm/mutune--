@@ -509,16 +509,16 @@ button.bg-indigo-600, button.bg-green-600, a.bg-indigo-600, a.bg-green-600 {
 }
 
 /* Light mode text contrast overrides - scoped to never override dark surfaces */
-:where(.light, [data-theme="light"]) h1:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) h2:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) h3:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) h4:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) h5:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) h6:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) .text-white:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) .text-slate-100:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) .text-slate-200:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
-:where(.light, [data-theme="light"]) .text-slate-300:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *) {
+:where(.light, [data-theme="light"]) h1:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h2:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h3:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h4:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h5:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h6:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-white:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-slate-100:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-slate-200:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-slate-300:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *, .bg-slate-950, .bg-slate-950 *, .bg-slate-900, .bg-slate-900 *, .bg-indigo-600, .bg-indigo-600 *, .bg-emerald-600, .bg-emerald-600 *, .bg-primary, .bg-primary *, .bg-green-600, .bg-green-600 *, [data-dark-surface], [data-dark-surface] *) {
   color: var(--foreground) !important;
 }
 
@@ -541,6 +541,14 @@ button.bg-indigo-600, button.bg-green-600, a.bg-indigo-600, a.bg-green-600 {
 }
 
 /* Retain white text for primary colored elements (buttons, active badges) */
+.light button.bg-primary,
+.light button.bg-brand-500,
+.light a.bg-primary,
+.light a.bg-brand-500,
+[data-theme="light"] button.bg-primary,
+[data-theme="light"] button.bg-brand-500,
+[data-theme="light"] a.bg-primary,
+[data-theme="light"] a.bg-brand-500,
 .light .bg-primary .text-white, 
 .light .bg-primary *, 
 .light button[style*="background"] *,

@@ -599,7 +599,7 @@ export default function TenantPortalPage() {
                 onChange={(e) => setTenantCode(e.target.value)}
                 placeholder="e.g., TEN-XXXX-XXXX"
                 disabled={submittingCode}
-                className="w-full px-4 py-3 bg-background/80 border border-border rounded-xl text-sm text-foreground placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
+                className="w-full px-4 py-3 bg-background/80 border border-border rounded-xl text-sm text-foreground placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono"
               />
             </div>
 
@@ -625,7 +625,7 @@ export default function TenantPortalPage() {
               <p className="text-xs font-bold text-muted">Need Help or Don't Have a Code?</p>
               <p className="text-xs text-muted leading-relaxed">
                 Contact Mutune Estate Agency customer care via Call or WhatsApp at{' '}
-                <a href={`tel:+${customerCare}`} className="text-emerald-400 hover:text-emerald-350 font-bold underline transition-colors">
+                <a href={`tel:+${customerCare}`} className="text-emerald-400 hover:text-emerald-400 font-bold underline transition-colors">
                   {customerCare}
                 </a>{' '}
                 to get your unique code.
@@ -863,7 +863,7 @@ export default function TenantPortalPage() {
               <button
                 onClick={handlePayRent}
                 disabled={paying}
-                className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-650 active:scale-95 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all tracking-wider shadow-md shadow-red-950/50 uppercase cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-700 active:scale-95 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all tracking-wider shadow-md shadow-red-950/50 uppercase cursor-pointer"
               >
                 {paying ? 'Processing…' : 'Pay via M-Pesa'}
               </button>
@@ -1632,7 +1632,7 @@ export default function TenantPortalPage() {
                     value={ticketForm.title} 
                     onChange={e => setTicketForm(f => ({ ...f, title: e.target.value }))}
                     placeholder="e.g. Water leak in bathroom"
-                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all" 
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all" 
                   />
                 </div>
                 <div>
@@ -1642,7 +1642,7 @@ export default function TenantPortalPage() {
                     onChange={e => setTicketForm(f => ({ ...f, description: e.target.value }))}
                     placeholder="Describe the issue in detail so agents can send the right contractor..."
                     rows={4}
-                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-slate-655 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all resize-none font-sans" 
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all resize-none font-sans" 
                   />
                 </div>
                 <div>
@@ -1696,7 +1696,7 @@ export default function TenantPortalPage() {
                 <button 
                   onClick={submitTicket} 
                   disabled={submitting} 
-                  className="flex-[2] py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-650 text-white rounded-xl text-xs font-black transition tracking-wider shadow-lg shadow-emerald-950/40 uppercase cursor-pointer"
+                  className="flex-[2] py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-700 text-white rounded-xl text-xs font-black transition tracking-wider shadow-lg shadow-emerald-950/40 uppercase cursor-pointer"
                 >
                   {submitting ? 'Saving…' : ticketForm.editId ? 'Save Changes' : 'Submit Ticket'}
                 </button>
@@ -1712,7 +1712,7 @@ export default function TenantPortalPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[32px] shadow-2xl p-6 relative text-center">
             <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/25 rounded-full animate-bounce">
-              <CheckCircle2 size={36} className="text-emerald-450 drop-shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
+              <CheckCircle2 size={36} className="text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
             </div>
             
             <h3 className="text-white text-base font-black uppercase tracking-wider mb-2">STK Push Triggered</h3>

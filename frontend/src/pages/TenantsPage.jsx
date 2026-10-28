@@ -208,7 +208,7 @@ function AddTenantModal({ onClose, onCreated }) {
           {/* Link to Clerk User (optional) */}
           <div className="bg-slate-950/30 border border-slate-800 p-4 rounded-2xl">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-              <Link2 size={11} className="text-slate-450" /> Link to Registered User Account (Optional)
+              <Link2 size={11} className="text-slate-400" /> Link to Registered User Account (Optional)
             </div>
             <FIELD label="System User (if tenant already has a login)" id="tf-user-id">
               <select id="tf-user-id" value={form.user_id}
@@ -503,7 +503,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                   <InfoBox icon={<Building2 size={12} className="text-slate-500" />} label="Property Name" value={tenant.current_property_id?.name || '—'} />
                   <InfoBox icon={<Home size={12} className="text-slate-500" />} label="Leased Unit" value={tenant.current_unit_id} mono />
                   <InfoBox icon={<Calendar size={12} className="text-slate-500" />} label="Lease Ends" value={leaseEnd ? leaseEnd.toLocaleDateString('en-KE') : '—'} />
-                  <InfoBox label="Remaining Days" value={daysLeft !== null ? `${daysLeft > 0 ? daysLeft : 0} Days` : '—'} valueClass={daysLeft < 30 ? 'text-red-400 font-black' : daysLeft < 90 ? 'text-amber-400 font-black' : 'text-slate-205 font-bold'} />
+                  <InfoBox label="Remaining Days" value={daysLeft !== null ? `${daysLeft > 0 ? daysLeft : 0} Days` : '—'} valueClass={daysLeft < 30 ? 'text-red-400 font-black' : daysLeft < 90 ? 'text-amber-400 font-black' : 'text-slate-200 font-bold'} />
                   <InfoBox label="Rent Amount" value={FMT_KES(tenant.rent_amount_kes)} />
                   <InfoBox label="Security Deposit" value={(tenant.deposit_kes ?? tenant.deposit_paid_kes) ? FMT_KES(tenant.deposit_kes ?? tenant.deposit_paid_kes) : '—'} />
                 </div>
@@ -511,10 +511,10 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
 
               <Section title="Client Account Details">
                 {tenant.user_id ? (
-                  <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-550/20 rounded-2xl">
+                  <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
                     <CheckCircle2 size={18} className="text-emerald-400 flex-shrink-0" />
                     <div>
-                      <div className="text-xs font-black text-emerald-350">Tenant Account Synced</div>
+                      <div className="text-xs font-black text-emerald-400">Tenant Account Synced</div>
                       <div className="text-xs text-emerald-400 font-mono mt-0.5">{typeof tenant.user_id === 'object' ? tenant.user_id.email || tenant.user_id._id : tenant.user_id}</div>
                     </div>
                   </div>
@@ -563,7 +563,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-black text-white">KES {p.amount_kes?.toLocaleString()}</span>
-                          <span className={`capitalize text-xs font-black ${p.status === 'paid' ? 'text-emerald-450' : p.status === 'overdue' ? 'text-red-450' : 'text-amber-450'}`}>
+                          <span className={`capitalize text-xs font-black ${p.status === 'paid' ? 'text-emerald-400' : p.status === 'overdue' ? 'text-red-400' : 'text-amber-400'}`}>
                             {p.status}
                           </span>
                         </div>
@@ -788,7 +788,7 @@ export default function TenantsPage({ dbUser }) {
     <div className="flex h-96 items-center justify-center border border-dashed border-red-500 rounded-2xl bg-red-500/10 p-8 text-center text-white">
       <div>
         <AlertCircle className="mx-auto text-red-400 mb-3" size={32} />
-        <div className="text-red-450 font-bold text-sm">Failed to load tenants registry</div>
+        <div className="text-red-400 font-bold text-sm">Failed to load tenants registry</div>
         <p className="text-xs text-slate-400 mt-1">{error?.error?.message || error?.message}</p>
       </div>
     </div>
@@ -810,11 +810,11 @@ export default function TenantsPage({ dbUser }) {
           <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
             <span>{data?.pagination?.total ?? tenants.length} tenants registered</span>
             <span>·</span>
-            <span className="text-emerald-450 font-bold bg-emerald-500/10 px-2.5 py-0.5 border border-emerald-500/20 rounded-full">{totalActive} active leases</span>
+            <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 border border-emerald-500/20 rounded-full">{totalActive} active leases</span>
             {totalNotice > 0 && (
               <>
                 <span>·</span>
-                <span className="text-amber-450 font-bold bg-amber-500/10 px-2.5 py-0.5 border border-amber-500/20 rounded-full">{totalNotice} on notice</span>
+                <span className="text-amber-400 font-bold bg-amber-500/10 px-2.5 py-0.5 border border-amber-500/20 rounded-full">{totalNotice} on notice</span>
               </>
             )}
           </p>
@@ -823,7 +823,7 @@ export default function TenantsPage({ dbUser }) {
           <button
             id="btn-export-csv"
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-4.5 py-2.5 bg-slate-805 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition cursor-pointer uppercase tracking-wider"
+            className="flex items-center gap-1.5 px-4.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold rounded-xl transition cursor-pointer uppercase tracking-wider"
           >
             <FileText size={14} /> Export CSV
           </button>
@@ -902,7 +902,7 @@ export default function TenantsPage({ dbUser }) {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    <td colSpan={7} className="text-center py-16 text-slate-505">
+                    <td colSpan={7} className="text-center py-16 text-slate-500">
                       <Users2 size={36} className="mx-auto mb-2 text-slate-700" />
                       <div className="font-bold">No tenant leases registered</div>
                     </td>
@@ -924,12 +924,12 @@ export default function TenantsPage({ dbUser }) {
                           <div className="text-xs text-slate-500 mt-0.5 font-mono font-bold tracking-wider">{t.tenant_code}</div>
                         </td>
                         <td className="px-5 py-4 space-y-0.5">
-                          <div className="flex items-center gap-1 text-xs text-slate-355 font-mono font-medium">
-                            <Phone size={10} className="text-slate-505" /> {t.phone}
+                          <div className="flex items-center gap-1 text-xs text-slate-300 font-mono font-medium">
+                            <Phone size={10} className="text-slate-500" /> {t.phone}
                           </div>
                           {t.email && (
                             <div className="flex items-center gap-1 text-xs text-slate-400">
-                              <Mail size={10} className="text-slate-505" /> {t.email}
+                              <Mail size={10} className="text-slate-500" /> {t.email}
                             </div>
                           )}
                         </td>
@@ -976,7 +976,7 @@ export default function TenantsPage({ dbUser }) {
                                 </button>
                                 <button
                                   onClick={() => { setEvictingTenant(t); setEvictReason(''); setEvictDate(''); }}
-                                  className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-red-650 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition cursor-pointer border border-transparent"
+                                  className="inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition cursor-pointer border border-transparent"
                                   title="Evict Tenant"
                                 >
                                   <UserX size={12} /> <span className="hidden xl:inline">Evict</span>

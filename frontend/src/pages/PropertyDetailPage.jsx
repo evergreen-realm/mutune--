@@ -245,7 +245,7 @@ export default function PropertyDetailPage({ dbUser }) {
       </button>
 
       {/* Property Details Banner - Zillow Style */}
-      <div className="bg-white border border-gray-150 rounded-[28px] shadow-md p-4 sm:p-5 flex flex-col xl:flex-row gap-5 items-stretch">
+      <div className="bg-white border border-gray-200 rounded-[28px] shadow-md p-4 sm:p-5 flex flex-col xl:flex-row gap-5 items-stretch">
         {/* Left Column: Info and Check-in */}
         <div className="flex-1 flex flex-col justify-between p-2 space-y-4">
           <div className="space-y-3">
@@ -301,7 +301,7 @@ export default function PropertyDetailPage({ dbUser }) {
         </div>
 
         {/* Middle Column: Property Photo */}
-        <div className="w-full xl:w-80 h-48 xl:h-auto rounded-2xl overflow-hidden relative border border-gray-150 shadow-sm bg-slate-100 flex-shrink-0">
+        <div className="w-full xl:w-80 h-48 xl:h-auto rounded-2xl overflow-hidden relative border border-gray-200 shadow-sm bg-slate-100 flex-shrink-0">
           {property.photos && property.photos[0] ? (
             <img 
               src={property.photos[0]} 
@@ -318,7 +318,7 @@ export default function PropertyDetailPage({ dbUser }) {
         </div>
 
         {/* Right Column: Mini Mombasa Map Widget */}
-        <div className="w-full xl:w-80 h-48 xl:h-auto rounded-2xl overflow-hidden relative border border-gray-150 shadow-sm bg-slate-950 flex-shrink-0">
+        <div className="w-full xl:w-80 h-48 xl:h-auto rounded-2xl overflow-hidden relative border border-gray-200 shadow-sm bg-slate-950 flex-shrink-0">
           <div className="absolute top-2.5 left-2.5 z-[1000] bg-slate-950/80 backdrop-blur-md border border-slate-800 rounded-md px-2 py-0.5 flex items-center gap-1 text-[9px] font-bold text-white uppercase tracking-wider pointer-events-none">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
             <span>Mombasa Widget</span>
@@ -596,7 +596,7 @@ export default function PropertyDetailPage({ dbUser }) {
           </div>
 
           {/* 3D Gaussian Splat Scans Section */}
-          <div className="bg-white border border-gray-150 rounded-[28px] shadow-md p-6 space-y-4">
+          <div className="bg-white border border-gray-200 rounded-[28px] shadow-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="text-indigo-600" size={20} />
@@ -668,7 +668,7 @@ export default function PropertyDetailPage({ dbUser }) {
           </div>
 
           {/* 3D Exterior Building Model Section */}
-          <div className="bg-white border border-gray-150 rounded-[28px] shadow-md p-6 space-y-4">
+          <div className="bg-white border border-gray-200 rounded-[28px] shadow-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="text-indigo-600" size={20} />

@@ -49,6 +49,7 @@ function SidebarPanel({
   setSidebarOpen,
   onLogout,
   navItems,
+  onItemClick,
 }: {
   role: string | undefined;
   dbUser: DbUser | null;
@@ -56,6 +57,7 @@ function SidebarPanel({
   setSidebarOpen: (open: boolean) => void;
   onLogout: (options?: Record<string, string>) => void;
   navItems: NavItem[];
+  onItemClick?: () => void;
 }) {
   const location = useLocation();
   const fullName = dbUser?.full_name || 'Property Owner';
@@ -147,6 +149,7 @@ function SidebarPanel({
             <Link
               key={item.path}
               to={item.path}
+              onClick={() => onItemClick?.()}
               title={sidebarOpen ? undefined : item.label}
               className={[
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all relative',
@@ -278,7 +281,11 @@ export default function Sidebar({
               onClick={() => setMobileOpen(false)}
             />
             <div className="lg:hidden">
-              <SidebarPanel {...sharedProps} />
+              <SidebarPanel
+                {...sharedProps}
+                sidebarOpen={true}
+                onItemClick={() => setMobileOpen(false)}
+              />
             </div>
           </>
         )}

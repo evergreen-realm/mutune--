@@ -276,7 +276,7 @@ export default function LandlordDashboardPage() {
                         <span className="text-xs font-bold uppercase tracking-wider">No Photo Registered</span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-955 via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none" />
                     
                     {/* Details Overlay */}
                     <div className="absolute bottom-4 left-4 right-4">

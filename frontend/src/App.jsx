@@ -497,6 +497,7 @@ function AppShell() {
         <Routes>
           <Route path="/" element={
             derivedRole === 'tenant' ? <TenantPortalPage /> :
+            derivedRole === 'caretaker' ? <CaretakerDashboardPage dbUser={dbUser} /> :
             derivedRole === 'landlord' ? <LandlordDashboardPage dbUser={dbUser} /> :
             derivedRole === 'agent' ? <AgentPerformancePage dbUser={dbUser} /> :
             derivedRole === 'accountant' ? <AccountantDashboardPage dbUser={dbUser} /> :

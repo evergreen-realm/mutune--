@@ -295,7 +295,7 @@ export default function OnboardingPage() {
             <div>
               {/* Gmail badge */}
               <div className={`flex items-center gap-2 border rounded-xl px-4 py-3 mb-6 ${
-                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/40 border-slate-850'
+                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-950/40 border-slate-800'
               }`}>
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                 <span className={`text-sm font-semibold truncate ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
@@ -347,7 +347,7 @@ export default function OnboardingPage() {
                       className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition uppercase font-mono ${
                         isLight 
                           ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500' 
-                          : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-650 focus:border-blue-500/50'
+                          : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500/50'
                       }`}
                       required
                     />
@@ -367,7 +367,7 @@ export default function OnboardingPage() {
                         className={`w-full border rounded-xl px-4 py-3 pl-11 text-sm outline-none transition ${
                           isLight 
                             ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500' 
-                            : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-650 focus:border-blue-500/50'
+                            : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500/50'
                         }`}
                         required
                       />
@@ -415,7 +415,7 @@ export default function OnboardingPage() {
                       onClick={() => handleRoleSelect(id)}
                       className={`flex items-start gap-4 p-4 rounded-2xl text-left transition-all duration-200 border ${
                         disabled
-                          ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-850 bg-slate-100/50 dark:bg-slate-900/20'
+                          ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/20'
                           : role === id
                           ? 'bg-blue-600/10 border-blue-500 dark:border-blue-500 shadow-md shadow-blue-500/10 scale-[1.01]'
                           : 'bg-slate-100/30 border-slate-200 dark:bg-slate-800/40 dark:border-slate-800 hover:bg-slate-100/60 dark:hover:bg-slate-800/60'
@@ -456,7 +456,7 @@ export default function OnboardingPage() {
                         className={`w-full border rounded-xl px-4 py-3 pl-11 text-sm outline-none transition ${
                           isLight 
                             ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500' 
-                            : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-650 focus:border-blue-500/50'
+                            : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500/50'
                         }`}
                         required
                       />
@@ -480,7 +480,7 @@ export default function OnboardingPage() {
                             className={`w-full border rounded-xl px-4 py-3 pl-11 text-sm outline-none transition ${
                               isLight 
                                 ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500' 
-                                : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-650 focus:border-blue-500/50'
+                                : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500/50'
                             }`}
                           />
                         </div>
@@ -543,7 +543,7 @@ export default function OnboardingPage() {
                       )}
 
                       <div className={`flex rounded-xl p-1 border ${
-                        isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/40 border-slate-850'
+                        isLight ? 'bg-slate-100 border-slate-200' : 'bg-slate-950/40 border-slate-800'
                       }`}>
                         <button
                           type="button"
@@ -581,7 +581,7 @@ export default function OnboardingPage() {
                             className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition uppercase font-mono ${
                               isLight 
                                 ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500' 
-                                : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-650 focus:border-blue-500/50'
+                                : 'bg-slate-950/50 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500/50'
                             }`}
                           />
                         </div>
