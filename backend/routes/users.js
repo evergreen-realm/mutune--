@@ -130,10 +130,16 @@ const handleCompleteOnboarding = async (req, res, next) => {
       });
     }
 
+      const { generateNextRoleCode } = require('../utils/roleCode');
       const updateData = { role };
       if (phone !== undefined) updateData.phone = phone;
       if (earb_license !== undefined) updateData.earb_license = earb_license;
       if (assigned_areas !== undefined) updateData.assigned_areas = assigned_areas;
+
+      // Assign / migrate role-based code if user code is legacy or unassigned
+      if (!req.user.user_code || req.user.user_code.startsWith('USR-NEW') || req.user.user_code.startsWith('USR-') || !req.user.user_code.startsWith(role.toUpperCase().slice(0, 3))) {
+        updateData.user_code = await generateNextRoleCode(role, User, Tenant);
+      }
 
       if (role === 'agent') {
         updateData.is_active = false;
@@ -146,6 +152,9 @@ const handleCompleteOnboarding = async (req, res, next) => {
       } else if (role === 'landlord') {
         updateData.is_active = false;
         updateData.landlord_approval_status = 'pending';
+        if (!req.user.landlord_id) {
+          updateData.landlord_id = updateData.user_code || (await generateNextRoleCode('landlord', User, Tenant));
+        }
         if (!landlord_verification_doc_url && process.env.NODE_ENV !== 'test') {
           return res.status(400).json({ success: false, error: { code: 'MISSING_DOCUMENT', message: 'Property ownership verification document is required for landlord registration.' } });
         }
@@ -180,6 +189,8 @@ const handleCompleteOnboarding = async (req, res, next) => {
           tenant.tenancy_status = 'active'; // Activate the tenancy
           if (phone) tenant.phone = phone; // sync phone if provided
           await tenant.save();
+
+          updateData.user_code = tenant.tenant_code; // Sync user code to tenant code
 
           // Mark unit as occupied and link tenant
           if (tenant.current_property_id && tenant.current_unit_id) {
@@ -217,8 +228,8 @@ const handleCompleteOnboarding = async (req, res, next) => {
               });
             }
 
-            const tenantCount = await Tenant.countDocuments();
-            const newTenantCode = `TNT-MOM-${String(tenantCount + 1).padStart(4, '0')}`;
+            const newTenantCode = updateData.user_code || (await generateNextRoleCode('tenant', User, Tenant));
+            updateData.user_code = newTenantCode;
 
             const newTenant = await Tenant.create({
               tenant_code: newTenantCode,
@@ -234,7 +245,7 @@ const handleCompleteOnboarding = async (req, res, next) => {
                 ? new Date(req.body.lease_end)
                 : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
               rent_amount_kes: req.body.rent_amount_kes || unit.rent_kes || 0,
-              tenancy_status: 'pending'
+              tenancy_status: 'active'
             });
 
             // Mark unit as occupied and link tenant
@@ -323,7 +334,7 @@ router.post('/complete-onboarding', authLimiter, requireAuth, onboardingValidato
 // ─── GET /users ───────────────────────────────────────────────────────────────
 router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, role, is_active } = req.query;
+    const { page = 1, limit = 50, role, is_active } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
     const filter = {};
     if (role) filter.role = role;
@@ -340,10 +351,64 @@ router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, 
       User.countDocuments(filter)
     ]);
 
+    // Attach tenant_code and tenancy status for users who are tenants
+    for (const u of users) {
+      if (u.role === 'tenant' || !u.role) {
+        const tDoc = await Tenant.findOne({ user_id: u._id }).select('tenant_code tenancy_status current_property_id current_unit_id').lean();
+        if (tDoc) {
+          u.tenant_code = tDoc.tenant_code;
+          u.tenancy_status = tDoc.tenancy_status;
+        }
+      }
+    }
+
+    // Include unlinked and past tenants from the Tenant collection to ensure the verification queue
+    // displays all past and active clients and their role IDs
+    let combinedUsers = [...users];
+    let combinedTotal = total;
+    if (!role || role === 'tenant') {
+      const linkedUserIds = users.filter(u => u.role === 'tenant').map(u => u._id);
+      const unlinkedFilter = {
+        $or: [
+          { user_id: { $exists: false } },
+          { user_id: null },
+          { user_id: { $nin: linkedUserIds } }
+        ]
+      };
+      if (is_active !== undefined) {
+        unlinkedFilter.tenancy_status = is_active === 'true' ? 'active' : { $ne: 'active' };
+      }
+
+      const unlinkedTenants = await Tenant.find(unlinkedFilter)
+        .populate('current_property_id', 'name property_code')
+        .sort({ created_at: -1 })
+        .limit(100)
+        .lean();
+
+      const virtualTenantUsers = unlinkedTenants.map(t => ({
+        _id: t._id,
+        is_tenant_record: true,
+        full_name: t.full_name,
+        email: t.email || 'N/A',
+        phone: t.phone || 'N/A',
+        role: 'tenant',
+        user_code: t.tenant_code,
+        tenant_code: t.tenant_code,
+        tenancy_status: t.tenancy_status || 'active',
+        is_active: t.tenancy_status === 'active',
+        is_past_tenant: ['expired', 'vacated'].includes(t.tenancy_status),
+        assigned_property_ids: t.current_property_id ? [t.current_property_id] : [],
+        created_at: t.created_at || new Date()
+      }));
+
+      combinedUsers = [...users, ...virtualTenantUsers];
+      combinedTotal = total + virtualTenantUsers.length;
+    }
+
     res.json({
       success: true,
-      data: users,
-      pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) }
+      data: combinedUsers,
+      pagination: { page: Number(page), limit: Number(limit), total: combinedTotal, pages: Math.ceil(combinedTotal / Number(limit)) }
     });
   } catch (error) {
     next(error);
@@ -371,8 +436,8 @@ router.post('/',
         return res.status(409).json({ success: false, error: { code: 'DUPLICATE', message: 'User with this email or Clerk ID already exists' } });
       }
 
-      const count = await User.countDocuments();
-      const userCode = `USR-${req.body.role.toUpperCase().slice(0, 3)}-${String(count + 1).padStart(4, '0')}`;
+      const { generateNextRoleCode } = require('../utils/roleCode');
+      const userCode = await generateNextRoleCode(req.body.role, User, Tenant);
 
       const user = await User.create({
         ...req.body,
@@ -615,15 +680,16 @@ router.post('/sync-clerk',
         return res.json({ success: true, data: updated, created: false });
       }
 
-      const count = await User.countDocuments();
       const initialRole = clerkRole || undefined;
+      const { generateNextRoleCode } = require('../utils/roleCode');
+      const userCode = await generateNextRoleCode(initialRole || 'tenant', User, Tenant);
       
       const createPayload = {
         clerk_id,
         email,
         full_name: full_name || email,
         phone: phone || '254700000000',
-        user_code: `USR-NEW-${String(count + 1).padStart(4, '0')}`,
+        user_code: userCode,
         role: initialRole,
         is_active: true,
         agent_approval_status: initialRole === 'agent' ? 'pending' : 'n_a',
@@ -680,15 +746,16 @@ router.post('/webhook', async (req, res, next) => {
         }
       }
       if (!existing) {
-        const count = await User.countDocuments();
         const role = data.public_metadata?.role || undefined;
+        const { generateNextRoleCode } = require('../utils/roleCode');
+        const userCode = await generateNextRoleCode(role || 'tenant', User, Tenant);
         
         const createPayload = {
           clerk_id,
           email,
           full_name,
           phone,
-          user_code: `USR-NEW-${String(count + 1).padStart(4, '0')}`,
+          user_code: userCode,
           role,
           is_active: true,
           agent_approval_status: role === 'agent' ? 'pending' : 'n_a',

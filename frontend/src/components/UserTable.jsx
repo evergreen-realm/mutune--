@@ -35,6 +35,7 @@ export default function UserTable({
       u.email?.toLowerCase().includes(q) ||
       u.phone?.includes(q) ||
       u.user_code?.toLowerCase().includes(q) ||
+      u.tenant_code?.toLowerCase().includes(q) ||
       u.landlord_id?.toLowerCase().includes(q);
     return mRole && mSearch;
   });
@@ -90,12 +91,32 @@ export default function UserTable({
                 </div>
 
                 <div style={{ flex: 1, minWidth: 180 }}>
-                  <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>{u.full_name || 'Unknown'}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                    <p style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{u.full_name || 'Unknown'}</p>
+                    {(u.tenant_code || u.user_code || u.landlord_id) && (
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}>
+                        {u.role === 'tenant' ? (u.tenant_code || u.user_code) : u.role === 'landlord' ? (u.landlord_id || u.user_code) : u.user_code}
+                      </span>
+                    )}
+                    {(u.tenancy_status || u.is_past_tenant) && (
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 100,
+                        background: u.tenancy_status === 'active' ? 'rgba(16,185,129,0.15)' : u.tenancy_status === 'expired' || u.is_past_tenant ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
+                        color: u.tenancy_status === 'active' ? '#34d399' : u.tenancy_status === 'expired' || u.is_past_tenant ? '#f87171' : '#fbbf24',
+                        border: `1px solid ${u.tenancy_status === 'active' ? 'rgba(52,211,153,0.3)' : u.tenancy_status === 'expired' || u.is_past_tenant ? 'rgba(248,113,113,0.3)' : 'rgba(251,191,36,0.3)'}`,
+                        textTransform: 'uppercase'
+                      }}>
+                        {u.is_past_tenant || u.tenancy_status === 'expired' ? 'Past Client' : u.tenancy_status}
+                      </span>
+                    )}
+                  </div>
                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
                     {u.email} · {u.phone}
-                    {u.landlord_id && ` · Landlord ID: ${u.landlord_id}`}
-                    {u.user_code && u.role === 'agent' && ` · Agent ID: ${u.user_code}`}
-                    {u.user_code && u.role === 'tenant' && ` · Tenant Code: ${u.user_code}`}
+                    {u.unit_code && ` · Unit: ${u.unit_code}`}
+                    {u.property_name && ` · ${u.property_name}`}
                   </p>
                 </div>
 

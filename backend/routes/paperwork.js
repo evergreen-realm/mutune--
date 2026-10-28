@@ -94,8 +94,10 @@ router.post('/generate-pdf',
       });
 
       res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Content-Disposition', `inline; filename="${doc_type}_${Date.now()}.pdf"`);
-      res.send(pdfBuffer);
+      return res.end(pdfBuffer);
     } catch (error) {
       next(error);
     }
@@ -394,8 +396,10 @@ router.get('/download/:docType',
       const pdfBuffer = await generateLegalPDF(docType, req.query);
 
       res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Content-Disposition', `attachment; filename="${docType}_${Date.now()}.pdf"`);
-      res.send(pdfBuffer);
+      return res.end(pdfBuffer);
     } catch (error) {
       next(error);
     }

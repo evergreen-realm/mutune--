@@ -18,6 +18,11 @@ const agentSalarySchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  base_salary_kes: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   letting_commission_kes: {
     type: Number,
     default: 0,

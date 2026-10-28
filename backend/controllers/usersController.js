@@ -66,6 +66,33 @@ exports.getUserMe = catchAsync(async (req, res, next) => {
     user.admin_hardcoded_hash = hash;
   }
 
+  // Auto-heal legacy or placeholder USR- codes to standardized enterprise role codes
+  if (user && user.user_code && (user.user_code.startsWith('USR-NEW') || user.user_code.startsWith('USR-'))) {
+    try {
+      const { generateNextRoleCode } = require('../utils/roleCode');
+      const targetRole = user.role || 'tenant';
+      const newCode = await generateNextRoleCode(targetRole, User, Tenant);
+      await User.findByIdAndUpdate(user._id, { $set: { user_code: newCode } });
+      logger.info('Auto-healed legacy user_code to standard role ID', { userId: user._id, oldCode: user.user_code, newCode, role: targetRole });
+      user.user_code = newCode;
+    } catch (healErr) {
+      logger.warn('Failed to auto-heal user_code', { error: healErr.message });
+    }
+  }
+
+  // If user is a tenant, attach their tenant_code and tenancy status for seamless identity verification
+  if (user && user.role === 'tenant') {
+    try {
+      const tenant = await Tenant.findOne({ user_id: user._id }).lean();
+      if (tenant) {
+        user.tenant_code = tenant.tenant_code;
+        user.tenancy_status = tenant.tenancy_status;
+      }
+    } catch (tErr) {
+      logger.warn('Failed to lookup tenant profile in /users/me', { error: tErr.message });
+    }
+  }
+
   if (user) {
     delete user.admin_hardcoded_hash;
   }

@@ -38,19 +38,34 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
     return null;
   }
 
-  const expectedId = isLandlord
-    ? currentUser?.landlord_id
+  const validCodes = [];
+  if (isLandlord) {
+    if (currentUser?.landlord_id) validCodes.push(currentUser.landlord_id);
+    if (currentUser?.user_code) validCodes.push(currentUser.user_code);
+  } else if (isAgent) {
+    if (currentUser?.user_code) validCodes.push(currentUser.user_code);
+    if (currentUser?.agent_code) validCodes.push(currentUser.agent_code);
+  } else if (isTenant) {
+    if (tenantProfile?.tenant_code) validCodes.push(tenantProfile.tenant_code);
+    if (currentUser?.tenant_code) validCodes.push(currentUser.tenant_code);
+    if (currentUser?.user_code) validCodes.push(currentUser.user_code);
+  }
+
+  const primaryExpectedCode = isLandlord
+    ? (currentUser?.landlord_id || currentUser?.user_code)
     : isAgent
-    ? currentUser?.user_code
-    : tenantProfile?.tenant_code;
+    ? (currentUser?.user_code || currentUser?.agent_code)
+    : (tenantProfile?.tenant_code || currentUser?.tenant_code || currentUser?.user_code);
 
   const label = isLandlord
     ? '6-Digit Landlord ID'
     : isAgent
-    ? 'Agent ID (e.g., AGT-MOM-XXX)'
-    : 'Tenant ID (e.g., TEN-MOM-XXX)';
+    ? 'Agent ID (e.g., AGT-MOM-0001)'
+    : 'Tenant ID (e.g., TEN-MOM-0001)';
 
   const storageKey = `mutunerent_verified_id_${currentUser?._id}`;
+
+  const normalize = (val) => (val || '').toString().trim().toUpperCase().replace(/^TNT-MOM-/, 'TEN-MOM-');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -65,13 +80,16 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
         return;
       }
 
-      if (!expectedId && isTenant && profileLoading) {
+      if (validCodes.length === 0 && isTenant && profileLoading) {
         setError('Loading profile details. Please try again in a moment.');
         setLoading(false);
         return;
       }
 
-      if (cleanInput.toLowerCase() === expectedId?.toLowerCase()) {
+      const inputNormalized = normalize(cleanInput);
+      const isMatch = validCodes.some(code => normalize(code) === inputNormalized);
+
+      if (isMatch) {
         localStorage.setItem(storageKey, 'true');
         sessionStorage.setItem(`role_verified_${currentUser?._id}`, 'true');
         setLoading(false);
@@ -80,7 +98,7 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
         setError(`Incorrect ${isLandlord ? 'Landlord ID' : isAgent ? 'Agent ID' : 'Tenant ID'}. Please try again or contact administration.`);
         setLoading(false);
       }
-    }, 600);
+    }, 400);
   };
 
   const handleSignOut = async () => {
@@ -133,6 +151,11 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
               className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-4 py-3 text-sm font-mono text-slate-200 outline-none transition-all placeholder-slate-600"
               required
             />
+            {primaryExpectedCode && (
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                Assigned ID: <span className="font-mono text-slate-300 font-semibold">{primaryExpectedCode}</span>
+              </p>
+            )}
           </div>
 
           {error && (

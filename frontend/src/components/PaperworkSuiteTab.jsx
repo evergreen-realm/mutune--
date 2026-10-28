@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Download, Eye, ShieldCheck, Printer, CheckCircle2, FileDown, AlertTriangle,
-  FileSpreadsheet, Scale, Info, ToggleLeft, ToggleRight, Search, Database, Edit3, ChevronDown } from 'lucide-react';
-import { generateLegalPDF, fetchPublicListings } from '../lib/api';
+  FileSpreadsheet, Scale, Info, ToggleLeft, ToggleRight, Search, Database, Edit3, ChevronDown, X } from 'lucide-react';
+import { generateLegalPDF, fetchPublicListings, extractPdfBlob } from '../lib/api';
 import { exportToExcel } from '../lib/excelExport';
 import { toast } from 'react-toastify';
 import api from '../lib/api';
@@ -62,6 +62,7 @@ export default function PaperworkSuiteTab() {
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [filterCat, setFilterCat] = useState('All');
   const [exportFormat, setExportFormat] = useState('pdf');
+  const [previewModal, setPreviewModal] = useState({ open: false, url: '', title: '', docType: '' });
 
   // Auto-populate: tenant search
   const [tenantSearch, setTenantSearch] = useState('');
@@ -142,9 +143,7 @@ export default function PaperworkSuiteTab() {
     try {
       const payload = { ...formData, stamp_duty_kes: stampDutyKes, net_payout_kes: netPayout };
       const response = await generateLegalPDF(docType, payload);
-      const blob = response instanceof Blob
-        ? response
-        : new Blob([response?.data ?? response], { type: 'application/pdf' });
+      const blob = await extractPdfBlob(response);
       const url = window.URL.createObjectURL(blob);
       if (isDownload) {
         const link = document.createElement('a');
@@ -155,11 +154,19 @@ export default function PaperworkSuiteTab() {
         link.remove();
         toast.success(`Downloaded ${docType}.pdf ✓`);
       } else {
-        window.open(url, '_blank');
-        toast.info('Opened PDF preview');
+        setPreviewModal({
+          open: true,
+          url,
+          title: DOC_TYPES.find(d => d.id === docType)?.name || 'Legal Document Preview',
+          docType
+        });
+        toast.info('Rendering PDF preview');
       }
-    } catch { toast.error('Failed to generate PDF'); }
-    finally { setLoadingDoc(null); }
+    } catch (err) {
+      toast.error(err?.message || 'Failed to generate PDF');
+    } finally {
+      setLoadingDoc(null);
+    }
   };
 
   const handleExportExcel = (docType) => {
@@ -428,6 +435,58 @@ export default function PaperworkSuiteTab() {
           <Printer size={12} /> Print Preview
         </button>
       </div>
+
+      {/* Interactive PDF Preview Modal */}
+      {previewModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in text-white">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/60">
+              <div className="flex items-center gap-2.5">
+                <FileText size={18} className="text-emerald-400" />
+                <h3 className="font-bold text-sm">{previewModal.title}</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = previewModal.url;
+                    link.setAttribute('download', `${previewModal.docType}_${Date.now()}.pdf`);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    toast.success('PDF download started');
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer text-white"
+                >
+                  <Download size={13} /> Download
+                </button>
+                <button
+                  onClick={() => window.open(previewModal.url, '_blank')}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer text-slate-300"
+                >
+                  Open in New Tab
+                </button>
+                <button
+                  onClick={() => {
+                    if (previewModal.url) URL.revokeObjectURL(previewModal.url);
+                    setPreviewModal({ open: false, url: '', title: '', docType: '' });
+                  }}
+                  className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-slate-950 p-2">
+              <iframe
+                src={previewModal.url}
+                title="PDF Preview"
+                className="w-full h-full rounded-2xl border border-slate-800 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

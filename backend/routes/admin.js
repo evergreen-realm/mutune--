@@ -60,7 +60,7 @@ router.get('/stats',
       ] = await Promise.all([
         Property.countDocuments(),
 
-        Tenant.countDocuments({ tenancy_status: 'active' }),
+        Tenant.countDocuments({ tenancy_status: { $in: ['active', 'pending'] } }),
 
         User.countDocuments({ role: 'agent', is_active: true }),
 

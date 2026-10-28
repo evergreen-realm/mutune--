@@ -1,6 +1,6 @@
 import React from 'react';
 import { FileText, ShieldCheck, Key, FileCheck, Download } from 'lucide-react';
-import { requestLeaseSigningOTP, verifyAndSignLease, generateLegalPDF } from '../lib/api';
+import { requestLeaseSigningOTP, verifyAndSignLease, generateLegalPDF, extractPdfBlob } from '../lib/api';
 import { toast } from 'react-toastify';
 
 export default function TenantLeaseSection({
@@ -75,9 +75,7 @@ export default function TenantLeaseSection({
         signature_hash: leaseSignature?.verification_hash || 'SHA256-MUTUNE-SECURE-LEAD-9988',
         signed_at: leaseSignature?.signed_at || new Date().toISOString()
       });
-      const blob = response instanceof Blob
-        ? response
-        : new Blob([response?.data ?? response], { type: 'application/pdf' });
+      const blob = await extractPdfBlob(response);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -87,7 +85,7 @@ export default function TenantLeaseSection({
       link.remove();
       toast.success('Downloaded signed lease agreement ✓');
     } catch (err) {
-      toast.error('Failed to download signed lease');
+      toast.error(err?.message || 'Failed to download signed lease');
     }
   };
 

@@ -33,7 +33,7 @@ const ROLE_LABELS = {
   landlord: 'Landlord', tenant: 'Tenant', accountant: 'Accountant'
 };
 
-export default function AdminUserManagementPage() {
+export default function AdminUserManagementPage({ embedded = false, defaultTab }) {
   const location = useLocation();
   const [users, setUsers]                 = useState([]);
   const [pendingProps, setPending]       = useState([]);
@@ -42,7 +42,7 @@ export default function AdminUserManagementPage() {
   const [propertyTiers, setPropertyTiers] = useState([]);
   const [lateFeeRules, setLateFeeRules]   = useState([]);
   const [loading, setLoading]             = useState(true);
-  const [tab, setTab]                     = useState(() => location.state?.defaultTab || 'users');
+  const [tab, setTab]                     = useState(() => defaultTab || location.state?.defaultTab || 'users');
   const [usersError, setUsersError]       = useState(null);
   const [roleFilter, setRoleFilter]       = useState('');
   const [search, setSearch]               = useState('');
@@ -400,15 +400,17 @@ export default function AdminUserManagementPage() {
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 1600, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ color: 'var(--title-text)', fontSize: 26, fontWeight: 900, marginBottom: 4 }}>User & System Management</h1>
-            <p style={{ color: 'var(--subtitle-text)', fontSize: 14 }}>Approve agents, manage late fees, and monitor system profiles</p>
+        {!embedded && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h1 style={{ color: 'var(--title-text)', fontSize: 26, fontWeight: 900, marginBottom: 4 }}>User & System Management</h1>
+              <p style={{ color: 'var(--subtitle-text)', fontSize: 14 }}>Approve agents, manage late fees, and monitor system profiles</p>
+            </div>
+            <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--foreground)', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              <RefreshCw size={14} /> Refresh Panel
+            </button>
           </div>
-          <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--input-bg)', border: '1px solid var(--input-border)', color: 'var(--foreground)', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-            <RefreshCw size={14} /> Refresh Panel
-          </button>
-        </div>
+        )}
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>

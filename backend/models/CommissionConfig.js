@@ -18,6 +18,11 @@ const commissionConfigSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
+  base_salary_kes: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   letting_commission_percent: {
     type: Number,
     default: 100, // 100% of first month's rent

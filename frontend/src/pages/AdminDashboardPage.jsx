@@ -22,6 +22,7 @@ import {
 import { getPropertyCoords } from '../utils/geoUtils';
 const MapWidget = React.lazy(() => import('../components/MapWidget'));
 import AgentPerformancePage from './AgentPerformancePage';
+import AdminUserManagementPage from './AdminUserManagementPage';
 import AdminSettingsTab from '../components/AdminSettingsTab';
 import AdminSalaryTab from '../components/AdminSalaryTab';
 import DisbursementTab from '../components/DisbursementTab';
@@ -626,7 +627,26 @@ export default function AdminDashboardPage({ dbUser }) {
           <Sliders size={13} />
           Financial Settings
         </button>
+        <button
+          onClick={() => setAdminTab('verification')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex-shrink-0 whitespace-nowrap ${
+            adminTab === 'verification'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-surface-bright'
+          }`}
+        >
+          <ShieldCheck size={13} />
+          Verification Queue
+          {totalPending > 0 && (
+            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">
+              {totalPending}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* ── VERIFICATION QUEUE TAB ─────────────────────────────────────────── */}
+      {adminTab === 'verification' && <AdminUserManagementPage embedded={true} />}
 
       {/* ── SALARY & PAYROLL TAB ─────────────────────────────────────────────── */}
       {adminTab === 'salary' && <AdminSalaryTab />}
@@ -881,14 +901,24 @@ export default function AdminDashboardPage({ dbUser }) {
                       {pendingPropertiesCount}
                     </span>
                   </div>
+
+                  <div 
+                    onClick={() => setAdminTab('verification')}
+                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background border border-border cursor-pointer transition"
+                  >
+                    <span className="text-xs font-bold text-foreground">Registered Clients & Tenants</span>
+                    <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      {stats?.totalTenants || 0}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <button
-                onClick={() => navigate('/admin/users')}
+                onClick={() => setAdminTab('verification')}
                 className="w-full py-3 mt-4 border border-border hover:bg-background text-foreground rounded-xl text-xs font-black transition flex items-center justify-center gap-1 cursor-pointer uppercase tracking-wider"
               >
-                Manage Approvals <ChevronRight size={13} />
+                Manage Verification Queue <ChevronRight size={13} />
               </button>
             </div>
 
@@ -1198,23 +1228,37 @@ export default function AdminDashboardPage({ dbUser }) {
                   <span className="text-[9px] text-muted font-bold uppercase tracking-wider block mb-2 border-b border-border/20 pb-1">
                     Assigned Occupant
                   </span>
-                  {selectedUnit.tenant_id ? (
-                    <div className="space-y-2">
-                      <p className="text-sm font-black text-foreground">{selectedUnit.tenant_id.full_name}</p>
-                      <div className="space-y-1 text-xs text-muted">
-                        <p className="flex items-center gap-1.5">📞 {selectedUnit.tenant_id.phone}</p>
-                        <p className="flex items-center gap-1.5">✉️ {selectedUnit.tenant_id.email || 'No email registered'}</p>
+                  {(() => {
+                    const occupant = selectedUnit.current_tenant_id || selectedUnit.tenant_id;
+                    if (!occupant) {
+                      return (
+                        <div className="py-4 text-center">
+                          <p className="text-xs text-muted italic">This unit is currently vacant</p>
+                        </div>
+                      );
+                    }
+                    const isObj = typeof occupant === 'object';
+                    const name = isObj ? (occupant.full_name || occupant.name) : 'Occupant Assigned';
+                    const phone = isObj ? occupant.phone : null;
+                    const email = isObj ? occupant.email : null;
+                    const code = isObj ? (occupant.tenant_code || occupant.user_code) : (typeof occupant === 'string' ? occupant : null);
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-black text-foreground">{name}</p>
+                          {code && <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{code}</span>}
+                        </div>
+                        <div className="space-y-1 text-xs text-muted">
+                          {phone && <p className="flex items-center gap-1.5">📞 {phone}</p>}
+                          {email && <p className="flex items-center gap-1.5">✉️ {email}</p>}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center">
-                      <p className="text-xs text-muted italic">This unit is currently vacant</p>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="pt-4 border-t border-border/20 mt-auto">
-                  {selectedUnit.tenant_id ? (
+                  {(selectedUnit.current_tenant_id || selectedUnit.tenant_id) ? (
                     <button
                       onClick={() => toast.info('Tenant profile options initiated')}
                       className="w-full py-2 bg-background hover:bg-surface border border-border text-foreground rounded-xl text-xs font-bold transition cursor-pointer active:scale-[0.98]"

@@ -1315,11 +1315,10 @@ describe('Tier 2 Boundary & Corner Cases Tests', () => {
     });
 
     test('TC-2.8.2: Grace Period Overdue Check', async () => {
-      // Grace period set to 28 days (assuming today's date is < 28)
-      // Since local time is 19th, grace_days: 25 will be greater than today (19th), so grace period has not passed.
+      // Grace period set to 31 days so grace period has not passed regardless of day of month
       await LateFeeRule.create({
         name: 'Grace Day Rule',
-        grace_days: 28,
+        grace_days: 31,
         penalty_type: 'fixed',
         penalty_value: 1000,
         applies_to: 'all',

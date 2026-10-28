@@ -273,6 +273,9 @@ export const fetchTrialBalance        = ()                => api.get('/settings/
 export const fetchAgentPayrollList    = (month)           => api.get('/commission/agents', { params: { month } });
 export const fetchAgentSalary         = (agentId, month)  => api.get(`/commission/salary/${agentId}`, { params: { month } });
 export const processAgentPayroll      = (data)            => api.post('/commission/payroll/process', data);
+export const fetchCommissionConfig    = ()                => api.get('/commission/config');
+export const updateCommissionConfig   = (data)            => api.put('/commission/config', data);
+export const updateAgentCommissionConfig = (agentId, data) => api.put(`/commission/agents/${agentId}/config`, data);
 
 // ── Bulk Disbursement & Auto-Reconciliation Endpoints (Phase 3) ───────────────
 export const fetchDisbursementPriority= ()                => api.get('/disbursement/priority');
@@ -288,6 +291,38 @@ export const downloadLegalPDF         = (docType, params) => api.get(`/paperwork
 export const requestLeaseSigningOTP   = (tenant_id)       => api.post('/paperwork/sign/request-otp', typeof tenant_id === 'object' && tenant_id !== null ? tenant_id : { tenant_id });
 export const verifyAndSignLease       = (data, otp_code)  => api.post('/paperwork/sign/verify-and-sign', typeof data === 'object' && data !== null ? data : { tenant_id: data, otp_code });
 export const fetchLeaseSignatureStatus= (tenantId)        => api.get(`/paperwork/sign/status/${tenantId}`);
+
+/**
+ * Safely extracts a valid PDF Blob from an Axios response.
+ * If the response contains an error (JSON or text wrapped in a Blob),
+ * it throws an Error with the server's error message instead of returning a corrupted PDF Blob.
+ */
+export async function extractPdfBlob(response) {
+  let rawData = response?.data !== undefined ? response.data : response;
+  let blob = rawData instanceof Blob ? rawData : new Blob([rawData], { type: 'application/pdf' });
+
+  // Read the first 100 bytes to verify PDF header
+  const slice = blob.slice(0, 100);
+  const headerText = await slice.text();
+
+  if (headerText.startsWith('%PDF-')) {
+    return blob;
+  }
+
+  // Not a PDF: inspect whether it is a JSON error payload
+  try {
+    const fullText = await blob.text();
+    const parsed = JSON.parse(fullText);
+    const msg = parsed?.error?.message || parsed?.message || 'Server returned an error generating the PDF document';
+    throw new Error(msg);
+  } catch (err) {
+    if (err.message && !err.message.includes('JSON')) {
+      throw err;
+    }
+    throw new Error('Server returned an invalid or corrupted PDF file');
+  }
+}
+export const createPdfBlob = extractPdfBlob;
 
 // ── KRA eTIMS Tax Compliance Engine (Phase 5) ─────────────────────────────────
 export const fetchETIMSSummary        = (month)           => api.get('/tax/etims/summary', { params: { month } });
