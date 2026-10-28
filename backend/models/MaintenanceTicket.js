@@ -27,7 +27,7 @@ const maintenanceSchema = new mongoose.Schema({
   },
   assigned_agent_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   assigned_vendor_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
-  work_order_status:    { type: String, enum: ['unassigned', 'dispatched', 'in_progress', 'completed', 'approved', 'rejected'], default: 'unassigned' },
+  work_order_status:    { type: String, enum: ['unassigned', 'assigned', 'dispatched', 'in_progress', 'completed', 'approved', 'rejected'], default: 'unassigned' },
   estimated_cost_kes:   { type: Number, min: 0 },
   actual_cost_kes:      { type: Number, min: 0 },
   invoice_url:          String,

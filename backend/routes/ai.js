@@ -2,9 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
+const { requireRole } = require('../middleware/rbac');
 const aiService = require('../services/ai');
+const { aiTenantMatch } = require('../services/reconciliation');
 const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
+const Payment = require('../models/Payment');
 const logger = require('../utils/logger');
 
 /**
@@ -174,5 +177,66 @@ router.delete('/history/:session_id', requireAuth, async (req, res, next) => {
     next(error);
   }
 });
+
+/**
+ * @openapi
+ * /ai/match-tenant:
+ *   post:
+ *     summary: AI-powered multi-signal tenant matching for ambiguous M-Pesa payments and inquiries
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/match-tenant',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'agent', 'accountant']),
+  async (req, res, next) => {
+    try {
+      const { payment_id, phone, query, account_reference, amount_kes, name, auto_assign } = req.body;
+      let matchParams = { phone, query, account_reference, amount_kes, name };
+
+      let payment = null;
+      if (payment_id) {
+        payment = await Payment.findById(payment_id);
+        if (payment) {
+          matchParams.amount_kes = matchParams.amount_kes || payment.amount_kes;
+          matchParams.account_reference = matchParams.account_reference || payment.transaction_id || payment.mpesa_receipt;
+          if (payment.mpesa_callback?.CallbackMetadata?.Item) {
+            const phoneItem = payment.mpesa_callback.CallbackMetadata.Item.find(i => i.Name === 'PhoneNumber');
+            if (phoneItem?.Value) matchParams.phone = matchParams.phone || String(phoneItem.Value);
+          }
+        }
+      }
+
+      const matchResult = await aiTenantMatch(matchParams);
+
+      if (auto_assign && payment && matchResult.best_match && matchResult.confidence_score >= 80) {
+        const best = matchResult.best_match;
+        payment.tenant_id = best.tenant_id;
+        payment.property_id = best.property_id;
+        payment.unit_id = best.unit_id;
+        payment.status = 'confirmed';
+        payment.workflow_state = 'PAYMENT_CONFIRMED';
+        payment.discrepancy_flag = false;
+        payment.discrepancy_reason = null;
+        payment.notes = `${payment.notes || ''}\n[AI_RECONCILED] Auto-matched to ${best.name} (${best.tenant_code}) with confidence ${matchResult.confidence_score}% by ${req.user.email}`.trim();
+        await payment.save();
+
+        if (payment.amount_kes) {
+          await Tenant.findByIdAndUpdate(best.tenant_id, { $inc: { arrears_kes: -payment.amount_kes } });
+        }
+        matchResult.assigned = true;
+        matchResult.payment = payment;
+      }
+
+      res.json({
+        success: true,
+        data: matchResult
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 module.exports = router;

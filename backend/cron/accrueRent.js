@@ -3,6 +3,7 @@ const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const JournalEntry = require('../models/JournalEntry');
 const { postJournalEntry } = require('../services/financials');
+const { acquireCronLock } = require('../utils/cronLock');
 const logger = require('../utils/logger');
 
 /**
@@ -14,11 +15,18 @@ const logger = require('../utils/logger');
  */
 async function processMonthlyRentAccrual(billingMonth) {
   const currentMonth = billingMonth || new Date().toISOString().slice(0, 7);
-  logger.info(`Starting monthly rent accrual job for ${currentMonth}...`);
+  logger.info(`Starting monthly rent accrual job for ${currentMonth} (EAT UTC+3)...`);
+
+  const hasLock = await acquireCronLock('accrue_rent', currentMonth);
+  if (!hasLock) {
+    logger.info(`Monthly rent accrual for ${currentMonth} already locked by another worker. Skipping duplicate run.`);
+    return { success: true, skipped: true, currentMonth, reason: 'Distributed lock held by another process' };
+  }
 
   const activeTenants = await Tenant.find({ tenancy_status: 'active' }).lean();
   let accruedCount = 0;
   let totalAccruedKes = 0;
+  let failedCount = 0;
 
   for (const tenant of activeTenants) {
     if (!tenant.rent_amount_kes || tenant.rent_amount_kes <= 0) continue;
@@ -50,12 +58,19 @@ async function processMonthlyRentAccrual(billingMonth) {
       accruedCount++;
       totalAccruedKes += rentKes;
     } catch (err) {
+      failedCount++;
       logger.error(`Failed to accrue rent for tenant ${tenant._id}: ${err.message}`);
     }
   }
 
-  logger.info(`Completed monthly rent accrual job for ${currentMonth}`, { accruedCount, totalAccruedKes });
-  return { success: true, currentMonth, accruedCount, totalAccruedKes };
+  logger.info(`Completed monthly rent accrual job for ${currentMonth}`, {
+    accruedCount,
+    totalAccruedKes,
+    failedCount,
+    timestamp_eat: new Date().toISOString()
+  });
+
+  return { success: true, currentMonth, accruedCount, totalAccruedKes, failedCount };
 }
 
 const accrueRentCron = cron.schedule('1 0 1 * *', () => processMonthlyRentAccrual(), {

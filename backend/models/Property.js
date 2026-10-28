@@ -45,11 +45,14 @@ const inventoryItemSchema = new mongoose.Schema({
 const scanSchema = new mongoose.Schema({
   room_name: { type: String, required: true },
   splat_model_url: String,
-  splat_status: { type: String, enum: ['processing', 'completed', 'failed'], default: 'processing' },
+  splat_url: String,
+  status: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' },
+  splat_status: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' },
   scan_images: [String],
   thumbnail_url: String,
-  created_at: { type: Date, default: Date.now }
-});
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now }
+}, { _id: true });
 
 const assetSchema = new mongoose.Schema({
   asset_id: String,
@@ -111,6 +114,7 @@ const propertySchema = new mongoose.Schema({
   splat_model_url: String,
   splat_status: { type: String, enum: ['none', 'processing', 'completed', 'failed'], default: 'none' },
   scans: [scanSchema],
+  room_scans: [scanSchema],
   assets: [assetSchema],
   floor_plan_url: String,
   created_at: { type: Date, default: Date.now },
@@ -154,6 +158,11 @@ propertySchema.pre('validate', function(next) {
 
 propertySchema.pre('save', function(next) {
   this.updated_at = Date.now();
+  if (this.room_scans && this.room_scans.length > 0 && (!this.scans || this.scans.length === 0)) {
+    this.scans = this.room_scans;
+  } else if (this.scans && this.scans.length > 0 && (!this.room_scans || this.room_scans.length === 0)) {
+    this.room_scans = this.scans;
+  }
   next();
 });
 

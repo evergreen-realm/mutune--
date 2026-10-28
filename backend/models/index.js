@@ -7,5 +7,10 @@ module.exports = {
   MaintenanceTicket: require('./MaintenanceTicket'),
   LateFeeRule: require('./LateFeeRule'),
   PropertyTier: require('./PropertyTier'),
-  SystemSetting: require('./SystemSetting')
+  SystemSetting: require('./SystemSetting'),
+  EtimsInvoice: require('./EtimsInvoice'),
+  Vendor: require('./Vendor'),
+  JournalEntry: require('./JournalEntry'),
+  Account: require('./Account'),
+  AuditLog: require('./AuditLog')
 };

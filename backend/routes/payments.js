@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
 const { postJournalEntry } = require('../services/financials');
+const { autoReconcilePayment } = require('../services/reconciliation');
 const { safeCompare } = require('../utils/security');
 const logger = require('../utils/logger');
 
@@ -453,22 +454,56 @@ async function handleSTKCallback(stk) {
 
 async function handleC2BCallback(data) {
   const receipt = data.TransID || data.TransactionID;
+  if (!receipt) return;
   const existing = await Payment.findOne({ mpesa_receipt: receipt });
   if (existing) return;
-  await Payment.create({
-    transaction_id: `C2B-${Date.now()}`,
+
+  const phone = data.MSISDN || data.phone || data.PhoneNumber;
+  const accountRef = data.BillRefNumber || data.account_reference || data.InvoiceNumber;
+  const amountKes = Number(data.TransAmount || data.Amount || 0);
+
+  const match = await autoReconcilePayment({
+    mpesa_code: receipt,
+    phone,
+    account_reference: accountRef,
+    amount_kes: amountKes,
+    raw_payload: data
+  });
+
+  const isMatched = match.match_status === 'auto_matched' && match.matched_tenant_id;
+
+  const payment = await Payment.create({
+    transaction_id: `C2B-${receipt}-${Date.now()}`,
     mpesa_receipt: receipt,
-    amount_kes: data.TransAmount || data.Amount,
+    amount_kes: amountKes,
     payment_type: 'rent',
     status: 'confirmed',
-    workflow_state: 'MANUAL_REVIEW',
+    workflow_state: isMatched ? 'PAYMENT_CONFIRMED' : 'MANUAL_REVIEW',
     channel: 'mpesa_c2b',
-    discrepancy_flag: true,
-    discrepancy_reason: 'Auto-matching failed: no pending payment found',
-    tenant_id: null,
-    property_id: null
+    discrepancy_flag: !isMatched,
+    discrepancy_reason: isMatched ? null : (match.match_reason || 'Auto-matching failed: ambiguous tenant'),
+    tenant_id: isMatched ? match.matched_tenant_id : null,
+    property_id: isMatched ? match.matched_property_id : null,
+    unit_id: isMatched ? match.matched_unit_id : null,
+    notes: isMatched ? `[AUTO_RECONCILED] ${match.match_reason} (Confidence: ${match.confidence_score}%)` : null
   });
-  logger.info('Unmatched C2B payment recorded', { receipt, amount: data.TransAmount });
+
+  if (isMatched && amountKes > 0) {
+    try {
+      await Tenant.findByIdAndUpdate(match.matched_tenant_id, {
+        $inc: { arrears_kes: -amountKes }
+      });
+    } catch (arrearsErr) {
+      logger.warn('Failed to update tenant arrears after C2B auto-match', { error: arrearsErr.message });
+    }
+  }
+
+  logger.info(isMatched ? 'Auto-reconciled C2B payment recorded' : 'Unmatched C2B payment recorded', {
+    receipt,
+    amount: amountKes,
+    matchedTenant: isMatched ? match.matched_tenant_id : null,
+    confidence: match.confidence_score
+  });
 }
 
 // ─── GET /payments ────────────────────────────────────────────────────────────

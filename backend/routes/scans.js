@@ -63,22 +63,37 @@ router.post('/initiate', requireAuth, async (req, res, next) => {
       });
     }
 
-    // Add scan to array
-    property.scans.push({
+    // Add scan to scans and room_scans
+    const scanEntry = {
       room_name: roomName,
       scan_images: imageUrls,
       thumbnail_url: imageUrls[0],
+      status: 'processing',
       splat_status: 'processing'
+    };
+    property.scans.push(scanEntry);
+    if (!property.room_scans) property.room_scans = [];
+    property.room_scans.push(scanEntry);
+
+    // Get the newly created scan
+    const newScan = property.scans[property.scans.length - 1];
+    const scanId = newScan._id.toString();
+
+    // Persist scan processing state to property.assets
+    if (!property.assets) property.assets = [];
+    property.assets.push({
+      asset_id: scanId,
+      type: 'splat',
+      name: `${roomName} Splat`,
+      url: imageUrls[0],
+      splat_url: null,
+      status: 'processing'
     });
     
     // Also update legacy fields for backward compatibility
     property.splat_status = 'processing';
     
     await property.save();
-
-    // Get the newly created scan
-    const newScan = property.scans[property.scans.length - 1];
-    const scanId = newScan._id.toString();
 
     // Determine the callback URL based on environment
     const callbackUrl = process.env.NODE_ENV === 'production'
@@ -150,29 +165,74 @@ router.post('/callback', async (req, res, next) => {
       });
     }
 
-    // Find the specific scan
+    // Find the specific scan in scans and room_scans
     let targetScan = null;
     if (scan_id) {
-      targetScan = property.scans.id(scan_id);
+      targetScan = property.scans.id(scan_id) || (property.room_scans ? property.room_scans.id(scan_id) : null);
     } else if (property.scans.length > 0) {
       targetScan = property.scans[property.scans.length - 1];
     }
 
+    const resolvedScanId = scan_id || (targetScan ? targetScan._id?.toString() : null);
+
     if (status === 'success' && splat_url) {
       if (targetScan) {
+        targetScan.status = 'completed';
         targetScan.splat_status = 'completed';
+        targetScan.splat_url = splat_url;
         targetScan.splat_model_url = splat_url;
+      }
+      if (property.room_scans && resolvedScanId) {
+        const roomScan = property.room_scans.id(resolvedScanId);
+        if (roomScan) {
+          roomScan.status = 'completed';
+          roomScan.splat_status = 'completed';
+          roomScan.splat_url = splat_url;
+          roomScan.splat_model_url = splat_url;
+        }
       }
       property.splat_status = 'completed';
       property.splat_model_url = splat_url;
+
+      // Update or push into property.assets
+      if (!property.assets) property.assets = [];
+      const assetIdx = property.assets.findIndex(a => a.type === 'splat' && (a.asset_id === resolvedScanId || a.name?.includes(targetScan?.room_name)));
+      if (assetIdx >= 0) {
+        property.assets[assetIdx].status = 'completed';
+        property.assets[assetIdx].url = splat_url;
+        property.assets[assetIdx].splat_url = splat_url;
+      } else {
+        property.assets.push({
+          asset_id: resolvedScanId,
+          type: 'splat',
+          name: `${targetScan?.room_name || 'Room'} Splat`,
+          url: splat_url,
+          splat_url: splat_url,
+          status: 'completed'
+        });
+      }
     } else {
-      if (targetScan) targetScan.splat_status = 'failed';
+      if (targetScan) {
+        targetScan.status = 'failed';
+        targetScan.splat_status = 'failed';
+      }
+      if (property.room_scans && resolvedScanId) {
+        const roomScan = property.room_scans.id(resolvedScanId);
+        if (roomScan) {
+          roomScan.status = 'failed';
+          roomScan.splat_status = 'failed';
+        }
+      }
       property.splat_status = 'failed';
+      if (property.assets && resolvedScanId) {
+        const asset = property.assets.find(a => a.asset_id === resolvedScanId);
+        if (asset) asset.status = 'failed';
+      }
       logger.error('Splat generation failed for property', { property_id, error });
     }
 
     await property.save();
-    res.json({ success: true });
+    res.json({ success: true, message: 'Scan status updated successfully' });
   } catch (err) {
     next(err);
   }

@@ -7,38 +7,8 @@ const Notification = require('../models/Notification');
 const { sendEmail } = require('../services/email');
 const smsService = require('../services/sms');
 const { postJournalEntry } = require('../services/financials');
+const { acquireCronLock } = require('../utils/cronLock');
 const logger = require('../utils/logger');
-
-const SystemSetting = require('../models/SystemSetting');
-
-/**
- * Acquire atomic daily distributed lock in MongoDB to prevent multi-replica duplicate execution (EDGE-04)
- */
-const acquireDailyCronLock = async (jobName) => {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const lockKey = `cron_lock_${jobName}_${todayStr}`;
-  try {
-    const lock = await SystemSetting.findOneAndUpdate(
-      { key: lockKey },
-      {
-        $setOnInsert: {
-          key: lockKey,
-          value: JSON.stringify({ acquired_at: new Date().toISOString(), pid: process.pid }),
-          description: `Daily distributed lock for ${jobName} on ${todayStr}`,
-          updated_at: new Date()
-        }
-      },
-      { upsert: true, new: false }
-    );
-    return !lock; // Returns true if lock did not exist and was acquired by this instance
-  } catch (err) {
-    if (err.code === 11000) {
-      return false;
-    }
-    logger.warn('Failed to check cron lock', { error: err.message });
-    return true;
-  }
-};
 
 /**
  * Late fee penalty applicator cron job — runs daily at 00:10 AM EAT (UTC+3).
@@ -52,12 +22,10 @@ const acquireDailyCronLock = async (jobName) => {
  */
 const runLateFeeApplicator = async () => {
   // Check distributed lock first across horizontal replicas (EDGE-04)
-  if (process.env.NODE_ENV !== 'test') {
-    const hasLock = await acquireDailyCronLock('late_fee_applicator');
-    if (!hasLock) {
-      logger.info('Late fee cron lock already acquired by another container/worker for today, skipping duplicate execution');
-      return;
-    }
+  const hasLock = await acquireCronLock('late_fee_applicator');
+  if (!hasLock) {
+    logger.info('Late fee cron lock already acquired by another container/worker for today, skipping duplicate execution');
+    return;
   }
 
   // 21:10 UTC = 00:10 EAT

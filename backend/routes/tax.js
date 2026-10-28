@@ -151,4 +151,145 @@ router.post('/etims/submit-invoice',
   }
 );
 
+/**
+ * @openapi
+ * /tax/etims/invoices:
+ *   get:
+ *     summary: List persisted KRA eTIMS invoices with transmission and audit records
+ *     tags: [Tax]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/etims/invoices',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'accountant', 'landlord']),
+  async (req, res, next) => {
+    try {
+      const EtimsInvoice = require('../models/EtimsInvoice');
+      const { page = 1, limit = 20, status, tax_type, search } = req.query;
+      const filter = {};
+
+      if (req.user.role === 'landlord') {
+        filter.landlord_id = req.user._id;
+      }
+      if (status) {
+        filter.transmission_status = status;
+      }
+      if (tax_type) {
+        filter.tax_type = tax_type;
+      }
+      if (search) {
+        filter.$or = [
+          { invoice_number: { $regex: search, $options: 'i' } },
+          { control_number: { $regex: search, $options: 'i' } },
+          { customer_name: { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      const skip = (Math.max(1, parseInt(page, 10)) - 1) * Math.max(1, parseInt(limit, 10));
+      const take = Math.min(100, Math.max(1, parseInt(limit, 10)));
+
+      const [invoices, total] = await Promise.all([
+        EtimsInvoice.find(filter)
+          .sort({ created_at: -1 })
+          .skip(skip)
+          .limit(take)
+          .populate('property_id', 'name property_code address')
+          .populate('tenant_id', 'full_name tenant_code')
+          .lean(),
+        EtimsInvoice.countDocuments(filter)
+      ]);
+
+      res.json({
+        success: true,
+        data: invoices,
+        pagination: {
+          page: parseInt(page, 10),
+          limit: take,
+          total,
+          pages: Math.ceil(total / take)
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /tax/etims/invoices/{id}:
+ *   get:
+ *     summary: Retrieve single eTIMS invoice details
+ *     tags: [Tax]
+ */
+router.get('/etims/invoices/:id',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'accountant', 'landlord']),
+  async (req, res, next) => {
+    try {
+      const EtimsInvoice = require('../models/EtimsInvoice');
+      const invoice = await EtimsInvoice.findById(req.params.id)
+        .populate('property_id', 'name property_code address')
+        .populate('tenant_id', 'full_name tenant_code')
+        .lean();
+
+      if (!invoice) {
+        return res.status(404).json({ success: false, error: { message: 'Invoice not found' } });
+      }
+
+      if (req.user.role === 'landlord' && invoice.landlord_id?.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ success: false, error: { message: 'Unauthorized access to invoice' } });
+      }
+
+      res.json({ success: true, data: invoice });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /tax/etims/invoices/{id}/retry:
+ *   post:
+ *     summary: Retry a failed eTIMS invoice transmission
+ *     tags: [Tax]
+ */
+router.post('/etims/invoices/:id/retry',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'accountant']),
+  async (req, res, next) => {
+    try {
+      const { retryETIMSInvoice } = require('../services/kraEtims');
+      const result = await retryETIMSInvoice(req.params.id);
+      res.json({ success: true, message: 'Invoice transmission retried', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /tax/etims/generate-from-payment/{paymentId}:
+ *   post:
+ *     summary: Generate and transmit official KRA eTIMS invoice for a confirmed payment
+ *     tags: [Tax]
+ */
+router.post('/etims/generate-from-payment/:paymentId',
+  requireAuth,
+  requireRole(['admin', 'super_admin', 'accountant']),
+  async (req, res, next) => {
+    try {
+      const { generateETIMSInvoiceForPayment } = require('../services/kraEtims');
+      const result = await generateETIMSInvoiceForPayment(req.params.paymentId);
+      res.json({ success: true, message: 'eTIMS invoice created from payment', data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
+

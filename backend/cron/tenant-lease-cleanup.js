@@ -3,6 +3,7 @@ const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { acquireCronLock } = require('../utils/cronLock');
 const logger = require('../utils/logger');
 
 /**
@@ -11,12 +12,17 @@ const logger = require('../utils/logger');
  * Jobs performed:
  * 1. Marks tenants whose lease_end_date has passed as 'expired'.
  * 2. For tenants expired > 6 months ago, marks them 'departed' and deactivates their user account.
- * 3. Flags any inventory items in units vacated by departed tenants as auctionable.
+ * 3. Flags any inventory items in units vacated by departed tenants as auctionable & frees unit on Property.
  * 4. Creates admin notifications for any new expirations or departures.
  */
 const runTenantLeaseCleanup = async () => {
-  // 21:05 UTC = 00:05 EAT
-  logger.info('Tenant lease cleanup cron started');
+  const hasLock = await acquireCronLock('tenant_lease_cleanup');
+  if (!hasLock) {
+    logger.info('Tenant lease cleanup cron lock already acquired by another container/worker for today, skipping duplicate execution');
+    return { success: true, skipped: true, reason: 'Distributed lock held' };
+  }
+
+  logger.info('Tenant lease cleanup cron started (EAT UTC+3)');
   const now = new Date();
   const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
 
@@ -35,16 +41,14 @@ const runTenantLeaseCleanup = async () => {
       logger.info('Tenants marked expired', { count: newlyExpired.length });
 
       // Notify admins
-      if (newlyExpired.length > 0) {
-        await Notification.create({
-          type: 'payment_alert',
-          recipient_role: 'admin',
-          recipient_ids: [],
-          title: `${newlyExpired.length} Lease(s) Expired`,
-          message: `${newlyExpired.length} tenant lease(s) have expired and require follow-up. Check the Tenants page for details.`,
-          related_entity_id: null
-        });
-      }
+      await Notification.create({
+        type: 'payment_alert',
+        recipient_role: 'admin',
+        recipient_ids: [],
+        title: `${newlyExpired.length} Lease(s) Expired`,
+        message: `${newlyExpired.length} tenant lease(s) have expired and require follow-up. Check the Tenants page for details.`,
+        related_entity_id: null
+      });
     }
 
     // ── Step 2: Depart tenants expired for over 6 months ───────────────────
@@ -114,14 +118,22 @@ const runTenantLeaseCleanup = async () => {
 
     logger.info('Tenant lease cleanup cron completed', {
       newlyExpired: newlyExpired.length,
-      departed: longExpired.length
+      departed: longExpired.length,
+      timestamp_eat: now.toISOString()
     });
+
+    return {
+      success: true,
+      newlyExpired: newlyExpired.length,
+      departed: longExpired.length
+    };
   } catch (error) {
     logger.error('Tenant lease cleanup cron failed', { message: error.message, stack: error.stack });
+    throw error;
   }
 };
 
-const tenantLeaseCleanup = cron.schedule('5 21 * * *', runTenantLeaseCleanup, {
+const tenantLeaseCleanup = cron.schedule('5 0 * * *', runTenantLeaseCleanup, {
   scheduled: false, // Started manually in server.js after DB connection
   timezone: 'Africa/Nairobi'
 });

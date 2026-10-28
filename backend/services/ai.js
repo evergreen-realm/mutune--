@@ -1,6 +1,7 @@
 'use strict';
 const axios = require('axios');
 const logger = require('../utils/logger');
+const { generateBlindIndex, normalizePhone, decryptPII } = require('../utils/security');
 
 // ── Lazy model requires to avoid circular deps ──────────────────────────────
 const getModels = () => ({
@@ -157,18 +158,24 @@ async function executeTool(toolName, args, callerUser) {
       case 'get_payment_status': {
         let tenant;
         if (args.tenant_code) {
-          tenant = await Tenant.findOne({ tenant_code: args.tenant_code }).lean();
+          const tCode = args.tenant_code.trim();
+          const norm = normalizePhone(tCode);
+          const orList = [{ tenant_code: tCode }];
+          if (norm) {
+            orList.push({ phone_bindex: generateBlindIndex(norm) }, { phone: norm });
+          }
+          tenant = await Tenant.findOne({ $or: orList }).lean();
         } else if (callerUser.role === 'tenant') {
           tenant = await Tenant.findOne({ user_id: callerUser._id }).lean();
         }
         if (!tenant) {
-          return { found: false, message: 'Tenant not found. Provide a valid tenant code.' };
+          return { found: false, message: 'Tenant not found. Provide a valid tenant code or phone number.' };
         }
-        const payment = await Payment.findOne({ tenant_id: tenant._id })
+        const payment = await Payment.findOne({ tenant_id: tenant._id, status: 'confirmed' })
           .sort({ created_at: -1 })
           .lean();
         if (!payment) {
-          return { found: true, tenant: tenant.full_name, status: 'No payment records found' };
+          return { found: true, tenant: tenant.full_name, status: 'No confirmed payment records found' };
         }
         return {
           found: true,
@@ -244,14 +251,17 @@ async function executeTool(toolName, args, callerUser) {
       }
 
       case 'get_tenant_details': {
-        const query = args.query || '';
-        const tenant = await Tenant.findOne({
-          $or: [
-            { full_name: { $regex: query, $options: 'i' } },
-            { tenant_code: { $regex: query, $options: 'i' } },
-            { phone: { $regex: query, $options: 'i' } }
-          ]
-        }).lean();
+        const query = (args.query || '').trim();
+        const orConditions = [
+          { full_name: { $regex: query, $options: 'i' } },
+          { tenant_code: { $regex: query, $options: 'i' } }
+        ];
+        const normalized = normalizePhone(query);
+        if (normalized) {
+          const bindex = generateBlindIndex(normalized);
+          orConditions.push({ phone_bindex: bindex }, { phone: normalized }, { phone: query });
+        }
+        const tenant = await Tenant.findOne({ $or: orConditions }).lean();
 
         if (!tenant) {
           return { found: false, message: `No tenant found matching "${query}"` };
@@ -261,6 +271,7 @@ async function executeTool(toolName, args, callerUser) {
           found: true,
           tenant_code: tenant.tenant_code,
           name: tenant.full_name,
+          phone: decryptPII(tenant.phone) || tenant.phone,
           status: tenant.tenancy_status,
           rent_kes: tenant.rent_amount_kes,
           lease_end: tenant.lease_end ? new Date(tenant.lease_end).toLocaleDateString('en-KE') : 'N/A'
@@ -274,7 +285,7 @@ async function executeTool(toolName, args, callerUser) {
 
       case 'get_system_financial_summary': {
         if (!['admin', 'super_admin'].includes(callerUser.role)) return { error: 'Unauthorized' };
-        const payments = await Payment.find({ status: { $in: ['confirmed', 'completed'] } }).lean();
+        const payments = await Payment.find({ status: 'confirmed' }).lean();
         const total = payments.reduce((acc, p) => acc + (p.amount_kes || 0), 0);
         return { found: true, total_revenue_kes: total, completed_transactions: payments.length };
       }
@@ -588,6 +599,12 @@ class AIService {
     this.sessions.delete(`hist_${sessionId}`);
     return { cleared: true };
   }
+
+  async executeTool(toolName, args, callerUser) {
+    return await executeTool(toolName, args, callerUser);
+  }
 }
 
-module.exports = new AIService();
+const serviceInstance = new AIService();
+serviceInstance.executeTool = executeTool;
+module.exports = serviceInstance;

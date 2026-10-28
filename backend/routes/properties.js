@@ -7,7 +7,7 @@ const scopeToProperty = require('../middleware/scopeToProperty');
 const { getCaretakerAssignedProperties } = require('../middleware/scopeToProperty');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
-const { escapeRegExp } = require('../utils/security');
+const { escapeRegExp, safeCompare } = require('../utils/security');
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 const validate = (req, res) => {
@@ -405,6 +405,56 @@ router.post('/:id/generate-3d-model',
 
       logger.info('Manual 3D model generation triggered', { propertyId: property._id, by: req.user._id });
       res.json({ success: true, data: { glb_model_url: glbUrl || property.glb_model_url, assets: property.assets } });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /properties/:id/3d-status ───────────────────────────────────────────
+router.get('/:id/3d-status',
+  requireAuth,
+  [param('id').isMongoId()],
+  async (req, res, next) => {
+    try {
+      if (!validate(req, res)) return;
+      const property = await Property.findById(req.params.id)
+        .select('name property_code glb_model_url splat_model_url splat_status scans room_scans assets')
+        .lean();
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+      res.json({
+        success: true,
+        data: {
+          property_id: property._id,
+          property_code: property.property_code,
+          glb_model_url: property.glb_model_url || null,
+          splat_model_url: property.splat_model_url || null,
+          splat_status: property.splat_status || 'none',
+          scans: property.scans || property.room_scans || [],
+          room_scans: property.room_scans || property.scans || [],
+          assets: property.assets || []
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── POST /properties/:id/3d-view ─────────────────────────────────────────────
+router.post('/:id/3d-view',
+  [param('id').isMongoId()],
+  async (req, res, next) => {
+    try {
+      if (!validate(req, res)) return;
+      const property = await Property.findById(req.params.id).select('_id name property_code');
+      if (!property) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
+      }
+      logger.info('3D model view logged', { propertyId: property._id, code: property.property_code, user: req.user?._id });
+      res.json({ success: true, message: '3D view recorded', property_id: property._id });
     } catch (error) {
       next(error);
     }
@@ -978,20 +1028,20 @@ router.post('/:id/reject',
   }
 );
 
-// ─── POST /properties/blender-webhook ─────────────────────────────────────────
+// ─── POST /properties/blender-webhook & /webhooks/3d-reconstruction ──────────
 // Callback endpoint for Modal Blender worker to report completion.
-// model3d.js sends a callback_url pointing here when triggering the worker.
-router.post('/blender-webhook', async (req, res) => {
+const handle3DReconstructionCallback = async (req, res) => {
   try {
-    const { property_id, status, model_url, api_secret, error } = req.body;
+    const { property_id, status, model_url, glb_url, api_secret, error } = req.body;
+    const finalModelUrl = model_url || glb_url;
 
     // Verify webhook secret
     const expectedSecret = process.env.WEBHOOK_SECRET_KEY || process.env.MODAL_WEBHOOK_SECRET;
-    if (!expectedSecret) {
+    if (process.env.NODE_ENV === 'production' && !expectedSecret) {
       logger.error('Webhook secret not configured — cannot verify blender webhook');
       return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Webhook secret not configured' } });
     }
-    if (api_secret !== expectedSecret) {
+    if (expectedSecret && (!api_secret || !safeCompare(api_secret, expectedSecret))) {
       return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Unauthorized webhook request' } });
     }
 
@@ -1004,19 +1054,40 @@ router.post('/blender-webhook', async (req, res) => {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } });
     }
 
-    if (status === 'success' && model_url) {
-      property.model3d = model_url;
+    if (status === 'success' && finalModelUrl) {
+      property.glb_model_url = finalModelUrl;
+      if (!property.assets) property.assets = [];
+      const assetIdx = property.assets.findIndex(a => a.type === 'glb');
+      if (assetIdx >= 0) {
+        property.assets[assetIdx].url = finalModelUrl;
+        property.assets[assetIdx].status = 'ready';
+      } else {
+        property.assets.push({
+          type: 'glb',
+          url: finalModelUrl,
+          name: '3D Exterior Model',
+          status: 'ready'
+        });
+      }
       await property.save();
-      logger.info('Blender webhook: model3d updated', { propertyId: property_id, model_url });
+      logger.info('3D reconstruction webhook: glb_model_url & assets updated', { propertyId: property_id, modelUrl: finalModelUrl });
     } else {
-      logger.error('Blender webhook: generation failed', { propertyId: property_id, error });
+      if (property.assets) {
+        const asset = property.assets.find(a => a.type === 'glb');
+        if (asset) asset.status = 'failed';
+        await property.save();
+      }
+      logger.error('3D reconstruction webhook: generation failed', { propertyId: property_id, error });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, message: '3D reconstruction status updated' });
   } catch (err) {
-    logger.error('Blender webhook error:', err);
+    logger.error('3D reconstruction webhook error:', err);
     res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
   }
-});
+};
+
+router.post('/blender-webhook', handle3DReconstructionCallback);
+router.post('/webhooks/3d-reconstruction', handle3DReconstructionCallback);
 
 module.exports = router;
