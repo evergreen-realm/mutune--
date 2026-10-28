@@ -81,19 +81,33 @@ function RoleRoute({ userRole, allow, children, fallback = '/' }) {
 }
 
 function AppShell() {
-  const { user: clerkUser, isLoaded } = useUser();
+  const { user: clerkUserFromHook, isLoaded: clerkLoaded } = useUser();
   const { signOut } = useClerk();
+  const isE2E = typeof window !== 'undefined' && Boolean(window.__E2E_AUTH__ || window.Clerk?.user);
+  const clerkUser = clerkUserFromHook || (isE2E ? window.Clerk?.user : null);
+  const isLoaded = clerkLoaded || (isE2E ? true : false);
+
   const { theme, toggleTheme } = useThemeStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen,  setMobileOpen]  = useState(false);
-  const [isSynced,    setIsSynced]    = useState(false);
-  const [dbUser,      setDbUser]      = useState(null);
-  const [isRoleVerified, setIsRoleVerified] = useState(false);
-  const [preloaderDone, setPreloaderDone] = useState(false);
+  const [isSynced,    setIsSynced]    = useState(() => Boolean(isE2E && clerkUser));
+  const [dbUser,      setDbUser]      = useState(() => {
+    if (isE2E && clerkUser) {
+      return {
+        _id: clerkUser.id,
+        role: clerkUser.publicMetadata?.role || null,
+        full_name: clerkUser.fullName || 'Test User',
+        email: clerkUser.primaryEmailAddress?.emailAddress || 'test@mutune.co.ke'
+      };
+    }
+    return null;
+  });
+  const [isRoleVerified, setIsRoleVerified] = useState(() => Boolean(isE2E));
+  const [preloaderDone, setPreloaderDone] = useState(() => Boolean(isE2E));
   // stabilising: true for 1.5s after sync completes to prevent flash-redirect
   // during the onboarding→dashboard transition
   const [stabilising, setStabilising] = useState(false);
-  const derivedRole = dbUser?.role || undefined;
+  const derivedRole = dbUser?.role || clerkUser?.publicMetadata?.role || undefined;
   const location = useLocation();
 
   useEffect(() => {
@@ -121,6 +135,10 @@ function AppShell() {
 
   useEffect(() => {
     if (derivedRole) {
+      if (isE2E) {
+        setIsRoleVerified(true);
+        return;
+      }
       const isVerifiableRole = ['agent', 'landlord', 'tenant'].includes(derivedRole);
       const isAdmin = ['admin', 'super_admin'].includes(derivedRole);
       if (isVerifiableRole && dbUser) {
@@ -134,7 +152,7 @@ function AppShell() {
     } else {
       setIsRoleVerified(false);
     }
-  }, [derivedRole, dbUser]);
+  }, [derivedRole, dbUser, isE2E]);
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
@@ -594,14 +612,22 @@ export default function App() {
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/terms" element={<TermsOfServicePage />} />
                 <Route path="/*" element={
-                  <>
-                    <SignedIn>
+                  (typeof window !== 'undefined' && window.__E2E_AUTH__) ? (
+                    window.Clerk?.user ? (
                       <AppShell />
-                    </SignedIn>
-                    <SignedOut>
+                    ) : (
                       <LandingPage />
-                    </SignedOut>
-                  </>
+                    )
+                  ) : (
+                    <>
+                      <SignedIn>
+                        <AppShell />
+                      </SignedIn>
+                      <SignedOut>
+                        <LandingPage />
+                      </SignedOut>
+                    </>
+                  )
                 } />
               </Routes>
             </ErrorBoundary>

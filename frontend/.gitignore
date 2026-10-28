@@ -5,3 +5,5 @@ dist
 *.log
 
 .vercel
+playwright-report
+test-results

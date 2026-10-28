@@ -73,7 +73,7 @@ function LateFeePanel() {
     queryKey: ['lateFeeRules'],
     queryFn: fetchLateFeeRules
   });
-  const rules = data?.data || [];
+  const rules = Array.isArray(data?.data) ? data.data : Array.isArray(data?.rules) ? data.rules : Array.isArray(data) ? data : [];
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['lateFeeRules'] });
 

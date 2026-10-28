@@ -4,7 +4,7 @@ import { mockClerkAuth } from './auth.setup';
 test.describe('Payment Collection Flow', () => {
   test('renders payments journal and STK push button', async ({ page }) => {
     await mockClerkAuth(page, 'admin');
-    await page.goto('/payments');
+    await page.goto('/payments', { waitUntil: 'domcontentloaded' });
     const stkButton = page.getByRole('button', { name: /Trigger STK Push/i });
     await expect(stkButton).toBeVisible();
   });

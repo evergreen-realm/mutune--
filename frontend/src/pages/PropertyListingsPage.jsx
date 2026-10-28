@@ -294,12 +294,12 @@ export default function PropertyListingsPage() {
                   )}
 
                   <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700 text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 size={11} /> {prop.vacant_units_count} {prop.vacant_units_count === 1 ? 'Unit Vacant' : 'Units Vacant'}
+                    <CheckCircle2 size={11} /> {prop.vacant_units_count ?? prop.units?.length ?? 0} {(prop.vacant_units_count ?? prop.units?.length ?? 0) === 1 ? 'Unit Vacant' : 'Units Vacant'}
                   </div>
 
                   <div className="absolute bottom-3 right-3 bg-slate-950/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700 text-right">
                     <span className="text-[10px] text-slate-400 block leading-none">Starting from</span>
-                    <span className="text-sm font-black text-white font-mono">KES {prop.price_range_kes.min.toLocaleString('en-KE')}</span>
+                    <span className="text-sm font-black text-white font-mono">KES {(prop.price_range_kes?.min ?? prop.units?.[0]?.rent_kes ?? 0).toLocaleString('en-KE')}</span>
                     <span className="text-[10px] text-slate-400">/mo</span>
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export default function PropertyListingsPage() {
                   <div className="border-t border-slate-800/60 pt-3 space-y-2">
                     <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">Available Units:</span>
                     <div className="space-y-1.5">
-                      {prop.units.slice(0, 2).map((unit) => (
+                      {(prop.units || []).slice(0, 2).map((unit) => (
                         <div
                           key={unit.unit_id}
                           className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-950/60 border border-slate-800/80"

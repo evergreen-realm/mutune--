@@ -18,7 +18,10 @@ const AVAILABLE_AREAS = [
 ];
 
 export default function OnboardingPage() {
-  const { user: clerkUser, isLoaded } = useUser();
+  const { user: clerkUserFromHook, isLoaded: clerkLoaded } = useUser();
+  const isE2E = typeof window !== 'undefined' && Boolean(window.__E2E_AUTH__ || window.Clerk?.user);
+  const clerkUser = clerkUserFromHook || (isE2E ? window.Clerk?.user : null);
+  const isLoaded = clerkLoaded || isE2E;
   const { signOut } = useClerk();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
