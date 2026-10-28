@@ -7,6 +7,7 @@ const CommissionConfig = require('../models/CommissionConfig');
 const AgentSalary = require('../models/AgentSalary');
 const { executePriorityBulkDisbursement, getPendingDisbursementMetrics } = require('../services/bulkDisbursement');
 const logger = require('../utils/logger');
+const { requireSafaricomIP } = require('../middleware/security');
 
 const validate = (req, res) => {
   const errors = validationResult(req);
@@ -157,7 +158,19 @@ router.post(['/execute', '/execute-bulk'],
  *       200:
  *         description: Callback acknowledged
  */
-router.post('/b2c/result', async (req, res) => {
+const verifyDarajaCallback = (req, res, next) => {
+  const webhookSecret = process.env.DARAJA_WEBHOOK_SECRET || process.env.DARAJA_B2C_SECRET || process.env.WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const token = req.headers['x-webhook-secret'] || req.headers['authorization'] || req.query.secret;
+    if (token !== webhookSecret && token !== `Bearer ${webhookSecret}`) {
+      logger.warn('Unauthorized Daraja B2C callback attempt', { ip: req.ip });
+      return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED_WEBHOOK', message: 'Daraja webhook secret verification failed' } });
+    }
+  }
+  next();
+};
+
+router.post('/b2c/result', requireSafaricomIP, verifyDarajaCallback, async (req, res) => {
   logger.info('Daraja B2C Result Webhook received', { body: req.body });
   res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
 });
@@ -172,7 +185,7 @@ router.post('/b2c/result', async (req, res) => {
  *       200:
  *         description: Callback acknowledged
  */
-router.post('/b2c/queue-timeout', async (req, res) => {
+router.post('/b2c/queue-timeout', requireSafaricomIP, verifyDarajaCallback, async (req, res) => {
   logger.warn('Daraja B2C Queue Timeout Webhook received', { body: req.body });
   res.json({ ResultCode: 0, ResultDesc: 'Timeout acknowledged' });
 });

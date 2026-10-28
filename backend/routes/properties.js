@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param, query, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission, requireRole, enforcePropertyScope } = require('../middleware/rbac');
+const scopeToProperty = require('../middleware/scopeToProperty');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
 const { escapeRegExp } = require('../utils/security');
@@ -57,7 +58,7 @@ const validate = (req, res) => {
  *                   items:
  *                     $ref: '#/components/schemas/Property'
  */
-router.get('/', requireAuth, async (req, res, next) => {
+router.get('/', requireAuth, scopeToProperty, async (req, res, next) => {
   try {
     const { page = 1, limit = 20, area, type, status, review_status } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
@@ -213,6 +214,7 @@ router.get('/units/vacant',
 // ─── GET /properties/:id ─────────────────────────────────────────────────────────
 router.get('/:id',
   requireAuth,
+  scopeToProperty,
   enforcePropertyScope,
   [param('id').isMongoId().withMessage('Invalid property ID')],
   async (req, res, next) => {

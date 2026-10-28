@@ -17,6 +17,7 @@ initSentry();
 
 
 const app = express();
+app.set('trust proxy', 1);
 
 const compression = require('compression');
 app.use(compression());
@@ -92,7 +93,14 @@ const callbackLimiter = rateLimit({
   legacyHeaders: false
 });
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    if (buf && buf.length) {
+      req.rawBody = buf;
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(mongoSanitize);
 
@@ -149,6 +157,8 @@ app.use('/api/v1/scoring',       require('./routes/scoring'));        // Tenant 
 app.use('/api/v1/vendors',       require('./routes/vendors'));        // Vendor Maintenance & B2C Payout Engine
 app.use('/api/v1/bank-payments',  require('./routes/bankPayments'));   // Multi-Bank Checkout & Aggregator Webhooks
 app.use('/api/v1/ussd',           require('./routes/ussd'));           // Africa's Talking USSD Gateway Handler
+app.use('/api/v1/financials',    require('./routes/financials'));     // Double-Entry Financial Management & Accounts
+app.use('/api/v1/ledger',        require('./routes/ledger'));         // General Ledger & Trial Balance
 app.use('/api/v1/listings',       require('./routes/listings'));       // Public Property Listings & Inquiries
 
 const Sentry = require("@sentry/node");

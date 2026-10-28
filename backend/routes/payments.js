@@ -873,12 +873,24 @@ router.post('/mpesa/register-urls',
   }
 );
 
+const verifyDarajaCallback = (req, res, next) => {
+  const webhookSecret = process.env.DARAJA_WEBHOOK_SECRET || process.env.MPESA_BALANCE_SECRET || process.env.WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const token = req.headers['x-webhook-secret'] || req.headers['authorization'] || req.query.secret;
+    if (token !== webhookSecret && token !== `Bearer ${webhookSecret}`) {
+      logger.warn('Unauthorized Daraja callback attempt', { ip: req.ip, path: req.path });
+      return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED_WEBHOOK', message: 'Daraja webhook secret verification failed' } });
+    }
+  }
+  next();
+};
+
 // Callback listeners for M-Pesa Async Endpoints
-router.post('/status/result', (req, res) => { logger.info('Status Result Callback', req.body); res.json({ ResultCode: 0 }); });
-router.post('/status/timeout', (req, res) => { logger.warn('Status Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
-router.post('/reversal/result', (req, res) => { logger.info('Reversal Result Callback', req.body); res.json({ ResultCode: 0 }); });
-router.post('/reversal/timeout', (req, res) => { logger.warn('Reversal Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
-router.post('/balance/result', (req, res) => { logger.info('Balance Result Callback', req.body); res.json({ ResultCode: 0 }); });
-router.post('/balance/timeout', (req, res) => { logger.warn('Balance Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/status/result', requireSafaricomIP, verifyDarajaCallback, (req, res) => { logger.info('Status Result Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/status/timeout', requireSafaricomIP, verifyDarajaCallback, (req, res) => { logger.warn('Status Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/reversal/result', requireSafaricomIP, verifyDarajaCallback, (req, res) => { logger.info('Reversal Result Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/reversal/timeout', requireSafaricomIP, verifyDarajaCallback, (req, res) => { logger.warn('Reversal Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/balance/result', requireSafaricomIP, verifyDarajaCallback, (req, res) => { logger.info('Balance Result Callback', req.body); res.json({ ResultCode: 0 }); });
+router.post('/balance/timeout', requireSafaricomIP, verifyDarajaCallback, (req, res) => { logger.warn('Balance Timeout Callback', req.body); res.json({ ResultCode: 0 }); });
 
 module.exports = router;

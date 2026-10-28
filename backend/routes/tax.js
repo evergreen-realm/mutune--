@@ -31,7 +31,8 @@ router.get('/etims/summary',
   async (req, res, next) => {
     try {
       const month = req.query.month || new Date().toISOString().slice(0, 7);
-      const summary = await computeKRATaxSummary(month);
+      const landlordId = req.user.role === 'landlord' ? req.user._id : (req.query.landlord_id || null);
+      const summary = await computeKRATaxSummary(month, landlordId);
       res.json({ success: true, data: summary });
     } catch (error) {
       next(error);
@@ -58,12 +59,21 @@ router.get('/etims/summary',
  */
 router.get('/etims/export-csv',
   requireAuth,
-  requireRole(['admin', 'super_admin', 'accountant']),
+  requireRole(['admin', 'super_admin', 'accountant', 'landlord']),
   async (req, res, next) => {
     try {
       const month = req.query.month || new Date().toISOString().slice(0, 7);
-      const summary = await computeKRATaxSummary(month);
-      const payments = await Payment.find({ status: { $in: ['completed', 'confirmed'] } }).limit(500).lean();
+      const landlordId = req.user.role === 'landlord' ? req.user._id : (req.query.landlord_id || null);
+      const summary = await computeKRATaxSummary(month, landlordId);
+
+      const paymentFilter = { status: { $in: ['completed', 'confirmed'] } };
+      if (landlordId) {
+        const Property = require('../models/Property');
+        const landlordProps = await Property.find({ landlord_id: landlordId }).select('_id').lean();
+        paymentFilter.property_id = { $in: landlordProps.map(p => p._id) };
+      }
+
+      const payments = await Payment.find(paymentFilter).limit(500).lean();
       const csvContent = generateETIMSReportCSV(summary, payments);
 
       res.setHeader('Content-Type', 'text/csv');
@@ -98,7 +108,8 @@ router.get('/etims/mri-return',
   async (req, res, next) => {
     try {
       const month = req.query.month || new Date().toISOString().slice(0, 7);
-      const csvContent = await generateITMRI01ReportCSV(month);
+      const landlordId = req.user.role === 'landlord' ? req.user._id : (req.query.landlord_id || null);
+      const csvContent = await generateITMRI01ReportCSV(month, landlordId);
 
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="KRA_IT-MRI-01_Return_${month}.csv"`);

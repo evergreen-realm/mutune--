@@ -30,7 +30,7 @@ const validate = (req, res) => {
  */
 router.get('/financial',
   requireAuth,
-  requireRole(['admin', 'super_admin', 'agent', 'landlord']),
+  requireRole(['admin', 'super_admin', 'agent', 'landlord', 'accountant']),
   async (req, res, next) => {
     try {
       let config = await CommissionConfig.findOne({ config_name: 'GLOBAL_FINANCIAL_CONFIG' }).lean();
@@ -79,7 +79,7 @@ router.get('/financial',
  */
 router.put('/financial',
   requireAuth,
-  requireRole(['admin', 'super_admin']),
+  requireRole(['admin', 'super_admin', 'accountant']),
   [
     body('withholding_tax_rate_resident').optional().isFloat({ min: 0, max: 100 }),
     body('withholding_tax_rate_non_resident').optional().isFloat({ min: 0, max: 100 }),
@@ -140,7 +140,7 @@ router.put('/financial',
  */
 router.get('/trial-balance',
   requireAuth,
-  requireRole(['admin', 'super_admin']),
+  requireRole(['admin', 'super_admin', 'accountant']),
   async (req, res, next) => {
     try {
       const trialBalance = await getTrialBalance();

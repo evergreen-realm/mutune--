@@ -90,40 +90,45 @@ router.get('/check-tenant-email/:email', requireAuth, usersController.checkTenan
  *       200:
  *         description: Role and onboarding profile updated
  */
-router.patch('/me/role',
-  authLimiter,
-  requireAuth,
-  [
-    body('role').isIn(['agent', 'admin', 'landlord', 'tenant']).withMessage('Invalid role'),
-    body('phone').optional().trim().notEmpty().withMessage('Phone cannot be empty'),
-    body('earb_license').optional().trim().notEmpty().withMessage('EARB license cannot be empty'),
-    body('earb_verification_doc_url').optional().trim().notEmpty().withMessage('EARB document link cannot be empty'),
-    body('landlord_verification_doc_url').optional().trim().notEmpty().withMessage('Landlord verification document link cannot be empty'),
-    body('assigned_areas').optional().isArray().withMessage('Assigned areas must be an array'),
-    body('property_id').optional().isMongoId().withMessage('property_id must be a valid Mongo ID'),
-    body('unit_id').optional().notEmpty().withMessage('unit_id cannot be empty')
-  ],
-  async (req, res, next) => {
-    try {
-      if (!validate(req, res)) return;
-      const { role, phone, earb_license, earb_verification_doc_url, landlord_verification_doc_url, assigned_areas, property_id, unit_id } = req.body;
-      const userId = req.user._id;
+const onboardingValidators = [
+  body('role').isIn(['agent', 'landlord', 'tenant', 'caretaker', 'accountant']).withMessage('Invalid role'),
+  body('phone').optional().trim().notEmpty().withMessage('Phone cannot be empty'),
+  body('earb_license').optional().trim().notEmpty().withMessage('EARB license cannot be empty'),
+  body('earb_verification_doc_url').optional().trim().notEmpty().withMessage('EARB document link cannot be empty'),
+  body('landlord_verification_doc_url').optional().trim().notEmpty().withMessage('Landlord verification document link cannot be empty'),
+  body('assigned_areas').optional().isArray().withMessage('Assigned areas must be an array'),
+  body('property_id').optional().isMongoId().withMessage('property_id must be a valid Mongo ID'),
+  body('unit_id').optional().notEmpty().withMessage('unit_id cannot be empty')
+];
 
-      if (role === 'agent') {
-        if (!assigned_areas || !Array.isArray(assigned_areas) || assigned_areas.length === 0) {
-          return res.status(400).json({
-            success: false,
-            error: { code: 'VALIDATION_ERROR', message: 'At least one operational area must be selected.' }
-          });
-        }
-      }
+const handleCompleteOnboarding = async (req, res, next) => {
+  try {
+    if (!validate(req, res)) return;
+    const { role, phone, earb_license, earb_verification_doc_url, landlord_verification_doc_url, assigned_areas, property_id, unit_id } = req.body;
+    const userId = req.user._id;
 
-      if (['landlord', 'admin', 'super_admin'].includes(role) && process.env.NODE_ENV !== 'test') {
-        return res.status(403).json({
+    if (['admin', 'super_admin'].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Admin roles cannot be self-assigned.' }
+      });
+    }
+
+    if (role === 'agent') {
+      if (!assigned_areas || !Array.isArray(assigned_areas) || assigned_areas.length === 0) {
+        return res.status(400).json({
           success: false,
-          error: { code: 'FORBIDDEN', message: 'This role cannot be self-assigned. Landlords and Admins must be created or configured by the agency.' }
+          error: { code: 'VALIDATION_ERROR', message: 'At least one operational area must be selected.' }
         });
       }
+    }
+
+    if (role === 'landlord' && process.env.NODE_ENV !== 'test') {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'This role cannot be self-assigned. Landlords must be created or configured by the agency.' }
+      });
+    }
 
       const updateData = { role };
       if (phone !== undefined) updateData.phone = phone;
@@ -314,8 +319,10 @@ router.patch('/me/role',
     } catch (error) {
       next(error);
     }
-  }
-);
+};
+
+router.patch('/me/role', authLimiter, requireAuth, onboardingValidators, handleCompleteOnboarding);
+router.post('/complete-onboarding', authLimiter, requireAuth, onboardingValidators, handleCompleteOnboarding);
 
 
 
@@ -471,27 +478,44 @@ router.post('/:id/deactivate',
 
 // ─── POST /users/clerk-webhook ────────────────────────────────────────────────
 // Verify Svix signature header for automated Clerk webhook events (user.created, user.updated, user.deleted)
-router.post('/clerk-webhook', express.raw({ type: 'application/json' }), async (req, res, next) => {
+router.post('/clerk-webhook', async (req, res, next) => {
   try {
     const webhookSecret = process.env.CLERK_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET;
-    
-    // If webhook secret configured, verify Svix headers
-    if (webhookSecret) {
-      const { Webhook } = require('svix');
-      const svix_id = req.headers['svix-id'];
-      const svix_timestamp = req.headers['svix-timestamp'];
-      const svix_signature = req.headers['svix-signature'];
+    const svix_id = req.headers['svix-id'];
+    const svix_timestamp = req.headers['svix-timestamp'];
+    const svix_signature = req.headers['svix-signature'];
+
+    // In production, webhook secret is strictly required
+    if (process.env.NODE_ENV === 'production' && !webhookSecret) {
+      logger.error('CLERK_WEBHOOK_SECRET is not configured in production');
+      return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Webhook secret not configured' } });
+    }
+
+    // If webhook secret configured or Svix headers provided, verify Svix headers
+    if (webhookSecret || (svix_id && svix_signature)) {
+      if (!webhookSecret) {
+        return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Webhook secret not configured' } });
+      }
 
       if (!svix_id || !svix_timestamp || !svix_signature) {
         logger.warn('Missing Svix headers in Clerk webhook');
         return res.status(400).json({ success: false, error: { code: 'MISSING_SVIX_HEADERS', message: 'Missing Svix signature headers' } });
       }
 
-      const wh = new Webhook(webhookSecret);
-      const payload = req.body instanceof Buffer ? req.body.toString('utf8') : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
-      
+      let wh;
       try {
-        wh.verify(payload, {
+        const { Webhook } = require('svix');
+        wh = new Webhook(webhookSecret);
+      } catch (whInitErr) {
+        logger.error('Failed to initialize Svix Webhook validator', { error: whInitErr.message });
+        return res.status(500).json({ success: false, error: { code: 'CONFIG_ERROR', message: 'Webhook validator initialization failed' } });
+      }
+      const rawPayload = req.rawBody
+        ? (Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf8') : String(req.rawBody))
+        : (Buffer.isBuffer(req.body) ? req.body.toString('utf8') : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body)));
+
+      try {
+        wh.verify(rawPayload, {
           'svix-id': svix_id,
           'svix-timestamp': svix_timestamp,
           'svix-signature': svix_signature

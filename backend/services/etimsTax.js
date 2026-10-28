@@ -11,7 +11,7 @@ const logger = require('../utils/logger');
  * - Withholding Tax (WHT) @ 5% on actual AgentSalary commission records (Section 35, Income Tax Act)
  * - Value Added Tax (VAT) @ 16% on actual commercial property rental income (Section 5, VAT Act 2013)
  */
-async function computeKRATaxSummary(billingMonth) {
+async function computeKRATaxSummary(billingMonth, landlordId = null) {
   let config = await CommissionConfig.findOne({ config_name: 'GLOBAL_FINANCIAL_CONFIG' }).lean();
   if (!config) {
     config = {
@@ -27,11 +27,21 @@ async function computeKRATaxSummary(billingMonth) {
   const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
   // 1. Fetch completed rent payments in the period with property type details
-  const completedPayments = await Payment.find({
+  const paymentFilter = {
     status: { $in: ['confirmed', 'completed'] },
     payment_type: 'rent',
     created_at: { $gte: startDate, $lte: endDate }
-  }).populate('property_id', 'property_code name type property_type landlord_id').lean();
+  };
+
+  if (landlordId) {
+    const landlordProps = await Property.find({ landlord_id: landlordId }).select('_id').lean();
+    const propIds = landlordProps.map(p => p._id);
+    paymentFilter.property_id = { $in: propIds };
+  }
+
+  const completedPayments = await Payment.find(paymentFilter)
+    .populate('property_id', 'property_code name type property_type landlord_id')
+    .lean();
 
   let residentialGross = 0;
   let commercialGross = 0;
@@ -57,21 +67,23 @@ async function computeKRATaxSummary(billingMonth) {
   const vat_tax_kes = Number(((commercialGross * vatRate) / 100).toFixed(2));
 
   // 4. Real Withholding Tax from actual AgentSalary records for this billing month
-  const agentSalaries = await AgentSalary.find({
-    billing_month: monthStr
-  }).select('gross_commission_kes net_payable_kes withholding_tax_kes').lean();
-
   let totalCommissionsPaid = 0;
   let totalWHTPaid = 0;
 
-  if (agentSalaries.length > 0) {
-    totalCommissionsPaid = agentSalaries.reduce((sum, s) => sum + (s.gross_commission_kes || 0), 0);
-    totalWHTPaid = agentSalaries.reduce((sum, s) => {
-      const wht = s.withholding_tax_kes !== undefined
-        ? s.withholding_tax_kes
-        : ((s.gross_commission_kes || 0) * (config.withholding_tax_rate_resident || 5)) / 100;
-      return sum + wht;
-    }, 0);
+  if (!landlordId) {
+    const agentSalaries = await AgentSalary.find({
+      billing_month: monthStr
+    }).select('gross_commission_kes net_payable_kes withholding_tax_kes').lean();
+
+    if (agentSalaries.length > 0) {
+      totalCommissionsPaid = agentSalaries.reduce((sum, s) => sum + (s.gross_commission_kes || 0), 0);
+      totalWHTPaid = agentSalaries.reduce((sum, s) => {
+        const wht = s.withholding_tax_kes !== undefined
+          ? s.withholding_tax_kes
+          : ((s.gross_commission_kes || 0) * (config.withholding_tax_rate_resident || 5)) / 100;
+        return sum + wht;
+      }, 0);
+    }
   }
 
   const withholding_tax_kes = Number(totalWHTPaid.toFixed(2));
@@ -101,7 +113,7 @@ async function computeKRATaxSummary(billingMonth) {
  * Generates official KRA Monthly Rental Income (IT-MRI-01) return template CSV
  * Compliant with KRA iTax bulk upload format for Section 6A residential rental income.
  */
-async function generateITMRI01ReportCSV(billingMonth) {
+async function generateITMRI01ReportCSV(billingMonth, landlordId = null) {
   const monthStr = billingMonth || new Date().toISOString().slice(0, 7);
   const [year, month] = monthStr.split('-').map(Number);
   const startDate = new Date(year, month - 1, 1);
@@ -111,10 +123,15 @@ async function generateITMRI01ReportCSV(billingMonth) {
   const lastDay = new Date(year, month, 0).getDate();
   const endFormatted = `${String(lastDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
 
-  const properties = await Property.find({
+  const propFilter = {
     status: 'active',
     property_type: { $in: ['residential', 'mixed'] }
-  }).populate('landlord_id', 'full_name phone email landlord_id').lean();
+  };
+  if (landlordId) {
+    propFilter.landlord_id = landlordId;
+  }
+
+  const properties = await Property.find(propFilter).populate('landlord_id', 'full_name phone email landlord_id').lean();
 
   const rows = [];
 

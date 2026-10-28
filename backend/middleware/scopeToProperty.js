@@ -1,4 +1,5 @@
 const Property = require('../models/Property');
+const MaintenanceTicket = require('../models/MaintenanceTicket');
 const logger = require('../utils/logger');
 
 /**
@@ -18,7 +19,24 @@ const scopeToProperty = async (req, res, next) => {
   if (req.user.role === 'caretaker') {
     const rawAssigned = req.user.assigned_properties || req.user.assigned_property_ids || [];
     const assignedProps = rawAssigned.map(id => id.toString());
-    const propertyId = req.params.propertyId || req.params.id || req.body?.property_id || req.query?.property_id;
+    let propertyId = req.params.propertyId || req.body?.property_id || req.query?.property_id;
+
+    if (!propertyId && req.params.id) {
+      const isMaintenanceRoute = (req.baseUrl && req.baseUrl.includes('maintenance')) ||
+                                 (req.originalUrl && req.originalUrl.includes('/maintenance'));
+      if (isMaintenanceRoute) {
+        try {
+          const ticket = await MaintenanceTicket.findById(req.params.id).select('property_id').lean();
+          if (ticket && ticket.property_id) {
+            propertyId = ticket.property_id.toString();
+          }
+        } catch (e) {
+          // Invalid ID will be handled by validators/controllers
+        }
+      } else {
+        propertyId = req.params.id;
+      }
+    }
 
     if (propertyId) {
       if (!assignedProps.includes(propertyId.toString())) {
@@ -40,6 +58,7 @@ const scopeToProperty = async (req, res, next) => {
 
     // List query filter injection: sole source of truth is assigned_properties
     req.propertyFilter = { _id: { $in: rawAssigned } };
+    req.maintenanceFilter = { property_id: { $in: rawAssigned } };
     req.scopedPropertyIds = rawAssigned;
     return next();
   }

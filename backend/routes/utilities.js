@@ -191,7 +191,7 @@ router.get('/water/bill/:accountNumber',
 // ─── POST /api/v1/utilities/water/pay — Step 6.3 Pay Water Bill ───────────────
 router.post('/water/pay',
   requireAuth,
-  requireRole(['agent', 'admin', 'super_admin', 'landlord']),
+  requireRole(['agent', 'admin', 'super_admin', 'landlord', 'tenant']),
   [
     body('account_number').notEmpty().withMessage('Water account number is required'),
     body('amount_kes').isFloat({ min: 10 }).withMessage('Valid amount is required')

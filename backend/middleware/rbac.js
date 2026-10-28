@@ -6,9 +6,9 @@ const permissions = {
   admin: ['*'],
   agent: ['view:assigned', 'lock:house', 'verify:payment', 'issue:notice', 'view:inventory', 'edit:inventory', 'create:maintenance', 'view:maintenance', 'ai:chat', 'checkin:property', 'view:payments', 'pay:rent'],
   landlord: ['view:own_properties', 'view:payments', 'view:reports', 'edit:property', 'view:assigned'],
-  accountant: ['view:payments', 'view:reports', 'export:kra', 'verify:payment'],
-  tenant: ['view:own_unit', 'pay:rent', 'view:notices', 'create:maintenance', 'view:maintenance', 'view:payments', 'ai:chat'],
-  caretaker: ['view:assigned', 'create:maintenance', 'view:maintenance', 'record:utility', 'view:units', 'confirm:handover']
+  accountant: ['view:payments', 'view:reports', 'export:kra', 'verify:payment', 'view:financials', 'manage:financials', 'view:ledger', 'manage:ledger', 'view:tax', 'manage:tax'],
+  tenant: ['view:own_unit', 'pay:rent', 'pay:utility', 'view:notices', 'create:maintenance', 'view:maintenance', 'view:payments', 'ai:chat'],
+  caretaker: ['view:assigned', 'create:maintenance', 'view:maintenance', 'edit:maintenance', 'update:maintenance', 'record:utility', 'view:units', 'confirm:handover', 'view:properties']
 };
 
 const requirePermission = (permission) => (req, res, next) => {

@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param, validationResult } = require('express-validator');
 const { requireAuth } = require('../middleware/auth');
 const { requirePermission } = require('../middleware/rbac');
+const scopeToProperty = require('../middleware/scopeToProperty');
 const logger = require('../utils/logger');
 const { paginate } = require('../utils/paginate');
 
@@ -47,6 +48,7 @@ const CATEGORY_MAP = {
 
 router.post('/',
   requireAuth,
+  scopeToProperty,
   requirePermission('create:maintenance'),
   (req, res, next) => {
     if (req.body) {
@@ -212,6 +214,7 @@ router.get('/my-tickets',
  */
 router.get('/',
   requireAuth,
+  scopeToProperty,
   requirePermission('view:maintenance'),
   async (req, res, next) => {
     try {
@@ -292,6 +295,7 @@ router.get('/',
  */
 router.patch('/:id',
   requireAuth,
+  scopeToProperty,
   requirePermission('view:maintenance'),
   [param('id').isMongoId()],
   async (req, res, next) => {
@@ -320,6 +324,13 @@ router.patch('/:id',
       const ticket = await MaintenanceTicket.findById(req.params.id);
       if (!ticket) {
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Ticket not found' } });
+      }
+
+      if (req.user.role === 'caretaker') {
+        const assigned = (req.user.assigned_properties || req.user.assigned_property_ids || []).map(id => id.toString());
+        if (ticket.property_id && !assigned.includes(ticket.property_id.toString())) {
+          return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Property not in caretaker assignments' } });
+        }
       }
 
       if (update.status === 'resolved') {
