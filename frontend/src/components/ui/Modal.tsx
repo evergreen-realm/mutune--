@@ -13,10 +13,11 @@ export interface ModalProps {
 }
 
 export interface ModalHeaderProps {
-  title: React.ReactNode;
+  title?: React.ReactNode;
   subtitle?: React.ReactNode;
   onClose?: () => void;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export interface ModalBodyProps {
@@ -135,7 +136,28 @@ Modal.Header = function ModalHeader({
   subtitle,
   onClose,
   className = '',
+  children,
 }: ModalHeaderProps) {
+  if (children) {
+    return (
+      <div
+        className={`flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-slate-800 ${className}`}
+      >
+        <div className="flex-1">{children}</div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`flex items-start justify-between p-6 pb-4 border-b border-gray-100 dark:border-slate-800 ${className}`}

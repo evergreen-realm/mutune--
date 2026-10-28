@@ -66,3 +66,5 @@ export default function Spinner({
     </div>
   );
 }
+
+export { SpinnerIcon };

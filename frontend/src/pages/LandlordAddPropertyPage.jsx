@@ -394,7 +394,7 @@ export default function LandlordAddPropertyPage() {
           {/* STEP 1: Units */}
           {step === 1 && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <h2 style={{ color: 'var(--title-text)', fontSize: 18, fontWeight: 800 }}>Define Units ({form.units.length})</h2>
                 <button onClick={addUnit} className="btn-indigo-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Plus size={14} /> Add Unit
@@ -403,7 +403,7 @@ export default function LandlordAddPropertyPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 480, overflowY: 'auto' }}>
                 {form.units.map((unit, i) => (
                   <div key={i} className="unit-card-box">
-                    <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                       <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 700 }}>Unit {i + 1}</span>
                       {form.units.length > 1 && (
                         <button onClick={() => removeUnit(i)} className="btn-trash-danger">
@@ -506,7 +506,7 @@ export default function LandlordAddPropertyPage() {
               </div>
 
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifycontent: 'space-between', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <label style={labelStyle}>Your Signature *</label>
                   {hasSigned && (
                     <button onClick={clearSignature} className="btn-trash-danger" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', fontSize: 12 }}>
@@ -535,7 +535,7 @@ export default function LandlordAddPropertyPage() {
                     ['Units', form.units.length],
                     ['Photos', `${form.photos?.length || 0} uploaded`]
                   ].map(([k, v]) => (
-                    <div key={k} style={{ display: 'flex', justifycontent: 'space-between', fontSize: 13 }}>
+                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                       <span style={{ color: 'var(--subtitle-text)' }}>{k}</span>
                       <span style={{ color: 'var(--title-text)', fontWeight: 600 }}>{v}</span>
                     </div>
@@ -546,7 +546,7 @@ export default function LandlordAddPropertyPage() {
           )}
 
           {/* Navigation */}
-          <div style={{ display: 'flex', justifycontent: 'space-between', marginTop: 32, gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 32, gap: 12 }}>
             <button onClick={back} disabled={step === 0} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '12px 24px',
               background: 'var(--input-bg)', border: '1px solid var(--input-border)',

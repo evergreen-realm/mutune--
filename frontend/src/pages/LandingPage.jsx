@@ -314,7 +314,8 @@ export default function LandingPage() {
       const track = panelsTrackRef.current;
       if (track) {
         const totalWidth = track.scrollWidth - window.innerWidth;
-        gsap.to(track, {
+        const panelScrollTween = gsap.to(track, {
+          id: 'panelScroll',
           x: () => -totalWidth,
           ease: 'none',
           scrollTrigger: {
@@ -336,7 +337,7 @@ export default function LandingPage() {
               opacity: 1, x: 0, duration: 0.5, ease: 'power2.out',
               scrollTrigger: {
                 trigger: el,
-                containerAnimation: gsap.getById?.('panelScroll'),
+                containerAnimation: panelScrollTween,
                 start: 'left 80%',
                 toggleActions: 'play none none reverse',
               },

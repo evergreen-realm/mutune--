@@ -215,7 +215,7 @@ export default function OnboardingPage() {
       </button>
 
       {/* Left Column: Visual Showcase (Hidden on Mobile) */}
-      <div className="hidden md:flex md:w-1/2 relative bg-slate-950 items-center justify-center overflow-hidden">
+      <div className="hidden md:flex md:w-1/2 relative bg-slate-950 items-center justify-center overflow-hidden auth-showcase dark-surface" data-dark-surface="true">
         {/* Background Image showing high-fidelity isometric villa building */}
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-10000 ease-out hover:scale-105"

@@ -6,6 +6,15 @@ export default function CinematicPreloader({ onComplete, duration = 2000 }) {
   const [isWiping, setIsWiping] = useState(false);
   const canvasRef = useRef(null);
 
+  // 0. Ensure body scroll is locked during preloading and always restored on unmount
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow || '';
+    };
+  }, []);
+
   // 1. Progress Counter Animation
   useEffect(() => {
     let startTimestamp = null;

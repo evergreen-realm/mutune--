@@ -34,7 +34,8 @@ interface NavItem {
   path: string;
   label: string;
   icon: React.ReactNode;
-  show: boolean;
+  allowedRoles?: string[];
+  show?: boolean;
   disabled?: boolean;
   badge?: string;
 }
@@ -235,24 +236,24 @@ export default function Sidebar({
   isRoleVerified,
   onLogout,
 }: SidebarProps) {
-  const isAdmin     = role === 'admin' || role === 'super_admin';
-  const isTenant    = role === 'tenant';
-  const isAgent     = role === 'agent';
-  const isCaretaker = role === 'caretaker';
-
   const navItems: NavItem[] = [
-    { path: '/',                label: 'Dashboard',            icon: <LayoutDashboard size={18} />, show: true },
-    { path: '/caretaker',       label: 'Caretaker Portal',     icon: <Building2 size={18} />,       show: isCaretaker },
-    { path: '/admin/users',     label: 'Verification Queue',   icon: <ShieldCheck size={18} />,     show: isAdmin },
-    { path: '/admin/inventory', label: 'Auctions & Inventory', icon: <Building2 size={18} />,       show: isAdmin },
-    { path: '/properties',      label: 'Properties',           icon: <Building2 size={18} />,       show: !isTenant && !isCaretaker },
-    { path: '/properties/add',  label: 'Add Property',         icon: <PlusCircle size={18} />,      show: isAdmin || isAgent || role === 'landlord' },
-    { path: '/tenants',         label: 'Tenants',              icon: <Users2 size={18} />,          show: !isTenant && !isCaretaker },
-    { path: '/payments',        label: 'Rent Payments',        icon: <WalletCards size={18} />,     show: !isTenant && !isCaretaker },
-    { path: '/maintenance',     label: 'Maintenance',          icon: <Wrench size={18} />,          show: !isCaretaker },
-    { path: '/tasks',           label: 'Task Board',           icon: <ListTodo size={18} />,        show: isAdmin || isAgent },
-    { path: '/notices',         label: 'Notices',              icon: <FileText size={18} />,        show: isAdmin || isAgent || isTenant },
-  ].filter((item) => item.show);
+    { path: '/',                label: 'Dashboard',            icon: <LayoutDashboard size={18} />, allowedRoles: ['admin', 'super_admin', 'agent', 'landlord', 'tenant', 'caretaker', 'accountant'] },
+    { path: '/accountant',      label: 'Financial Portal',     icon: <WalletCards size={18} />,     allowedRoles: ['accountant'] },
+    { path: '/caretaker',       label: 'Caretaker Portal',     icon: <Building2 size={18} />,       allowedRoles: ['caretaker'] },
+    { path: '/admin/users',     label: 'Verification Queue',   icon: <ShieldCheck size={18} />,     allowedRoles: ['admin', 'super_admin'] },
+    { path: '/admin/inventory', label: 'Auctions & Inventory', icon: <Building2 size={18} />,       allowedRoles: ['admin', 'super_admin'] },
+    { path: '/properties',      label: 'Properties',           icon: <Building2 size={18} />,       allowedRoles: ['admin', 'super_admin', 'agent', 'landlord'] },
+    { path: role === 'landlord' ? '/landlord/add-property' : '/properties/add', label: 'Add Property', icon: <PlusCircle size={18} />, allowedRoles: ['admin', 'super_admin', 'agent', 'landlord'] },
+    { path: '/tenants',         label: 'Tenants',              icon: <Users2 size={18} />,          allowedRoles: ['admin', 'super_admin', 'agent', 'landlord'] },
+    { path: '/payments',        label: 'Rent Payments',        icon: <WalletCards size={18} />,     allowedRoles: ['admin', 'super_admin', 'agent', 'landlord', 'accountant'] },
+    { path: '/maintenance',     label: 'Maintenance',          icon: <Wrench size={18} />,          allowedRoles: ['admin', 'super_admin', 'agent', 'landlord', 'caretaker'] },
+    { path: '/tasks',           label: 'Task Board',           icon: <ListTodo size={18} />,        allowedRoles: ['admin', 'super_admin', 'agent'] },
+    { path: '/notices',         label: 'Notices',              icon: <FileText size={18} />,        allowedRoles: ['admin', 'super_admin', 'agent', 'landlord', 'tenant'] },
+  ].filter((item) => {
+    if (item.show !== undefined) return item.show;
+    if (!role) return false;
+    return item.allowedRoles?.includes(role) ?? true;
+  });
 
   const sharedProps = { role, dbUser, sidebarOpen, setSidebarOpen, onLogout, navItems };
 

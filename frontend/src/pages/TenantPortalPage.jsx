@@ -1614,7 +1614,7 @@ export default function TenantPortalPage() {
                 className="relative w-full max-w-md bg-surface border border-border rounded-[32px] p-6 sm:p-8 shadow-2xl space-y-6 pointer-events-auto"
               >
               <div className="flex items-center justify-between border-b border-border pb-3">
-                <h3 className="text-md font-black text-foreground">
+                <h3 className="text-base font-black text-foreground">
                   {ticketForm.editId ? 'Edit Maintenance Request' : 'New Maintenance Request'}
                 </h3>
                 <button 

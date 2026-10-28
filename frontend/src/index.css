@@ -462,13 +462,13 @@
 /* ── Premium Unified Design System Overrides (HCI & OWASP Compliant) ── */
 button.bg-indigo-600, button.bg-green-600, a.bg-indigo-600, a.bg-green-600 {
   background-color: var(--primary) !important;
-  color: var(--background) !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
 }
 
 .hover\:bg-indigo-500:hover, .hover\:bg-green-500:hover {
   background-color: var(--secondary) !important;
-  color: var(--background) !important;
+  color: #ffffff !important;
 }
 
 .text-indigo-600, .text-green-600, .text-indigo-500, .text-green-500, .text-indigo-400, .text-green-400 {
@@ -508,10 +508,36 @@ button.bg-indigo-600, button.bg-green-600, a.bg-indigo-600, a.bg-green-600 {
   color: var(--muted) !important;
 }
 
-/* Light mode text contrast overrides */
-.light h1, .light h2, .light h3, .light h4, .light h5, .light h6,
-.light .text-white, .light .text-slate-100, .light .text-slate-200, .light .text-slate-300 {
+/* Light mode text contrast overrides - scoped to never override dark surfaces */
+:where(.light, [data-theme="light"]) h1:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h2:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h3:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h4:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h5:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) h6:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-white:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-slate-100:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-slate-200:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *),
+:where(.light, [data-theme="light"]) .text-slate-300:not(.dark-surface *, .auth-showcase *, .bg-slate-950 *, .bg-slate-900 *, .bg-indigo-600 *, .bg-emerald-600 *, .bg-primary *, .bg-green-600 *, [data-dark-surface] *) {
   color: var(--foreground) !important;
+}
+
+/* Explicitly protect dark surfaces in light theme */
+:where(.light, [data-theme="light"]) :where(.dark-surface, .auth-showcase) {
+  background-color: #020617 !important;
+  color: #ffffff !important;
+}
+:where(.light, [data-theme="light"]) :where(.dark-surface, .auth-showcase, [data-dark-surface]) :where(h1, h2, h3, h4, h5, h6, .text-white, span.text-white) {
+  color: #ffffff !important;
+}
+:where(.light, [data-theme="light"]) :where(.dark-surface, .auth-showcase, [data-dark-surface]) .text-white\/80 {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+:where(.light, [data-theme="light"]) :where(.dark-surface, .auth-showcase, [data-dark-surface]) .text-white\/60 {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+:where(.light, [data-theme="light"]) :where(.dark-surface, .auth-showcase, [data-dark-surface]) .text-white\/40 {
+  color: rgba(255, 255, 255, 0.4) !important;
 }
 
 /* Retain white text for primary colored elements (buttons, active badges) */
@@ -522,19 +548,30 @@ button.bg-indigo-600, button.bg-green-600, a.bg-indigo-600, a.bg-green-600 {
 .light button.bg-primary *,
 .light .badge-active *,
 .light .bg-green-600 *,
-.light .bg-indigo-600 * {
-  color: var(--background) !important;
+.light .bg-indigo-600 *,
+[data-theme="light"] .bg-primary .text-white, 
+[data-theme="light"] .bg-primary *, 
+[data-theme="light"] button[style*="background"] *,
+[data-theme="light"] button.bg-brand-500 *,
+[data-theme="light"] button.bg-primary *,
+[data-theme="light"] .badge-active *,
+[data-theme="light"] .bg-green-600 *,
+[data-theme="light"] .bg-indigo-600 * {
+  color: #ffffff !important;
 }
 
 .light .text-slate-400, .light .text-slate-500, .light .text-slate-600 {
   color: var(--muted) !important;
 }
 
-.light .border-slate-800, .light .border-slate-850, .light .border-slate-700 {
+.light .border-slate-800, .light .border-slate-700 {
   border-color: var(--border) !important;
 }
 
-.light .bg-slate-950, .light .bg-slate-900, .light .bg-slate-950\/50, .light .bg-slate-900\/50 {
+.light .bg-slate-950:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *),
+.light .bg-slate-900:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *),
+.light .bg-slate-950\/50:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *),
+.light .bg-slate-900\/50:not(.dark-surface, .dark-surface *, .auth-showcase, .auth-showcase *) {
   background-color: var(--surface) !important;
 }
 

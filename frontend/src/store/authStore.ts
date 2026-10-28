@@ -8,7 +8,7 @@ export interface AuthUser {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  role?: 'tenant' | 'landlord' | 'agent' | 'admin' | 'super_admin' | 'caretaker';
+  role?: 'tenant' | 'landlord' | 'agent' | 'admin' | 'super_admin' | 'caretaker' | 'accountant';
   verification_status?: string;
   profile_picture?: string;
   [key: string]: any;

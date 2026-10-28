@@ -372,6 +372,8 @@ function renderMini3DScene(container, property, activeTab = 'properties') {
 }
 
 // ── Mapbox Map Inner Component ────────────────────────────────────────────────
+const CUSTOM_LAYER_ID = '3d-custom-buildings-layer';
+
 function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSON, activeTab, onPropertySelect, onUnitSelect, agentLocation, isFullscreen, theme, mapStyleMode, isLiteView, loadedModels }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -517,10 +519,9 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
       }
 
       // 4. Add Custom Three.js WebGL Layer
-      const customLayerId = '3d-custom-buildings-layer';
-      if (!map.getLayer(customLayerId)) {
+      if (!map.getLayer(CUSTOM_LAYER_ID)) {
         const customLayer = {
-          id: customLayerId,
+          id: CUSTOM_LAYER_ID,
           type: 'custom',
           renderingMode: '3d',
           onAdd: function (map, gl) {
@@ -601,7 +602,7 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
   
         map.addLayer(customLayer);
         if (isLiteViewRef.current) {
-          map.setLayoutProperty(customLayerId, 'visibility', 'none');
+          map.setLayoutProperty(CUSTOM_LAYER_ID, 'visibility', 'none');
         }
         customLayerRef.current = customLayer;
       }
@@ -642,6 +643,33 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     }
 
     return () => {
+      if (customLayerRef.current) {
+        const layer = customLayerRef.current;
+        if (layer.scene) {
+          const disposedGeometries = new Set();
+          const disposedMaterials = new Set();
+          layer.scene.traverse((object) => {
+            if (object.geometry && !disposedGeometries.has(object.geometry)) {
+              object.geometry.dispose();
+              disposedGeometries.add(object.geometry);
+            }
+            if (object.material) {
+              const materials = Array.isArray(object.material) ? object.material : [object.material];
+              materials.forEach((mat) => {
+                if (mat && !disposedMaterials.has(mat)) {
+                  if (mat.map) mat.map.dispose();
+                  mat.dispose();
+                  disposedMaterials.add(mat);
+                }
+              });
+            }
+          });
+        }
+        if (layer.renderer) {
+          layer.renderer.dispose();
+        }
+        customLayerRef.current = null;
+      }
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -701,8 +729,8 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
           map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.0);
         }
         // Hide custom 3D WebGL layer
-        if (map.getLayer('3d-custom-buildings-layer')) {
-          map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'none');
+        if (map.getLayer(CUSTOM_LAYER_ID)) {
+          map.setLayoutProperty(CUSTOM_LAYER_ID, 'visibility', 'none');
         }
       } else {
         // Smoothly transition map to angled 3D view
@@ -721,8 +749,8 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
           map.setPaintProperty('property-extrusions', 'fill-extrusion-opacity', 0.85);
         }
         // Show custom 3D WebGL layer
-        if (map.getLayer('3d-custom-buildings-layer')) {
-          map.setLayoutProperty('3d-custom-buildings-layer', 'visibility', 'visible');
+        if (map.getLayer(CUSTOM_LAYER_ID)) {
+          map.setLayoutProperty(CUSTOM_LAYER_ID, 'visibility', 'visible');
         }
       }
     } catch (e) {
@@ -771,93 +799,6 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     source.setData({ type: 'FeatureCollection', features: propFeatures });
   }, [properties, styleLoaded]);
 
-  // Handle dynamically updating GLB models in the Three.js scene when loadedModels becomes available
-  useEffect(() => {
-    const map = mapRef.current;
-    const customLayer = customLayerRef.current;
-    if (!map || !customLayer || !customLayer.scene || !loadedModels) return;
-
-    properties.forEach((prop) => {
-      const propId = prop._id || prop.id;
-      // If we already added the GLB model, skip
-      if (customLayer.scene.getObjectByName(`glb-${propId}`)) return;
-
-      if (activeTab === 'units') return; // Don't add GLB model on units tab!
-
-      const modelUrl = getBuildingModelPath(prop.units?.length || 0);
-      let modelKey = 'small';
-      if (modelUrl.includes('medium')) modelKey = 'medium';
-      else if (modelUrl.includes('large')) modelKey = 'large';
-      else if (modelUrl.includes('tower')) modelKey = 'tower';
-
-      const sourceScene = loadedModels[modelKey];
-      if (!sourceScene) return;
-
-      // Remove fallback if exists
-      const fallback = customLayer.scene.getObjectByName(`fallback-${propId}`);
-      if (fallback) {
-        customLayer.scene.remove(fallback);
-        fallback.traverse((object) => {
-          if (object.geometry) object.geometry.dispose();
-          if (object.material) {
-            const materials = Array.isArray(object.material) ? object.material : [object.material];
-            materials.forEach((mat) => mat && mat.dispose());
-          }
-        });
-      }
-
-      // Clone and add GLB model
-      const building = sourceScene.clone();
-      building.name = `glb-${propId}`;
-
-      // Color by occupancy
-      const colorHex = getOccupancyColor(prop);
-      const tint = new THREE.Color(colorHex);
-      building.traverse((child) => {
-        if (child.isMesh) {
-          const mat = child.material.clone();
-          mat.color.lerp(tint, 0.25);
-          mat.emissive = tint;
-          mat.emissiveIntensity = 0.15;
-          mat.roughness = 0.5;
-          mat.metalness = 0.15;
-          mat.side = THREE.DoubleSide;
-          child.material = mat;
-        }
-      });
-
-      const box = new THREE.Box3().setFromObject(building);
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.z);
-      const targetEnvelope = 30.0;
-      const scaleFactor = targetEnvelope / (maxDim || 1.0);
-      building.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-      const center = box.getCenter(new THREE.Vector3());
-      building.position.set(
-        -center.x * scaleFactor,
-        -box.min.y * scaleFactor,
-        -center.z * scaleFactor
-      );
-
-      const coords = getPropertyCoords(prop);
-      const propMerc = mapboxgl.MercatorCoordinate.fromLngLat(coords, 0);
-      const refMerc = customLayer.refMercator;
-      const refScale = customLayer.meterScale;
-      const offX = refMerc ? (propMerc.x - refMerc.x) / refScale : 0;
-      const offZ = refMerc ? (propMerc.y - refMerc.y) / refScale : 0;
-
-      const wrapper = new THREE.Group();
-      wrapper.add(building);
-      wrapper.name = `glb-${propId}`;
-      wrapper.position.set(offX, 0, offZ);
-      wrapper.userData = { propertyId: propId };
-
-      customLayer.scene.add(wrapper);
-    });
-
-    map.triggerRepaint();
-  }, [loadedModels, properties, activeTab]);
 
   // Handle center updates
   useEffect(() => {
@@ -966,7 +907,6 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
         }
       `;
       document.head.appendChild(style);
-      document.head.appendChild(style);
     }
   }, []);
 
@@ -979,6 +919,18 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
     while (layer.scene.children.length > 3) {
       const child = layer.scene.children[3];
       layer.scene.remove(child);
+      child.traverse((object) => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) {
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          materials.forEach((mat) => {
+            if (mat) {
+              if (mat.map) mat.map.dispose();
+              mat.dispose();
+            }
+          });
+        }
+      });
     }
 
     const allCoords = properties.map(p => getPropertyCoords(p));
@@ -1225,8 +1177,8 @@ function MapboxMapInner({ center, zoom, properties, selectedProperty, unitGeoJSO
         map.off('mouseleave', 'property-extrusions', onMouseLeave);
       }
       try {
-        if (isMapValid && map.style && map.getLayer(customLayerId)) {
-          map.removeLayer(customLayerId);
+        if (isMapValid && map.style && map.getLayer(CUSTOM_LAYER_ID)) {
+          map.removeLayer(CUSTOM_LAYER_ID);
         }
       } catch (e) {
         // Safe to ignore

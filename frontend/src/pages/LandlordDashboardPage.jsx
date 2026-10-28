@@ -180,7 +180,7 @@ export default function LandlordDashboardPage() {
     return (
       <div className="min-h-[80vh] flex items-center justify-center bg-background text-foreground">
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-3 border-brand-500 border-t-transparent animate-spin mx-auto mb-4" />
+          <div className="w-12 h-12 rounded-full border-[3px] border-brand-500 border-t-transparent animate-spin mx-auto mb-4" />
           <p className="text-muted text-xs font-semibold">Loading your Landlord Dashboard…</p>
         </div>
       </div>
@@ -212,8 +212,8 @@ export default function LandlordDashboardPage() {
           </div>
           <div className="flex gap-2.5 flex-wrap">
             <Link 
-              to="/properties/add" 
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-500 to-purple-650 hover:from-brand-600 hover:to-purple-750 text-white rounded-xl text-xs font-bold transition shadow-lg uppercase tracking-wider cursor-pointer active:scale-95 no-underline border-none"
+              to="/landlord/add-property" 
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-500 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white rounded-xl text-xs font-bold transition shadow-lg uppercase tracking-wider cursor-pointer active:scale-95 no-underline border-none"
             >
               <PlusCircle size={14} /> Add Property
             </Link>

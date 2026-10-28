@@ -12,11 +12,12 @@ export interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
 }
 
 export interface CardHeaderProps {
-  title: React.ReactNode;
+  title?: React.ReactNode;
   subtitle?: React.ReactNode;
   action?: React.ReactNode;
   badge?: React.ReactNode;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export interface CardBodyProps {
@@ -92,16 +93,23 @@ Card.Header = function CardHeader({
   action,
   badge,
   className = '',
+  children,
 }: CardHeaderProps) {
+  if (children) {
+    return <div className={`mb-4 ${className}`}>{children}</div>;
+  }
+
   return (
     <div
       className={`flex items-start justify-between gap-4 pb-4 border-b border-gray-100 dark:border-slate-800 mb-4 ${className}`}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-            {title}
-          </h3>
+          {title && (
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+              {title}
+            </h3>
+          )}
           {badge}
         </div>
         {subtitle && (

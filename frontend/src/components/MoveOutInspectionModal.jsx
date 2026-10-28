@@ -138,7 +138,7 @@ export default function MoveOutInspectionModal({ isOpen, onClose, tenant, onSucc
                     placeholder="Item name (e.g. Broken Window)"
                     value={item.item_name}
                     onChange={(e) => handleItemChange(idx, 'item_name', e.target.value)}
-                    className="flex-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white outline-none"
+                    className="flex-[2] bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white outline-none"
                     required
                   />
                   <select

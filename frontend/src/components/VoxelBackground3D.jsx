@@ -251,7 +251,7 @@ export default function VoxelBackground3D({ activeFloor = null, onHoverFloor = n
   }
 
   return (
-    <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden bg-slate-955/90 dark:bg-slate-955/90 transition-colors duration-300">
+    <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0 overflow-hidden bg-slate-950/90 dark:bg-slate-950/90 transition-colors duration-300">
       {/* Canvas with proper interaction settings */}
       <div className="w-full h-full pointer-events-auto opacity-20 dark:opacity-25 transition-opacity duration-300">
         <Canvas camera={{ position: [0, 4.5, 9.5], fov: 40 }} gl={{ antialias: true, alpha: true }}>

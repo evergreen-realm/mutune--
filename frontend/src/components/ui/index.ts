@@ -22,5 +22,5 @@ export type { DataTableProps, Column } from './DataTable';
 export { default as Select } from './Select';
 export type { SelectProps, SelectOption } from './Select';
 
-export { default as Spinner } from './Spinner';
+export { default as Spinner, SpinnerIcon } from './Spinner';
 export type { SpinnerProps, SpinnerSize } from './Spinner';

@@ -394,7 +394,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
   const daysLeft = leaseEnd ? Math.ceil((leaseEnd - new Date()) / 86400000) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-end bg-slate-955/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-end bg-slate-950/60 backdrop-blur-sm" onClick={onClose}>
       <motion.div 
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
@@ -479,7 +479,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
               </FIELD>
               <div className="flex gap-3 pt-3">
                 <button onClick={() => setEditing(false)} type="button"
-                  className="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-750 text-slate-350 rounded-xl text-xs font-bold transition cursor-pointer">
+                  className="flex-1 px-3 py-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer">
                   Cancel
                 </button>
                 <button id="btn-save-tenant" onClick={handleSave} disabled={updateMutation.isPending}
@@ -617,7 +617,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
             >
               <button 
                 onClick={() => setShowTermModal(false)}
-                className="absolute top-4 right-4 p-1.5 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+                className="absolute top-4 right-4 p-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -625,7 +625,7 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                 <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400"><UserX size={20} /></div>
                 <div>
                   <h2 className="text-sm font-black text-white">Terminate Tenancy</h2>
-                  <p className="text-xs text-slate-450">{tenant.full_name} · {tenant.tenant_code}</p>
+                  <p className="text-xs text-slate-400">{tenant.full_name} · {tenant.tenant_code}</p>
                 </div>
               </div>
               <div className="space-y-4">
@@ -633,22 +633,22 @@ function TenantDetailDrawer({ tenantId, onClose, onChanged, initialEditMode = fa
                   <textarea id="term-reason" rows={3} value={termReason}
                     onChange={e => setTermReason(e.target.value)}
                     placeholder="Specify the reason for evicting or ending lease..."
-                    className="w-full text-xs bg-slate-950/50 border border-slate-850 focus:border-red-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition resize-none font-sans" />
+                    className="w-full text-xs bg-slate-950/50 border border-slate-800 focus:border-red-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition resize-none font-sans" />
                 </FIELD>
                 <FIELD label="Vacate Date" id="term-date" required>
                   <input id="term-date" type="date" value={termDate}
                     onChange={e => setTermDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]} className="w-full text-xs bg-slate-950/50 border border-slate-850 focus:border-green-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition" />
+                    min={new Date().toISOString().split('T')[0]} className="w-full text-xs bg-slate-950/50 border border-slate-800 focus:border-green-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition" />
                 </FIELD>
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowTermModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-xl text-xs font-bold text-slate-300 transition cursor-pointer">
+                  className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-300 transition cursor-pointer">
                   Cancel
                 </button>
                 <button id="confirm-terminate" onClick={() => terminateMutation.mutate({ reason: termReason, vacate_date: termDate })}
                   disabled={!termReason.trim() || !termDate || terminateMutation.isPending}
-                  className="flex-1 px-4 py-2.5 bg-red-650 hover:bg-red-500 text-white rounded-xl text-xs font-black transition cursor-pointer uppercase tracking-wider">
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black transition cursor-pointer uppercase tracking-wider">
                   {terminateMutation.isPending ? 'Terminating…' : 'Terminate'}
                 </button>
               </div>
@@ -1020,7 +1020,7 @@ export default function TenantsPage({ dbUser }) {
             >
               <button 
                 onClick={() => setEvictingTenant(null)}
-                className="absolute top-4 right-4 p-1.5 bg-slate-955 hover:bg-slate-850 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+                className="absolute top-4 right-4 p-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -1034,7 +1034,7 @@ export default function TenantsPage({ dbUser }) {
               <div className="space-y-4">
                 <div>
                   <label htmlFor="evict-reason" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Reason for Eviction / Termination <span className="text-red-550">*</span>
+                    Reason for Eviction / Termination <span className="text-red-500">*</span>
                   </label>
                   <textarea 
                     id="evict-reason" 
@@ -1042,13 +1042,13 @@ export default function TenantsPage({ dbUser }) {
                     value={evictReason}
                     onChange={e => setEvictReason(e.target.value)}
                     placeholder="Specify the reason for evicting or ending lease..."
-                    className="w-full text-xs bg-slate-955/50 border border-slate-800 focus:border-red-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition resize-none font-sans"
+                    className="w-full text-xs bg-slate-950/50 border border-slate-800 focus:border-red-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition resize-none font-sans"
                     required 
                   />
                 </div>
                 <div>
                   <label htmlFor="evict-date" className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Vacate Date <span className="text-red-550">*</span>
+                    Vacate Date <span className="text-red-500">*</span>
                   </label>
                   <input 
                     id="evict-date" 
@@ -1056,7 +1056,7 @@ export default function TenantsPage({ dbUser }) {
                     value={evictDate}
                     onChange={e => setEvictDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]} 
-                    className="w-full text-xs bg-slate-955/50 border border-slate-800 focus:border-green-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition"
+                    className="w-full text-xs bg-slate-950/50 border border-slate-800 focus:border-green-500/50 rounded-xl px-4 py-2.5 text-white focus:outline-none transition"
                     required 
                   />
                 </div>
@@ -1071,7 +1071,7 @@ export default function TenantsPage({ dbUser }) {
                 <button 
                   onClick={() => evictMutation.mutate({ id: evictingTenant._id, reason: evictReason, vacate_date: evictDate })}
                   disabled={!evictReason.trim() || !evictDate || evictMutation.isPending}
-                  className="flex-1 px-4 py-2.5 bg-red-650 text-white rounded-xl text-xs font-black hover:bg-red-500 disabled:opacity-50 transition cursor-pointer uppercase tracking-wider"
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-xs font-black hover:bg-red-500 disabled:opacity-50 transition cursor-pointer uppercase tracking-wider"
                 >
                   {evictMutation.isPending ? 'Evicting…' : 'Evict Tenant'}
                 </button>

@@ -509,6 +509,7 @@ function AppShell() {
             <AddPropertyPage dbUser={dbUser} />
           } />
           <Route path="/properties/add-landlord" element={<LandlordAddPropertyPage dbUser={dbUser} />} />
+          <Route path="/landlord/add-property" element={<LandlordAddPropertyPage dbUser={dbUser} />} />
           <Route path="/properties/:id" element={<PropertyDetailPage dbUser={dbUser} />} />
           <Route path="/tenants"        element={<TenantsPage dbUser={dbUser} />} />
           <Route path="/payments"       element={<PaymentsPage dbUser={dbUser} />} />

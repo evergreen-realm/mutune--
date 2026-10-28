@@ -134,7 +134,7 @@ export default function CaretakerDashboardPage() {
     return (
       <div className="min-h-[75vh] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-10 h-10 border-[3px] border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs text-slate-400 font-semibold">Loading caretaker properties…</p>
         </div>
       </div>

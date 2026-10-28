@@ -184,7 +184,7 @@ export default function ChatAssistant({ user, context = {} }) {
                         <button
                           key={i}
                           onClick={() => setInput(chip)}
-                          className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-955/40 hover:border-blue-300 dark:hover:border-blue-800 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer transition-all duration-200 shadow-sm"
+                          className="px-3 py-1.5 text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:border-blue-300 dark:hover:border-blue-800 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer transition-all duration-200 shadow-sm"
                         >
                           {chip}
                         </button>
@@ -205,8 +205,8 @@ export default function ChatAssistant({ user, context = {} }) {
                       msg.role === 'user'
                         ? 'bg-emerald-700 text-white rounded-tr-none'
                         : msg.isError
-                          ? 'bg-red-55/30 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-tl-none'
-                          : 'bg-white dark:bg-slate-800 text-slate-850 dark:text-slate-100 border border-slate-100 dark:border-slate-700/50 rounded-tl-none'
+                          ? 'bg-red-50/30 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-tl-none'
+                          : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700/50 rounded-tl-none'
                     }`}
                   >
                     <ReactMarkdown className="prose prose-sm max-w-none break-words dark:prose-invert text-slate-800 dark:text-slate-100">
@@ -215,7 +215,7 @@ export default function ChatAssistant({ user, context = {} }) {
                     {msg.toolIntent && renderToolSuggestions(msg.toolIntent)}
                   </div>
                   {msg.role === 'user' && (
-                    <div className="w-7 h-7 rounded-full bg-slate-750 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm animate-fade-in">
+                    <div className="w-7 h-7 rounded-full bg-slate-700 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm animate-fade-in">
                       <User size={14} className="text-slate-300 dark:text-slate-400" />
                     </div>
                   )}
@@ -236,7 +236,7 @@ export default function ChatAssistant({ user, context = {} }) {
             </div>
 
             {/* Input */}
-            <form onSubmit={handleSend} className="p-3.5 border-t border-slate-105 dark:border-slate-800 flex gap-2 flex-shrink-0 bg-white dark:bg-slate-900 transition-colors duration-200">
+            <form onSubmit={handleSend} className="p-3.5 border-t border-slate-100 dark:border-slate-800 flex gap-2 flex-shrink-0 bg-white dark:bg-slate-900 transition-colors duration-200">
               <input
                 ref={inputRef}
                 id="chat-input"

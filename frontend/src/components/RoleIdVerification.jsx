@@ -83,6 +83,25 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
     }, 600);
   };
 
+  const handleSignOut = async () => {
+    ['sessionStorage', 'localStorage'].forEach(storeName => {
+      try {
+        const store = window[storeName];
+        const keysToRemove = [];
+        for (let i = 0; i < store.length; i++) {
+          const key = store.key(i);
+          if (key && (key.startsWith('mutunerent_verified_id_') || key.startsWith('role_verified_') || key.startsWith('mutunet_') || key.startsWith('mutune_admin'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => store.removeItem(k));
+      } catch (err) {
+        // ignore
+      }
+    });
+    await signOut({ redirectUrl: '/login' });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 px-4 text-white">
       {/* Background radial glow */}
@@ -143,10 +162,11 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
         </div>
 
         <button
-          onClick={() => signOut()}
-          className="w-full py-3 bg-slate-800/60 hover:bg-slate-700/60 active:bg-slate-900 border border-slate-800/80 hover:border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300"
+          onClick={handleSignOut}
+          id="role-id-signout-btn"
+          className="w-full py-3 bg-slate-800/60 hover:bg-slate-700/60 active:bg-slate-900 border border-slate-800/80 hover:border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 uppercase tracking-wider text-slate-300 cursor-pointer"
         >
-          <LogOut size={14} /> Log Out
+          <LogOut size={14} /> Sign Out
         </button>
       </div>
     </div>
