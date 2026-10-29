@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const logger = require('../utils/logger');
-const { getAdminPassword, escapeRegExp, isDesignatedSuperAdmin } = require('../utils/security');
+const { getAdminPassword, escapeRegExp, isDesignatedSuperAdmin, isDesignatedAdmin, isDesignatedAdministrativeAccount } = require('../utils/security');
 const catchAsync = require('../utils/catchAsync');
 
 const validate = (req, res) => {
@@ -21,20 +21,33 @@ exports.getUserMe = catchAsync(async (req, res, next) => {
     .populate('assigned_property_ids', 'name property_code address')
     .lean();
 
-  // Super Admin verification and binding check (Meshach Maluki / validated admin credentials)
+  // Strictly designated Administrative accounts:
+  // - meshachmaluki3@gmail.com => super_admin
+  // - meshachmaluki@gmail.com  => admin
+  // All other accounts (including meshachmaluki06@gmail.com) retain their registered roles.
   if (user && isDesignatedSuperAdmin(user)) {
     if (user.role !== 'super_admin') {
-      logger.info('Promoting designated user to super_admin', { email: user.email, userId: user._id });
+      logger.info('Assigned designated role to super_admin', { email: user.email, userId: user._id });
       await User.findByIdAndUpdate(user._id, { $set: { role: 'super_admin' } });
       user.role = 'super_admin';
     }
-    // Ensure super admin has canonical ADM-MOM- role code
     if (!user.user_code || !user.user_code.startsWith('ADM-MOM-')) {
       const { generateNextRoleCode } = require('../utils/roleCode');
       const newAdminCode = await generateNextRoleCode('super_admin', User, Tenant);
       await User.findByIdAndUpdate(user._id, { $set: { user_code: newAdminCode } });
       user.user_code = newAdminCode;
-      logger.info('Assigned canonical ADM-MOM- role code to super_admin', { userId: user._id, code: newAdminCode });
+    }
+  } else if (user && isDesignatedAdmin(user)) {
+    if (user.role !== 'admin') {
+      logger.info('Assigned designated role to admin', { email: user.email, userId: user._id });
+      await User.findByIdAndUpdate(user._id, { $set: { role: 'admin' } });
+      user.role = 'admin';
+    }
+    if (!user.user_code || !user.user_code.startsWith('ADM-MOM-')) {
+      const { generateNextRoleCode } = require('../utils/roleCode');
+      const newAdminCode = await generateNextRoleCode('admin', User, Tenant);
+      await User.findByIdAndUpdate(user._id, { $set: { user_code: newAdminCode } });
+      user.user_code = newAdminCode;
     }
   }
 
@@ -76,7 +89,7 @@ exports.getUserMe = catchAsync(async (req, res, next) => {
   }
 
   // Pre-registered Tenant automatic discovery & binding (Meshach Maluki / validated client assignment)
-  if (user && !isDesignatedSuperAdmin(user)) {
+  if (user && !isDesignatedAdministrativeAccount(user)) {
     try {
       let tenant = await Tenant.findOne({ user_id: user._id }).lean();
       

@@ -117,38 +117,27 @@ function safeCompare(a, b) {
 }
 
 /**
- * Validates if a user identifier or profile matches designated Super Admin credentials
+ * Strictly validates designated administrative accounts:
+ * - meshachmaluki3@gmail.com is designated Super Admin
+ * - meshachmaluki@gmail.com is designated Admin
+ * All other accounts (including meshachmaluki06@gmail.com) are testing accounts
+ * and retain their respective roles (tenant, agent, landlord, etc.).
  */
 function isDesignatedSuperAdmin(userOrEmail) {
   if (!userOrEmail) return false;
-  const configuredEmails = (process.env.SUPER_ADMIN_EMAIL || '')
-    .split(',')
-    .map(e => e.toLowerCase().trim())
-    .filter(Boolean);
+  const email = (typeof userOrEmail === 'string' ? userOrEmail : (userOrEmail.email || '')).toLowerCase().trim();
+  const configured = (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim();
+  return email === 'meshachmaluki3@gmail.com' || (configured && email === configured);
+}
 
-  const superAdminPatterns = [
-    'meshachmaluki3@gmail.com',
-    'meshachmaluki06@gmail.com',
-    'meshachmaluki@gmail.com',
-    ...configuredEmails
-  ];
+function isDesignatedAdmin(userOrEmail) {
+  if (!userOrEmail) return false;
+  const email = (typeof userOrEmail === 'string' ? userOrEmail : (userOrEmail.email || '')).toLowerCase().trim();
+  return email === 'meshachmaluki@gmail.com';
+}
 
-  let email = '';
-  let fullName = '';
-  let clerkId = '';
-
-  if (typeof userOrEmail === 'string') {
-    email = userOrEmail.toLowerCase().trim();
-  } else {
-    email = (userOrEmail.email || '').toLowerCase().trim();
-    fullName = (userOrEmail.full_name || '').toLowerCase().trim();
-    clerkId = (userOrEmail.clerk_id || '').toLowerCase().trim();
-  }
-
-  if (superAdminPatterns.includes(email)) return true;
-  if (email.startsWith('meshachmaluki')) return true;
-  if (fullName.includes('meshachmaluki06') || fullName === 'meshach maluki') return true;
-  return false;
+function isDesignatedAdministrativeAccount(userOrEmail) {
+  return isDesignatedSuperAdmin(userOrEmail) || isDesignatedAdmin(userOrEmail);
 }
 
 module.exports = {
@@ -160,6 +149,8 @@ module.exports = {
   normalizePhone,
   decryptLeanDoc,
   safeCompare,
-  isDesignatedSuperAdmin
+  isDesignatedSuperAdmin,
+  isDesignatedAdmin,
+  isDesignatedAdministrativeAccount
 };
 

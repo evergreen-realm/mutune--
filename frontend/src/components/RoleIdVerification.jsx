@@ -33,26 +33,26 @@ export default function RoleIdVerification({ dbUser, user, onVerified }) {
     }
   }, [isTenant]);
 
-  const isSuperUser = Boolean(
-    currentUser?.email?.toLowerCase().includes('meshachmaluki') ||
-    currentUser?.username?.toLowerCase().includes('meshachmaluki') ||
-    currentUser?.full_name?.toLowerCase().includes('meshachmaluki') ||
-    currentUser?.role === 'admin' ||
-    currentUser?.role === 'super_admin'
-  );
+  // Strictly designated administrative accounts:
+  // - meshachmaluki3@gmail.com (Super Admin)
+  // - meshachmaluki@gmail.com (Admin)
+  // All other accounts (including meshachmaluki06@gmail.com) are testing accounts for other roles
+  // and MUST verify via their assigned standardized role ID (TEN-MOM-XXXX, AGT-MOM-XXXX, etc.).
+  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const isDesignatedAdmin = userEmail === 'meshachmaluki3@gmail.com' || userEmail === 'meshachmaluki@gmail.com' || currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
   useEffect(() => {
-    if (isSuperUser) {
+    if (isDesignatedAdmin) {
       if (currentUser?._id) {
         localStorage.setItem(`mutunerent_verified_id_${currentUser._id}`, 'true');
         sessionStorage.setItem(`role_verified_${currentUser._id}`, 'true');
       }
       onVerified?.();
     }
-  }, [isSuperUser, currentUser?._id, onVerified]);
+  }, [isDesignatedAdmin, currentUser?._id, onVerified]);
 
-  // If user is super admin or none of verifiable roles, do not block
-  if (isSuperUser || (!isLandlord && !isAgent && !isTenant)) {
+  // If user is designated admin or none of verifiable roles, do not block with role ID prompt
+  if (isDesignatedAdmin || (!isLandlord && !isAgent && !isTenant)) {
     return null;
   }
 

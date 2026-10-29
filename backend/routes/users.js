@@ -7,7 +7,7 @@ const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
-const { getAdminPassword, escapeRegExp, isDesignatedSuperAdmin } = require('../utils/security');
+const { getAdminPassword, escapeRegExp, isDesignatedSuperAdmin, isDesignatedAdmin, isDesignatedAdministrativeAccount } = require('../utils/security');
 
 // Debug endpoints removed for production security (R5 A05)
 
@@ -655,7 +655,8 @@ router.post('/sync-clerk',
 
       const clerkRole = clerkUser?.publicMetadata?.role;
 
-      const isSuper = isDesignatedSuperAdmin({ email, full_name, clerk_id });
+      const isSuper = isDesignatedSuperAdmin(email);
+      const isAdmin = isDesignatedAdmin(email);
       let existing = await User.findOne({ clerk_id });
       if (!existing && email) {
         existing = await User.findOne({ email });
@@ -681,6 +682,19 @@ router.post('/sync-clerk',
             try {
               await clerkClient.users.updateUserMetadata(clerk_id, {
                 publicMetadata: { role: 'super_admin' }
+              });
+            } catch (_) {}
+          }
+        } else if (isAdmin) {
+          updateData.role = 'admin';
+          if (!existing.user_code || !existing.user_code.startsWith('ADM-MOM-')) {
+            const { generateNextRoleCode } = require('../utils/roleCode');
+            updateData.user_code = await generateNextRoleCode('admin', User, Tenant);
+          }
+          if (clerkUser && clerkRole !== 'admin') {
+            try {
+              await clerkClient.users.updateUserMetadata(clerk_id, {
+                publicMetadata: { role: 'admin' }
               });
             } catch (_) {}
           }

@@ -393,7 +393,21 @@ router.get('/download/:docType',
   async (req, res, next) => {
     try {
       const { docType } = req.params;
-      const pdfBuffer = await generateLegalPDF(docType, req.query);
+
+      // Scope Role Permission Enforcements
+      if (docType === 'agent_salary_voucher' && req.user.role === 'tenant') {
+        return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Tenants cannot access salary vouchers' } });
+      }
+
+      if (docType === 'landlord_remittance_statement' && req.user.role === 'tenant') {
+        return res.status(403).json({ success: false, error: { code: 'SCOPE_DENIED', message: 'Tenants cannot access landlord remittance statements' } });
+      }
+
+      const pdfBuffer = await generateLegalPDF(docType, {
+        ...req.query,
+        generated_by_user_id: req.user._id,
+        generated_by_user_role: req.user.role
+      });
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Length', pdfBuffer.length);

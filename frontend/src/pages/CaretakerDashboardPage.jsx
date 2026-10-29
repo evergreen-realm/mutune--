@@ -64,10 +64,7 @@ export default function CaretakerDashboardPage() {
     try {
       await updateMaintenanceTicket(ticketId, { status: nextStatus });
       toast.success(`Ticket status updated to ${nextStatus.replace('_', ' ')}`);
-      if (activeProperty?._id) {
-        const res = await fetchMaintenanceTickets({ property_id: activeProperty._id });
-        setTickets(Array.isArray(res?.data) ? res.data : []);
-      }
+      refetchTickets();
     } catch (err) {
       toast.error(err?.error?.message || err?.message || 'Failed to update ticket status');
     }

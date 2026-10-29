@@ -1,6 +1,7 @@
 import React from 'react';
 import { Wallet, CreditCard, Receipt, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { generateLegalPDF, extractPdfBlob } from '../lib/api';
 
 export default function TenantRentSection({
   payments = [],
@@ -64,33 +65,35 @@ export default function TenantRentSection({
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => {
-                      const content = [
-                        'MUTUNE RENT PRO — OFFICIAL RECEIPT',
-                        '==================================',
-                        `Receipt No : ${receipt || p._id?.slice(-8) || 'N/A'}`,
-                        `Date       : ${new Date(p.created_at || p.createdAt || Date.now()).toLocaleDateString()}`,
-                        `Tenant     : ${profile?.full_name || 'Valued Tenant'}`,
-                        `Unit       : ${profile?.unit_number || 'N/A'}`,
-                        `Amount     : KES ${Number(p.amount_kes || p.amount || 0).toLocaleString('en-KE')}`,
-                        `Channel    : ${p.channel || 'M-Pesa'}`,
-                        `Status     : ${p.status || 'Verified'}`,
-                        '==================================',
-                        'This is an official digital payment receipt from Mutune Estate Agency.',
-                        'Support: mutunerentz@gmail.com'
-                      ].join('\n');
-                      const blob = new Blob([content], { type: 'text/plain' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `Receipt_${receipt || p._id?.slice(-6) || 'pay'}.txt`;
-                      document.body.appendChild(a); a.click(); a.remove();
-                      URL.revokeObjectURL(url);
-                      toast.success('Receipt downloaded!');
+                    onClick={async () => {
+                      const toastId = toast.loading('Generating official KRA eTIMS Tax Invoice PDF...');
+                      try {
+                        const response = await generateLegalPDF('etims_tax_receipt', {
+                          tenant_name: profile?.full_name || 'Tenant',
+                          tenant_code: profile?.tenant_code || 'TEN-MOM',
+                          rent_amount_kes: Number(p.amount_kes || p.amount || 0),
+                          etims_invoice_number: receipt || `INV-${p._id?.slice(-8)}`,
+                          unit_number: profile?.unit_number || '1A',
+                          property_name: profile?.current_property_id?.name || 'Property'
+                        });
+                        const blob = await extractPdfBlob(response);
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `KRA_eTIMS_Receipt_${receipt || p._id?.slice(-6) || 'tax'}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                        toast.update(toastId, { render: 'Official KRA eTIMS Tax Receipt PDF downloaded! ✓', type: 'success', isLoading: false, autoClose: 3500 });
+                      } catch (err) {
+                        toast.update(toastId, { render: 'Failed to generate PDF receipt', type: 'error', isLoading: false, autoClose: 3000 });
+                      }
                     }}
-                    className="bg-surface hover:bg-background border border-border text-muted hover:text-foreground rounded-lg px-2.5 py-1 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-lg px-2.5 py-1 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    title="Download Official KRA eTIMS Tax Invoice PDF"
                   >
-                    <Download size={12} /> Download
+                    <Download size={12} /> eTIMS PDF
                   </button>
                 </div>
               </div>
