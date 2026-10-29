@@ -52,10 +52,12 @@ const statusColors = {
 
 function getUnitStatus(unit) {
   if (!unit) return 'vacant';
-  if (unit.lock_status === 'locked') return 'paid';
-  if (unit.lock_status === 'payment_confirmed') return 'pending';
   if (unit.status === 'maintenance') return 'maintenance';
-  if (unit.status === 'occupied') return 'pending';
+  if (unit.status === 'vacant') return 'vacant';
+  if (unit.lock_status === 'payment_confirmed') return 'paid';
+  if (unit.lock_status === 'locked') return 'overdue';
+  if (unit.status === 'occupied') return 'paid';
+  if (unit.status === 'pending') return 'pending';
   return 'vacant';
 }
 

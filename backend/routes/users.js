@@ -7,7 +7,7 @@ const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
-const { getAdminPassword, escapeRegExp } = require('../utils/security');
+const { getAdminPassword, escapeRegExp, isDesignatedSuperAdmin } = require('../utils/security');
 
 // Debug endpoints removed for production security (R5 A05)
 
@@ -130,14 +130,15 @@ const handleCompleteOnboarding = async (req, res, next) => {
       });
     }
 
-      const { generateNextRoleCode } = require('../utils/roleCode');
+      const { generateNextRoleCode, ROLE_PREFIXES } = require('../utils/roleCode');
       const updateData = { role };
       if (phone !== undefined) updateData.phone = phone;
       if (earb_license !== undefined) updateData.earb_license = earb_license;
       if (assigned_areas !== undefined) updateData.assigned_areas = assigned_areas;
 
       // Assign / migrate role-based code if user code is legacy or unassigned
-      if (!req.user.user_code || req.user.user_code.startsWith('USR-NEW') || req.user.user_code.startsWith('USR-') || !req.user.user_code.startsWith(role.toUpperCase().slice(0, 3))) {
+      const expectedPrefix = ROLE_PREFIXES[role] || 'TEN-MOM-';
+      if (!req.user.user_code || req.user.user_code.startsWith('USR-NEW') || req.user.user_code.startsWith('USR-') || !req.user.user_code.startsWith(expectedPrefix)) {
         updateData.user_code = await generateNextRoleCode(role, User, Tenant);
       }
 
@@ -334,11 +335,21 @@ router.post('/complete-onboarding', authLimiter, requireAuth, onboardingValidato
 // ─── GET /users ───────────────────────────────────────────────────────────────
 router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, res, next) => {
   try {
-    const { page = 1, limit = 50, role, is_active } = req.query;
+    const { page = 1, limit = 50, role, is_active, search } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
     const filter = {};
     if (role) filter.role = role;
     if (is_active !== undefined) filter.is_active = is_active === 'true';
+    if (search) {
+      const q = search.trim();
+      filter.$or = [
+        { full_name: { $regex: q, $options: 'i' } },
+        { email: { $regex: q, $options: 'i' } },
+        { phone: { $regex: q, $options: 'i' } },
+        { user_code: { $regex: q, $options: 'i' } },
+        { landlord_id: { $regex: q, $options: 'i' } }
+      ];
+    }
 
     const [users, total] = await Promise.all([
       User.find(filter)
@@ -378,6 +389,19 @@ router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, 
       if (is_active !== undefined) {
         unlinkedFilter.tenancy_status = is_active === 'true' ? 'active' : { $ne: 'active' };
       }
+      if (search) {
+        const q = search.trim();
+        unlinkedFilter.$and = [
+          {
+            $or: [
+              { full_name: { $regex: q, $options: 'i' } },
+              { email: { $regex: q, $options: 'i' } },
+              { phone: { $regex: q, $options: 'i' } },
+              { tenant_code: { $regex: q, $options: 'i' } }
+            ]
+          }
+        ];
+      }
 
       const unlinkedTenants = await Tenant.find(unlinkedFilter)
         .populate('current_property_id', 'name property_code')
@@ -396,8 +420,9 @@ router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, 
         tenant_code: t.tenant_code,
         tenancy_status: t.tenancy_status || 'active',
         is_active: t.tenancy_status === 'active',
-        is_past_tenant: ['expired', 'vacated'].includes(t.tenancy_status),
+        is_past_tenant: ['expired', 'vacated', 'terminated', 'departed', 'notice'].includes(t.tenancy_status),
         assigned_property_ids: t.current_property_id ? [t.current_property_id] : [],
+        property_name: t.current_property_id?.name || undefined,
         created_at: t.created_at || new Date()
       }));
 
@@ -410,6 +435,7 @@ router.get('/', requireAuth, requireRole(['admin', 'super_admin']), async (req, 
       data: combinedUsers,
       pagination: { page: Number(page), limit: Number(limit), total: combinedTotal, pages: Math.ceil(combinedTotal / Number(limit)) }
     });
+
   } catch (error) {
     next(error);
   }
@@ -629,6 +655,7 @@ router.post('/sync-clerk',
 
       const clerkRole = clerkUser?.publicMetadata?.role;
 
+      const isSuper = isDesignatedSuperAdmin({ email, full_name, clerk_id });
       let existing = await User.findOne({ clerk_id });
       if (!existing && email) {
         existing = await User.findOne({ email });
@@ -644,7 +671,20 @@ router.post('/sync-clerk',
           full_name: full_name || existing.full_name,
           updated_at: new Date()
         };
-        if (existing.role) {
+        if (isSuper) {
+          updateData.role = 'super_admin';
+          if (!existing.user_code || !existing.user_code.startsWith('ADM-MOM-')) {
+            const { generateNextRoleCode } = require('../utils/roleCode');
+            updateData.user_code = await generateNextRoleCode('super_admin', User, Tenant);
+          }
+          if (clerkUser && clerkRole !== 'super_admin') {
+            try {
+              await clerkClient.users.updateUserMetadata(clerk_id, {
+                publicMetadata: { role: 'super_admin' }
+              });
+            } catch (_) {}
+          }
+        } else if (existing.role) {
           if (clerkRole !== existing.role) {
             try {
               await clerkClient.users.updateUserMetadata(clerk_id, {
@@ -680,18 +720,37 @@ router.post('/sync-clerk',
         return res.json({ success: true, data: updated, created: false });
       }
 
-      const initialRole = clerkRole || undefined;
+      // Check for pre-registered tenant record created by an Agent or Admin
+      let preRegisteredTenant = null;
+      if (!isSuper && email) {
+        preRegisteredTenant = await Tenant.findOne({
+          email: { $regex: new RegExp('^' + escapeRegExp(email.trim()) + '$', 'i') }
+        });
+      }
+      if (!preRegisteredTenant && !isSuper && phone) {
+        const normP = phone.replace(/\D/g, '').replace(/^0/, '254');
+        preRegisteredTenant = await Tenant.findOne({
+          phone: { $regex: new RegExp(normP.slice(-9) + '$') }
+        });
+      }
+
+      let initialRole = isSuper ? 'super_admin' : (clerkRole || (preRegisteredTenant ? 'tenant' : undefined));
       const { generateNextRoleCode } = require('../utils/roleCode');
-      const userCode = await generateNextRoleCode(initialRole || 'tenant', User, Tenant);
+      let userCode = preRegisteredTenant?.tenant_code;
+      if (!userCode) {
+        userCode = await generateNextRoleCode(initialRole || 'tenant', User, Tenant);
+      }
       
       const createPayload = {
         clerk_id,
         email,
-        full_name: full_name || email,
-        phone: phone || '254700000000',
+        full_name: full_name || preRegisteredTenant?.full_name || email,
+        phone: phone || preRegisteredTenant?.phone || '254700000000',
         user_code: userCode,
         role: initialRole,
         is_active: true,
+        current_property_id: preRegisteredTenant?.current_property_id,
+        current_unit_id: preRegisteredTenant?.current_unit_id,
         agent_approval_status: initialRole === 'agent' ? 'pending' : 'n_a',
         landlord_approval_status: initialRole === 'landlord' ? 'pending' : 'n_a'
       };
@@ -700,9 +759,29 @@ router.post('/sync-clerk',
         const bcrypt = require('bcryptjs');
         const adminPass = getAdminPassword();
         createPayload.admin_hardcoded_hash = await bcrypt.hash(adminPass, 10);
+        if (isSuper) {
+          try {
+            await clerkClient.users.updateUserMetadata(clerk_id, {
+              publicMetadata: { role: 'super_admin' }
+            });
+          } catch (_) {}
+        }
       }
 
       const user = await User.create(createPayload);
+
+      if (preRegisteredTenant) {
+        preRegisteredTenant.user_id = user._id;
+        await preRegisteredTenant.save();
+        logger.info('Linked pre-registered tenant to newly created User', { userId: user._id, tenantCode: preRegisteredTenant.tenant_code });
+        if (clerkUser) {
+          try {
+            await clerkClient.users.updateUserMetadata(clerk_id, {
+              publicMetadata: { role: 'tenant' }
+            });
+          } catch (_) {}
+        }
+      }
 
       const safeUser = user.toObject();
       delete safeUser.password_hash;
@@ -735,6 +814,7 @@ router.post('/webhook', async (req, res, next) => {
     const rawPhone = data.phone_numbers?.[0]?.phone_number || '254700000000';
     let phone = rawPhone.replace('+', '');
     if (!phone.startsWith('254')) phone = '254700000000';
+    const isSuperWebhook = isDesignatedSuperAdmin({ email, full_name, clerk_id });
     if (type === 'user.created') {
       let existing = await User.findOne({ clerk_id });
       if (!existing && email) {
@@ -746,7 +826,7 @@ router.post('/webhook', async (req, res, next) => {
         }
       }
       if (!existing) {
-        const role = data.public_metadata?.role || undefined;
+        const role = isSuperWebhook ? 'super_admin' : (data.public_metadata?.role || undefined);
         const { generateNextRoleCode } = require('../utils/roleCode');
         const userCode = await generateNextRoleCode(role || 'tenant', User, Tenant);
         
@@ -769,8 +849,9 @@ router.post('/webhook', async (req, res, next) => {
         }
 
         await User.create(createPayload);
-        logger.info('User created via Clerk webhook', { clerkId: clerk_id });
+        logger.info('User created via Clerk webhook', { clerkId: clerk_id, role });
       }
+
     } else if (type === 'user.updated') {
       const role = data.public_metadata?.role;
       const updateData = { email, full_name, phone, updated_at: new Date() };

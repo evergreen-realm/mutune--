@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const logger = require('../utils/logger');
-const { getAdminPassword, escapeRegExp } = require('../utils/security');
+const { getAdminPassword, escapeRegExp, isDesignatedSuperAdmin } = require('../utils/security');
 const catchAsync = require('../utils/catchAsync');
 
 const validate = (req, res) => {
@@ -16,16 +16,26 @@ const validate = (req, res) => {
 
 exports.getUserMe = catchAsync(async (req, res, next) => {
   let user = await User.findById(req.user._id)
+    .select('-password_hash')
+    .populate('current_property_id', 'name property_code address')
     .populate('assigned_property_ids', 'name property_code address')
     .lean();
 
-  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || 'meshachmaluki3@gmail.com').toLowerCase().trim();
-
-  // Super Admin email binding check
-  if (user && user.email && user.email.toLowerCase().trim() === superAdminEmail && user.role !== 'super_admin') {
-    logger.info('Promoting designated user to super_admin', { email: superAdminEmail, userId: user._id });
-    await User.findByIdAndUpdate(user._id, { $set: { role: 'super_admin' } });
-    user.role = 'super_admin';
+  // Super Admin verification and binding check (Meshach Maluki / validated admin credentials)
+  if (user && isDesignatedSuperAdmin(user)) {
+    if (user.role !== 'super_admin') {
+      logger.info('Promoting designated user to super_admin', { email: user.email, userId: user._id });
+      await User.findByIdAndUpdate(user._id, { $set: { role: 'super_admin' } });
+      user.role = 'super_admin';
+    }
+    // Ensure super admin has canonical ADM-MOM- role code
+    if (!user.user_code || !user.user_code.startsWith('ADM-MOM-')) {
+      const { generateNextRoleCode } = require('../utils/roleCode');
+      const newAdminCode = await generateNextRoleCode('super_admin', User, Tenant);
+      await User.findByIdAndUpdate(user._id, { $set: { user_code: newAdminCode } });
+      user.user_code = newAdminCode;
+      logger.info('Assigned canonical ADM-MOM- role code to super_admin', { userId: user._id, code: newAdminCode });
+    }
   }
 
   if (user && user.clerk_id) {
@@ -40,34 +50,19 @@ exports.getUserMe = catchAsync(async (req, res, next) => {
           { $set: { role: clerkRole, updated_at: new Date() } },
           { new: true }
         )
+          .select('-password_hash')
+          .populate('current_property_id', 'name property_code address')
           .populate('assigned_property_ids', 'name property_code address')
           .lean();
-        user = updatedUser;
-      } else if (user.role && clerkRole !== user.role) {
-        logger.info('Role mismatch detected in /users/me, syncing Clerk from DB', { clerkId: user.clerk_id, dbRole: user.role, clerkRole });
-        try {
-          await clerkClient.users.updateUserMetadata(user.clerk_id, {
-            publicMetadata: { role: user.role }
-          });
-        } catch (clerkErr) {
-          logger.warn('Failed to update Clerk metadata in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
-        }
+        if (updatedUser) user = updatedUser;
       }
     } catch (clerkErr) {
-      logger.warn('Failed to fetch/sync Clerk user role in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
+      logger.warn('Failed to fetch role from Clerk in /users/me', { clerkId: user.clerk_id, message: clerkErr.message });
     }
   }
 
-  if (user && ['admin', 'super_admin'].includes(user.role) && !user.admin_hardcoded_hash) {
-    const bcrypt = require('bcryptjs');
-    const adminPass = getAdminPassword();
-    const hash = await bcrypt.hash(adminPass, 10);
-    await User.findByIdAndUpdate(user._id, { $set: { admin_hardcoded_hash: hash } });
-    user.admin_hardcoded_hash = hash;
-  }
-
-  // Auto-heal legacy or placeholder USR- codes to standardized enterprise role codes
-  if (user && user.user_code && (user.user_code.startsWith('USR-NEW') || user.user_code.startsWith('USR-'))) {
+  // Auto-migrate legacy user_code (USR-NEW-*, USR-*) to standardized role-based IDs
+  if (user && (!user.user_code || user.user_code.startsWith('USR-NEW') || user.user_code.startsWith('USR-'))) {
     try {
       const { generateNextRoleCode } = require('../utils/roleCode');
       const targetRole = user.role || 'tenant';
@@ -80,16 +75,57 @@ exports.getUserMe = catchAsync(async (req, res, next) => {
     }
   }
 
-  // If user is a tenant, attach their tenant_code and tenancy status for seamless identity verification
-  if (user && user.role === 'tenant') {
+  // Pre-registered Tenant automatic discovery & binding (Meshach Maluki / validated client assignment)
+  if (user && !isDesignatedSuperAdmin(user)) {
     try {
-      const tenant = await Tenant.findOne({ user_id: user._id }).lean();
+      let tenant = await Tenant.findOne({ user_id: user._id }).lean();
+      
+      // If not linked yet, search for pre-registered tenant record by email or phone
+      if (!tenant && user.email) {
+        tenant = await Tenant.findOne({
+          email: { $regex: new RegExp('^' + escapeRegExp(user.email.trim()) + '$', 'i') }
+        });
+        if (tenant) {
+          await Tenant.findByIdAndUpdate(tenant._id, { $set: { user_id: user._id } });
+          logger.info('Auto-bound pre-registered tenant by email to user', { userId: user._id, tenantCode: tenant.tenant_code });
+          tenant = tenant.toObject ? tenant.toObject() : tenant;
+        }
+      }
+
+      if (!tenant && user.phone) {
+        const normP = user.phone.replace(/\D/g, '').replace(/^0/, '254');
+        tenant = await Tenant.findOne({
+          phone: { $regex: new RegExp(normP.slice(-9) + '$') }
+        });
+        if (tenant) {
+          await Tenant.findByIdAndUpdate(tenant._id, { $set: { user_id: user._id } });
+          logger.info('Auto-bound pre-registered tenant by phone to user', { userId: user._id, tenantCode: tenant.tenant_code });
+          tenant = tenant.toObject ? tenant.toObject() : tenant;
+        }
+      }
+
+      // Attach tenant parameters and synchronize user_code
       if (tenant) {
         user.tenant_code = tenant.tenant_code;
-        user.tenancy_status = tenant.tenancy_status;
+        user.tenancy_status = tenant.tenancy_status || 'active';
+        user.current_property_id = tenant.current_property_id || user.current_property_id;
+        user.current_unit_id = tenant.current_unit_id || user.current_unit_id;
+
+        if (user.role !== 'tenant' || !user.user_code || !user.user_code.startsWith('TEN-MOM-')) {
+          user.role = 'tenant';
+          user.user_code = tenant.tenant_code;
+          await User.findByIdAndUpdate(user._id, {
+            $set: {
+              role: 'tenant',
+              user_code: tenant.tenant_code,
+              current_property_id: tenant.current_property_id,
+              current_unit_id: tenant.current_unit_id
+            }
+          });
+        }
       }
     } catch (tErr) {
-      logger.warn('Failed to lookup tenant profile in /users/me', { error: tErr.message });
+      logger.warn('Failed to lookup/bind tenant profile in /users/me', { error: tErr.message });
     }
   }
 

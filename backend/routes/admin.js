@@ -51,7 +51,8 @@ router.get('/stats',
 
       const [
         totalProperties,
-        totalTenants,
+        totalTenantsDocs,
+        totalUserTenants,
         totalAgents,
         monthlyRevenue,
         occupancyData,
@@ -61,6 +62,8 @@ router.get('/stats',
         Property.countDocuments(),
 
         Tenant.countDocuments({ tenancy_status: { $in: ['active', 'pending'] } }),
+
+        User.countDocuments({ role: 'tenant', is_active: true }),
 
         User.countDocuments({ role: 'agent', is_active: true }),
 
@@ -128,6 +131,7 @@ router.get('/stats',
       ]);
 
       const occ = occupancyData[0] || { totalUnits: 0, occupiedUnits: 0 };
+      const totalTenants = Math.max(totalTenantsDocs, totalUserTenants, occ.occupiedUnits);
       const occupancyRate = occ.totalUnits
         ? Math.round((occ.occupiedUnits / occ.totalUnits) * 100)
         : 0;

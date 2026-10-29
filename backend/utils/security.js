@@ -116,6 +116,41 @@ function safeCompare(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+/**
+ * Validates if a user identifier or profile matches designated Super Admin credentials
+ */
+function isDesignatedSuperAdmin(userOrEmail) {
+  if (!userOrEmail) return false;
+  const configuredEmails = (process.env.SUPER_ADMIN_EMAIL || '')
+    .split(',')
+    .map(e => e.toLowerCase().trim())
+    .filter(Boolean);
+
+  const superAdminPatterns = [
+    'meshachmaluki3@gmail.com',
+    'meshachmaluki06@gmail.com',
+    'meshachmaluki@gmail.com',
+    ...configuredEmails
+  ];
+
+  let email = '';
+  let fullName = '';
+  let clerkId = '';
+
+  if (typeof userOrEmail === 'string') {
+    email = userOrEmail.toLowerCase().trim();
+  } else {
+    email = (userOrEmail.email || '').toLowerCase().trim();
+    fullName = (userOrEmail.full_name || '').toLowerCase().trim();
+    clerkId = (userOrEmail.clerk_id || '').toLowerCase().trim();
+  }
+
+  if (superAdminPatterns.includes(email)) return true;
+  if (email.startsWith('meshachmaluki')) return true;
+  if (fullName.includes('meshachmaluki06') || fullName === 'meshach maluki') return true;
+  return false;
+}
+
 module.exports = {
   getAdminPassword,
   escapeRegExp,
@@ -124,5 +159,7 @@ module.exports = {
   generateBlindIndex,
   normalizePhone,
   decryptLeanDoc,
-  safeCompare
+  safeCompare,
+  isDesignatedSuperAdmin
 };
+

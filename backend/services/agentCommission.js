@@ -24,8 +24,10 @@ async function calculateAgentCommission(agentId, billingMonth) {
 
   // 0. Base Salary (per agent override or global default)
   const base_salary_kes = Number(agent?.base_salary_kes ?? config?.base_salary_kes ?? 0);
-  const lettingPercent = Number(agent?.letting_commission_rate ?? config?.letting_commission_percent ?? 100);
-  const mgmtPercent = Number(agent?.management_commission_rate ?? config?.management_commission_percent ?? 10);
+  let lettingPercent = Number(agent?.letting_commission_rate ?? config?.letting_commission_percent ?? 100);
+  let mgmtPercent = Number(agent?.management_commission_rate ?? config?.management_commission_percent ?? 10);
+  if (lettingPercent > 0 && lettingPercent <= 1) lettingPercent = Number((lettingPercent * 100).toFixed(2));
+  if (mgmtPercent > 0 && mgmtPercent <= 1) mgmtPercent = Number((mgmtPercent * 100).toFixed(2));
 
   // Find all assigned properties for this agent
   const assignedProperties = await Property.find({

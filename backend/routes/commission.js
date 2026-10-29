@@ -47,7 +47,16 @@ router.get('/config',
           withholding_tax_rate_resident: 5
         });
       }
-      res.json({ success: true, data: config });
+      res.json({
+        success: true,
+        data: {
+          ...config,
+          letting_commission_rate: (config.letting_commission_percent ?? 100) / 100,
+          management_commission_rate: (config.management_commission_percent ?? 10) / 100,
+          withholding_tax_rate: (config.withholding_tax_rate_resident ?? 5) / 100,
+          tenant_onboarding_initiation_fee_kes: config.agent_initiation_fee_kes ?? 2500
+        }
+      });
     } catch (error) {
       next(error);
     }
@@ -68,19 +77,6 @@ router.get('/config',
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               base_salary_kes:
- *                 type: number
- *               letting_commission_percent:
- *                 type: number
- *               management_commission_percent:
- *                 type: number
- *               lease_renewal_commission_percent:
- *                 type: number
- *               agent_initiation_fee_kes:
- *                 type: number
- *               withholding_tax_rate_resident:
- *                 type: number
  *     responses:
  *       200:
  *         description: Updated commission configuration
@@ -91,29 +87,53 @@ router.put('/config',
   [
     body('base_salary_kes').optional().isFloat({ min: 0 }).withMessage('Base salary must be >= 0'),
     body('letting_commission_percent').optional().isFloat({ min: 0, max: 200 }).withMessage('Letting commission must be 0-200%'),
+    body('letting_commission_rate').optional().isFloat({ min: 0, max: 200 }).withMessage('Letting commission must be 0-200%'),
     body('management_commission_percent').optional().isFloat({ min: 0, max: 100 }).withMessage('Management commission must be 0-100%'),
+    body('management_commission_rate').optional().isFloat({ min: 0, max: 100 }).withMessage('Management commission must be 0-100%'),
     body('lease_renewal_commission_percent').optional().isFloat({ min: 0, max: 100 }).withMessage('Renewal commission must be 0-100%'),
     body('agent_initiation_fee_kes').optional().isFloat({ min: 0 }).withMessage('Initiation fee must be >= 0'),
-    body('withholding_tax_rate_resident').optional().isFloat({ min: 0, max: 100 }).withMessage('Withholding tax must be 0-100%')
+    body('tenant_onboarding_initiation_fee_kes').optional().isFloat({ min: 0 }).withMessage('Initiation fee must be >= 0'),
+    body('withholding_tax_rate_resident').optional().isFloat({ min: 0, max: 100 }).withMessage('Withholding tax must be 0-100%'),
+    body('withholding_tax_rate').optional().isFloat({ min: 0, max: 100 }).withMessage('Withholding tax must be 0-100%')
   ],
   async (req, res, next) => {
     try {
       if (!validate(req, res)) return;
 
-      const allowedFields = [
-        'base_salary_kes',
-        'letting_commission_percent',
-        'management_commission_percent',
-        'lease_renewal_commission_percent',
-        'agent_initiation_fee_kes',
-        'withholding_tax_rate_resident',
-        'agent_payroll_day_of_month'
-      ];
-
       const update = { updated_by_user_id: req.user._id, updated_at: new Date() };
-      allowedFields.forEach(f => {
-        if (req.body[f] !== undefined) update[f] = req.body[f];
-      });
+
+      if (req.body.base_salary_kes !== undefined) {
+        update.base_salary_kes = Number(req.body.base_salary_kes);
+      }
+      if (req.body.letting_commission_percent !== undefined) {
+        update.letting_commission_percent = Number(req.body.letting_commission_percent);
+      } else if (req.body.letting_commission_rate !== undefined) {
+        const val = Number(req.body.letting_commission_rate);
+        update.letting_commission_percent = val <= 1 && val > 0 ? val * 100 : val;
+      }
+      if (req.body.management_commission_percent !== undefined) {
+        update.management_commission_percent = Number(req.body.management_commission_percent);
+      } else if (req.body.management_commission_rate !== undefined) {
+        const val = Number(req.body.management_commission_rate);
+        update.management_commission_percent = val <= 1 && val > 0 ? val * 100 : val;
+      }
+      if (req.body.withholding_tax_rate_resident !== undefined) {
+        update.withholding_tax_rate_resident = Number(req.body.withholding_tax_rate_resident);
+      } else if (req.body.withholding_tax_rate !== undefined) {
+        const val = Number(req.body.withholding_tax_rate);
+        update.withholding_tax_rate_resident = val <= 1 && val > 0 ? val * 100 : val;
+      }
+      if (req.body.agent_initiation_fee_kes !== undefined) {
+        update.agent_initiation_fee_kes = Number(req.body.agent_initiation_fee_kes);
+      } else if (req.body.tenant_onboarding_initiation_fee_kes !== undefined) {
+        update.agent_initiation_fee_kes = Number(req.body.tenant_onboarding_initiation_fee_kes);
+      }
+      if (req.body.lease_renewal_commission_percent !== undefined) {
+        update.lease_renewal_commission_percent = Number(req.body.lease_renewal_commission_percent);
+      }
+      if (req.body.agent_payroll_day_of_month !== undefined) {
+        update.agent_payroll_day_of_month = Number(req.body.agent_payroll_day_of_month);
+      }
 
       const config = await CommissionConfig.findOneAndUpdate(
         { config_name: 'GLOBAL_FINANCIAL_CONFIG' },
@@ -122,7 +142,17 @@ router.put('/config',
       );
 
       logger.info('Commission configuration updated by admin', { userId: req.user._id, update });
-      res.json({ success: true, message: 'Commission settings updated successfully', data: config });
+      res.json({
+        success: true,
+        message: 'Commission settings updated successfully',
+        data: {
+          ...config.toObject(),
+          letting_commission_rate: (config.letting_commission_percent ?? 100) / 100,
+          management_commission_rate: (config.management_commission_percent ?? 10) / 100,
+          withholding_tax_rate: (config.withholding_tax_rate_resident ?? 5) / 100,
+          tenant_onboarding_initiation_fee_kes: config.agent_initiation_fee_kes ?? 2500
+        }
+      });
     } catch (error) {
       next(error);
     }
@@ -162,8 +192,14 @@ router.put('/agents/:id/config',
 
       const update = {};
       if (req.body.base_salary_kes !== undefined) update.base_salary_kes = Number(req.body.base_salary_kes);
-      if (req.body.letting_commission_rate !== undefined) update.letting_commission_rate = Number(req.body.letting_commission_rate);
-      if (req.body.management_commission_rate !== undefined) update.management_commission_rate = Number(req.body.management_commission_rate);
+      if (req.body.letting_commission_rate !== undefined) {
+        const val = Number(req.body.letting_commission_rate);
+        update.letting_commission_rate = val <= 1 && val > 0 ? val * 100 : val;
+      }
+      if (req.body.management_commission_rate !== undefined) {
+        const val = Number(req.body.management_commission_rate);
+        update.management_commission_rate = val <= 1 && val > 0 ? val * 100 : val;
+      }
 
       const agent = await User.findOneAndUpdate(
         { _id: req.params.id, role: 'agent' },
@@ -178,6 +214,7 @@ router.put('/agents/:id/config',
       logger.info('Agent commission config updated', { agentId: agent._id, update });
       res.json({ success: true, message: 'Agent commission rates updated', data: agent });
     } catch (error) {
+
       next(error);
     }
   }

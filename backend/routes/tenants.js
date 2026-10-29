@@ -8,6 +8,7 @@ const User   = require('../models/User');
 const Property = require('../models/Property');
 const logger = require('../utils/logger');
 const { generateBlindIndex, normalizePhone } = require('../utils/security');
+const { generateNextRoleCode } = require('../utils/roleCode');
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 const validate = (req, res) => {
@@ -255,9 +256,11 @@ router.post('/',
         }
       }
 
-      // Auto-generate tenant code
-      const count = await Tenant.countDocuments();
-      const tenantCode = `TNT-MOM-${String(count + 1).padStart(4, '0')}`;
+      // Auto-generate standardized enterprise tenant code (TEN-MOM-XXXX)
+      let tenantCode = req.body.tenant_code;
+      if (!tenantCode) {
+        tenantCode = await generateNextRoleCode('tenant', User, Tenant);
+      }
 
       const depVal = req.body.deposit_paid_kes ?? req.body.deposit_kes ?? req.body.deposit_amount_kes;
       const createPayload = {
@@ -274,11 +277,12 @@ router.post('/',
 
       const tenant = await Tenant.create(createPayload);
 
-      // If user_id provided, update that user's role to 'tenant' and link property
+      // If user_id provided, update that user's role to 'tenant' and link property & tenant_code
       if (req.body.user_id) {
         await User.findByIdAndUpdate(req.body.user_id, {
           $set: {
             role: 'tenant',
+            user_code: tenantCode,
             current_property_id: req.body.current_property_id,
             current_unit_id: req.body.current_unit_id
           }
@@ -343,10 +347,11 @@ router.post('/:id/link-user',
       tenant.user_id = req.body.user_id;
       await tenant.save();
 
-      // Update the user role + property assignment
+      // Update the user role + property assignment + tenant role code
       await User.findByIdAndUpdate(req.body.user_id, {
         $set: {
           role: 'tenant',
+          user_code: tenant.tenant_code,
           current_property_id: tenant.current_property_id,
           current_unit_id: tenant.current_unit_id
         }

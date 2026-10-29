@@ -13,7 +13,7 @@ import {
   createMaintenanceTicket, updateMaintenanceTicket, fetchMyTickets,
   fetchNotifications, markNotifRead, markAllNotifsRead,
   fetchCustomerCareNumber, autoInitiatePayment, initiateBankPayment, updateUserRole,
-  requestLeaseSigningOTP, verifyAndSignLease, fetchLeaseSignatureStatus, generateLegalPDF,
+  requestLeaseSigningOTP, verifyAndSignLease, fetchLeaseSignatureStatus, generateLegalPDF, extractPdfBlob,
   purchasePrepaidToken
 } from '../lib/api';
 import ImageUpload from '../components/ImageUpload';
@@ -412,9 +412,7 @@ export default function TenantPortalPage() {
         signature_hash: leaseSignature?.verification_hash || 'SHA256-MUTUNE-SECURE-LEAD-9988',
         signed_at: leaseSignature?.signed_at || new Date().toISOString()
       });
-      const blob = response instanceof Blob
-        ? response
-        : new Blob([response?.data ?? response], { type: 'application/pdf' });
+      const blob = await extractPdfBlob(response);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
