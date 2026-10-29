@@ -54,25 +54,32 @@ export default function LoginPage() {
         {isLight ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
       </button>
 
-      {/* Left Column: Visual Showcase (Hidden on Mobile) */}
+            {/* Left Column: Visual Showcase (Hidden on Mobile) */}
       <div className="hidden md:flex md:w-1/2 relative bg-slate-950 items-center justify-center overflow-hidden auth-showcase dark-surface" data-dark-surface="true">
-        {/* Background Image showing floating spheres */}
+        {/* Background Image showing coastal architecture (enlarged & ultra-clear) */}
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-10000 ease-out hover:scale-105"
-          style={{ backgroundImage: `url('/assets/spatial_orbs.png')` }}
+          style={{ 
+            backgroundImage: "url('/assets/spatial_orbs.png')",
+            imageRendering: "-webkit-optimize-contrast"
+          }}
         />
         {/* Dark Overlay with Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-slate-950/50 flex flex-col justify-between p-12">
-          {/* Top Branding */}
-          <div className="flex items-center gap-3 bg-slate-950/60 backdrop-blur-md border border-white/10 px-4 py-2.5 rounded-2xl self-start shadow-xl">
-            <img 
-              src="/assets/3d_visual_building.jpg" 
-              alt="MutuneRent Logo" 
-              className="w-10 h-10 object-cover rounded-xl border border-white/10 shadow-md"
-            />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-slate-950/40 flex flex-col justify-between p-12">
+          {/* Top Branding Card - Enlarged with Orbs Clearly Shown */}
+          <div className="flex items-center gap-4 bg-slate-950/75 backdrop-blur-md border border-white/15 px-5 py-3.5 rounded-2xl self-start shadow-2xl">
+            <div className="w-16 h-16 rounded-xl overflow-hidden border border-white/20 shadow-inner bg-black flex items-center justify-center flex-shrink-0">
+              <img 
+                src="/assets/log_in.jpg" 
+                alt="MutuneRent Pro Orbs" 
+                className="w-full h-full object-cover object-[44%_46%] scale-135 transition-transform duration-500 hover:scale-150"
+              />
+            </div>
             <div>
-              <span className="text-white font-extrabold tracking-tight text-sm">MutuneRent <span className="text-blue-400 font-medium">Pro</span></span>
-              <p className="text-[10px] text-white/40 tracking-[0.2em] font-bold -mt-0.5">MOMBASA</p>
+              <span className="text-white font-extrabold tracking-tight text-base flex items-center gap-1.5">
+                MutuneRent <span className="text-blue-400 font-semibold">Pro</span>
+              </span>
+              <p className="text-[11px] text-white/50 tracking-[0.25em] font-bold mt-0.5">MOMBASA</p>
             </div>
           </div>
 
@@ -91,13 +98,15 @@ export default function LoginPage() {
 
       {/* Right Column: Clerk Form */}
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-6 relative">
-        {/* Mobile branding */}
+                {/* Mobile branding */}
         <div className="md:hidden flex flex-col items-center mb-6">
-          <img 
-            src="/assets/3d_visual_building.jpg" 
-            alt="MutuneRent Logo" 
-            className="w-12 h-12 object-cover rounded-2xl mb-2 shadow-lg border border-slate-200 dark:border-slate-800"
-          />
+          <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 mb-2 shadow-lg bg-black flex items-center justify-center">
+            <img 
+              src="/assets/log_in.jpg" 
+              alt="MutuneRent Logo" 
+              className="w-full h-full object-cover object-[44%_46%] scale-135"
+            />
+          </div>
           <span className={`font-bold text-lg tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
             MutuneRent <span className="text-blue-600 font-semibold">Pro</span>
           </span>
